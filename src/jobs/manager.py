@@ -1,5 +1,6 @@
 """Job management."""
 
+import json
 import uuid
 import asyncio
 import logging
@@ -34,7 +35,7 @@ class Job:
 
     async def emit_event(self, event_type: str, data: dict) -> None:
         """Emit an SSE event."""
-        await self._events.put({"event": event_type, "data": data})
+        await self._events.put({"event": event_type, "data": json.dumps(data)})
 
     async def event_stream(self) -> AsyncGenerator[dict, None]:
         """Yield events as they occur."""
@@ -42,11 +43,11 @@ class Job:
             try:
                 event = await asyncio.wait_for(self._events.get(), timeout=30)
                 yield event
-                if event["event"] in ("job_done", "job_cancelled"):
+                if event["event"] in ("job_done", "job_cancelled", "job_error"):
                     break
             except asyncio.TimeoutError:
                 # Send keepalive
-                yield {"event": "keepalive", "data": {}}
+                yield {"event": "keepalive", "data": "{}"}
 
 
 class JobManager:
@@ -77,5 +78,10 @@ class JobManager:
         job = self._jobs.get(job_id)
         if job:
             job.cancel()
+            await job.emit_event("job_cancelled", {
+                "pages_completed": job.pages_completed,
+                "pages_total": job.pages_total,
+                "output_path": str(job.request.output_path),
+            })
             logger.info(f"Cancelled job {job_id}")
         return job

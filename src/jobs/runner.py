@@ -45,7 +45,6 @@ async def run_job(job: Job) -> None:
         await job.emit_event("discovery", {"phase": "done", "urls_found": len(urls)})
 
         if job.is_cancelled:
-            await _emit_cancelled(job)
             return
 
         # Filtering phase
@@ -62,7 +61,6 @@ async def run_job(job: Job) -> None:
         job.pages_total = len(urls)
 
         if job.is_cancelled:
-            await _emit_cancelled(job)
             return
 
         # Scraping phase
@@ -132,9 +130,7 @@ async def run_job(job: Job) -> None:
             job.pages_completed = i + 1
             await asyncio.sleep(delay_s)
 
-        if job.is_cancelled:
-            await _emit_cancelled(job)
-        else:
+        if not job.is_cancelled:
             # Generate index
             _generate_index(urls, output_path)
 
@@ -153,15 +149,6 @@ async def run_job(job: Job) -> None:
         await job.emit_event("job_done", {"status": "failed", "error": str(e)})
     finally:
         await scraper.stop()
-
-
-async def _emit_cancelled(job: Job) -> None:
-    """Emit cancellation event."""
-    await job.emit_event("job_cancelled", {
-        "pages_completed": job.pages_completed,
-        "pages_total": job.pages_total,
-        "output_path": str(job.request.output_path),
-    })
 
 
 def _url_to_filepath(url: str, base_url: str, output_path: Path) -> Path:

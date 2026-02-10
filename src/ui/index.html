@@ -271,9 +271,12 @@
                 cleanup();
             });
 
-            eventSource.onerror = () => {
-                log('Connection lost', 'error');
-                cleanup();
+            eventSource.onerror = (e) => {
+                // Only cleanup if connection is truly closed (not just a reconnect attempt)
+                if (e.target.readyState === EventSource.CLOSED) {
+                    log('Connection lost', 'error');
+                    cleanup();
+                }
             };
         }
 
