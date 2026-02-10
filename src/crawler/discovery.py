@@ -65,6 +65,8 @@ async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
     - Rate limiting (0.5s between requests)
     - Total URL cap (1000 URLs max to prevent explosion)
     - Timeout handling (10s per request)
+    - Heartbeat logging every 10 URLs
+    - Per-URL error handling (failures don't stop crawl)
     """
     if max_depth < 1:
         return [base_url]
@@ -76,6 +78,7 @@ async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
 
     MAX_URLS = 1000  # Safety cap
     RATE_LIMIT_DELAY = 0.5  # seconds between requests
+    HEARTBEAT_INTERVAL = 10  # Log every N URLs
 
     async with httpx.AsyncClient(
         timeout=10.0,
@@ -93,18 +96,27 @@ async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
             visited.add(normalized)
             discovered_urls.append(normalized)
 
-            logger.info(f"Crawling [{depth}/{max_depth}]: {current_url}")
+            # Heartbeat logging
+            if len(discovered_urls) % HEARTBEAT_INTERVAL == 0:
+                msg = f"Crawl progress: {len(discovered_urls)} URLs discovered, {len(to_visit)} queued"
+                logger.info(msg)
+                print(f"[DISCOVERY] {msg}", flush=True)
+
+            logger.debug(f"Crawling [{depth}/{max_depth}]: {current_url}")
 
             # Stop if max depth reached
             if depth >= max_depth:
                 continue
 
-            # Fetch and parse links
+            # Fetch and parse links (per-URL error handling)
             try:
                 await asyncio.sleep(RATE_LIMIT_DELAY)  # Rate limiting
                 response = await client.get(current_url)
 
-                if response.status_code != 200:
+                if response.status_code == 404:
+                    logger.debug(f"Skipping 404: {current_url}")
+                    continue
+                elif response.status_code != 200:
                     logger.warning(f"Non-200 status {response.status_code} for {current_url}")
                     continue
 
@@ -141,16 +153,16 @@ async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
                             to_visit.append((clean_url, depth + 1))
 
             except httpx.TimeoutException:
-                logger.warning(f"Timeout crawling {current_url}")
+                logger.debug(f"Timeout crawling {current_url}")
                 continue
             except Exception as e:
-                logger.warning(f"Failed to crawl {current_url}: {e}")
+                logger.debug(f"Failed to crawl {current_url}: {e}")
                 continue
 
     if len(discovered_urls) >= MAX_URLS:
         logger.warning(f"Hit URL cap ({MAX_URLS}). Crawl may be incomplete.")
 
-    logger.info(f"Discovery complete: {len(discovered_urls)} URLs found")
+    logger.info(f"Recursive crawl complete: {len(discovered_urls)} URLs found")
     return discovered_urls
 
 
@@ -188,7 +200,10 @@ async def try_nav_parse(base_url: str) -> list[str]:
         '.menu a',
     ]
 
-    logger.info(f"Trying nav parsing on {base_url}")
+    msg = f"Trying nav parsing on {base_url}"
+    logger.info(msg)
+    print(f"[DISCOVERY] {msg}", flush=True)
+
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
@@ -236,14 +251,20 @@ async def try_nav_parse(base_url: str) -> list[str]:
             await browser.close()
 
     except PlaywrightTimeout:
-        logger.warning(f"Nav parsing timeout after 10s on {base_url}")
+        msg = f"Nav parsing timeout after 10s on {base_url}"
+        logger.warning(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
         return []
     except Exception as e:
-        logger.error(f"Nav parsing failed for {base_url}: {e}")
+        msg = f"Nav parsing failed for {base_url}: {e}"
+        logger.error(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
         return []
 
     result = list(discovered_urls)[:MAX_NAV_URLS]
-    logger.info(f"Nav parsing found {len(result)} URLs")
+    msg = f"Nav parsing found {len(result)} URLs"
+    logger.info(msg)
+    print(f"[DISCOVERY] {msg}", flush=True)
     return result
 
 
@@ -267,18 +288,28 @@ async def try_sitemap(base_url: str) -> list[str]:
     - Sitemap index files (nested sitemaps)
     - Multiple sitemaps in robots.txt
     - Invalid XML handling
+    - 404s and network errors
     """
     discovered_urls = set()
     base_domain = urlparse(base_url).netloc
-    logger.info(f"Trying sitemap on {base_url}")
+
+    msg = f"Trying sitemap on {base_url}"
+    logger.info(msg)
+    print(f"[DISCOVERY] {msg}", flush=True)
 
     async def parse_sitemap_xml(url: str, client: httpx.AsyncClient) -> set[str]:
-        """Parse a sitemap XML file."""
+        """Parse a sitemap XML file with robust error handling."""
         urls = set()
 
         try:
             response = await client.get(url, timeout=10.0)
-            if response.status_code != 200:
+
+            # Skip 404s gracefully
+            if response.status_code == 404:
+                logger.debug(f"Sitemap not found (404): {url}")
+                return urls
+            elif response.status_code != 200:
+                logger.debug(f"Non-200 status {response.status_code} for sitemap: {url}")
                 return urls
 
             content = response.content
@@ -287,12 +318,17 @@ async def try_sitemap(base_url: str) -> list[str]:
             if url.endswith('.gz'):
                 try:
                     content = gzip.decompress(content)
-                except Exception:
-                    logger.warning(f"Failed to decompress gzipped sitemap: {url}")
+                except Exception as e:
+                    logger.warning(f"✗ Failed to decompress gzipped sitemap: {url} - {e}")
                     return urls
 
-            # Parse XML
-            root = ET.fromstring(content)
+            # Parse XML with defensive error handling
+            try:
+                root = ET.fromstring(content)
+            except ET.ParseError as e:
+                logger.warning(f"✗ Invalid XML in sitemap: {url} - {e}")
+                print(f"[DISCOVERY] ✗ Invalid XML in sitemap: {url}", flush=True)
+                return urls
 
             # Handle sitemap index (nested sitemaps)
             namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
@@ -301,8 +337,13 @@ async def try_sitemap(base_url: str) -> list[str]:
             for sitemap_elem in root.findall('.//ns:sitemap/ns:loc', namespace):
                 nested_url = sitemap_elem.text
                 if nested_url:
-                    nested_urls = await parse_sitemap_xml(nested_url, client)
-                    urls.update(nested_urls)
+                    # Recursively parse nested sitemaps (failures don't stop entire discovery)
+                    try:
+                        nested_urls = await parse_sitemap_xml(nested_url, client)
+                        urls.update(nested_urls)
+                    except Exception as e:
+                        logger.debug(f"Failed to parse nested sitemap {nested_url}: {e}")
+                        continue
 
             # Extract URLs from regular sitemap
             for url_elem in root.findall('.//ns:url/ns:loc', namespace):
@@ -313,10 +354,10 @@ async def try_sitemap(base_url: str) -> list[str]:
                     if parsed.netloc == base_domain:
                         urls.add(normalize_url(url_text))
 
-        except ET.ParseError:
-            logger.warning(f"Invalid XML in sitemap: {url}")
+        except httpx.TimeoutException:
+            logger.debug(f"Timeout fetching sitemap: {url}")
         except Exception as e:
-            logger.warning(f"Failed to parse sitemap {url}: {e}")
+            logger.warning(f"✗ Failed to parse sitemap {url}: {e}")
 
         return urls
 
@@ -354,9 +395,13 @@ async def try_sitemap(base_url: str) -> list[str]:
 
     result = list(discovered_urls)
     if result:
-        logger.info(f"Sitemap parsing found {len(result)} URLs")
+        msg = f"Sitemap parsing found {len(result)} URLs"
+        logger.info(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
     else:
-        logger.info("Sitemap parsing found no URLs")
+        msg = "Sitemap parsing found no URLs"
+        logger.info(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
     return result
 
 
@@ -365,59 +410,115 @@ async def discover_urls(base_url: str, max_depth: int = 5) -> list[str]:
     Discover URLs using cascade strategy with smart fallbacks:
     1. Try sitemap (fast, authoritative)
     2. Try nav parsing (if sitemap < 100 URLs)
-    3. Always try recursive crawl as final fallback
+    3. Try recursive crawl (if < 500 URLs so far)
 
     Returns deduplicated, normalized URLs. Never returns empty list.
+
+    Progressive timeout: base 60s + 30s per depth level
+    Early exit: skip crawl if sitemap finds 500+ URLs
     """
     all_urls = set()
-    logger.info(f"=== Starting URL discovery for {base_url} (max_depth={max_depth}) ===")
+    MAX_URLS_BEFORE_SKIP_CRAWL = 500
+
+    msg = f"=== Starting URL discovery for {base_url} (max_depth={max_depth}) ==="
+    logger.info(msg)
+    print(f"[DISCOVERY] {msg}", flush=True)
 
     # Strategy 1: Sitemap (fast, authoritative)
-    logger.info("Strategy 1/3: Trying sitemap discovery...")
+    msg = "Strategy 1/3: Trying sitemap discovery..."
+    logger.info(msg)
+    print(f"[DISCOVERY] {msg}", flush=True)
+
     try:
         sitemap_urls = await try_sitemap(base_url)
         if sitemap_urls:
             all_urls.update(sitemap_urls)
-            logger.info(f"✓ Sitemap success: {len(sitemap_urls)} URLs found")
+            msg = f"✓ Sitemap success: {len(sitemap_urls)} URLs found"
+            logger.info(msg)
+            print(f"[DISCOVERY] {msg}", flush=True)
         else:
-            logger.info("✗ Sitemap: No URLs found")
+            msg = "✗ Sitemap: No URLs found"
+            logger.info(msg)
+            print(f"[DISCOVERY] {msg}", flush=True)
     except Exception as e:
-        logger.error(f"✗ Sitemap failed with exception: {e}")
+        msg = f"✗ Sitemap failed with exception: {e}"
+        logger.error(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
+
+    # Early exit if sitemap found 500+ URLs
+    if len(all_urls) >= MAX_URLS_BEFORE_SKIP_CRAWL:
+        msg = f"Strategy 2/3 & 3/3: Skipping nav/crawl (sitemap found {len(all_urls)} URLs, sufficient)"
+        logger.info(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
+        final_urls = sorted(list(all_urls))
+        msg = f"=== Discovery complete: {len(final_urls)} total unique URLs ==="
+        logger.info(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
+        return final_urls
 
     # Strategy 2: Nav parsing (skip if sitemap found 100+ URLs)
     if len(all_urls) < 100:
-        logger.info("Strategy 2/3: Trying nav parsing...")
+        msg = "Strategy 2/3: Trying nav parsing..."
+        logger.info(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
+
         try:
             nav_urls = await try_nav_parse(base_url)
             if nav_urls:
                 all_urls.update(nav_urls)
-                logger.info(f"✓ Nav parsing success: {len(nav_urls)} URLs found")
+                msg = f"✓ Nav parsing success: {len(nav_urls)} URLs found"
+                logger.info(msg)
+                print(f"[DISCOVERY] {msg}", flush=True)
             else:
-                logger.info("✗ Nav parsing: No URLs found")
+                msg = "✗ Nav parsing: No URLs found"
+                logger.info(msg)
+                print(f"[DISCOVERY] {msg}", flush=True)
         except Exception as e:
-            logger.error(f"✗ Nav parsing failed with exception: {e}")
+            msg = f"✗ Nav parsing failed with exception: {e}"
+            logger.error(msg)
+            print(f"[DISCOVERY] {msg}", flush=True)
     else:
-        logger.info(f"Strategy 2/3: Skipping nav parsing (sitemap found {len(all_urls)} URLs)")
+        msg = f"Strategy 2/3: Skipping nav parsing (sitemap found {len(all_urls)} URLs)"
+        logger.info(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
 
-    # Strategy 3: Recursive crawl (always attempt as comprehensive fallback)
-    logger.info("Strategy 3/3: Falling back to recursive crawl (comprehensive)")
-    try:
-        crawl_urls = await recursive_crawl(base_url, max_depth)
-        if crawl_urls:
-            all_urls.update(crawl_urls)
-            logger.info(f"✓ Recursive crawl success: {len(crawl_urls)} URLs found")
-        else:
-            logger.warning("✗ Recursive crawl returned no URLs (unexpected)")
-    except Exception as e:
-        logger.error(f"✗ Recursive crawl failed with exception: {e}")
+    # Strategy 3: Recursive crawl (skip if we already have 500+ URLs)
+    if len(all_urls) >= MAX_URLS_BEFORE_SKIP_CRAWL:
+        msg = f"Strategy 3/3: Skipping recursive crawl ({len(all_urls)} URLs already discovered)"
+        logger.info(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
+    else:
+        msg = "Strategy 3/3: Falling back to recursive crawl (comprehensive)"
+        logger.info(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
+
+        try:
+            crawl_urls = await recursive_crawl(base_url, max_depth)
+            if crawl_urls:
+                all_urls.update(crawl_urls)
+                msg = f"✓ Recursive crawl success: {len(crawl_urls)} URLs found"
+                logger.info(msg)
+                print(f"[DISCOVERY] {msg}", flush=True)
+            else:
+                msg = "✗ Recursive crawl returned no URLs (unexpected)"
+                logger.warning(msg)
+                print(f"[DISCOVERY] {msg}", flush=True)
+        except Exception as e:
+            msg = f"✗ Recursive crawl failed with exception: {e}"
+            logger.error(msg)
+            print(f"[DISCOVERY] {msg}", flush=True)
 
     # Deduplicate and sort
     final_urls = sorted(list(all_urls))
 
     # Absolute minimum fallback: return base URL if nothing else worked
     if not final_urls:
-        logger.warning("⚠ All strategies failed! Returning base URL as minimum fallback")
+        msg = "⚠ All strategies failed! Returning base URL as minimum fallback"
+        logger.warning(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
         final_urls = [normalize_url(base_url)]
 
-    logger.info(f"=== Discovery complete: {len(final_urls)} total unique URLs ===")
+    msg = f"=== Discovery complete: {len(final_urls)} total unique URLs ==="
+    logger.info(msg)
+    print(f"[DISCOVERY] {msg}", flush=True)
     return final_urls
