@@ -12,7 +12,9 @@ CHUNK_OVERLAP = 200
 
 def html_to_markdown(html: str) -> str:
     """Convert HTML to Markdown using markdownify."""
-    return md(html, heading_style="ATX", strip=["script", "style", "nav", "footer"])
+    result = md(html, heading_style="ATX", strip=["script", "style", "nav", "footer"])
+    logger.info(f"HTML to MD: {len(html)} chars -> {len(result)} chars")
+    return result
 
 
 def chunk_markdown(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
@@ -22,6 +24,7 @@ def chunk_markdown(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]
     Tries to split at paragraph boundaries.
     """
     if len(text) <= chunk_size:
+        logger.info(f"Single chunk: {len(text)} chars (under {chunk_size} limit)")
         return [text]
 
     chunks: list[str] = []
@@ -49,5 +52,6 @@ def chunk_markdown(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]
         # Move position with overlap for context continuity
         current_pos = end_pos - CHUNK_OVERLAP if end_pos < len(text) else end_pos
 
-    logger.info(f"Split markdown into {len(chunks)} chunks")
+    chunk_sizes = [len(c) for c in chunks]
+    logger.info(f"Split markdown into {len(chunks)} chunks, sizes: {chunk_sizes}")
     return chunks

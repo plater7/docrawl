@@ -31,10 +31,12 @@ async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
     if not urls:
         return urls
 
+    logger.info(f"Sending {len(urls)} URLs to LLM for filtering")
     prompt = FILTER_PROMPT_TEMPLATE.format(urls="\n".join(urls))
 
     try:
         response = await generate(model, prompt, system=FILTER_SYSTEM_PROMPT)
+        logger.debug(f"LLM filter raw response: {response}")
 
         # Try to parse JSON from response
         # Handle potential markdown code blocks
@@ -46,7 +48,11 @@ async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
         filtered = json.loads(response)
         if isinstance(filtered, list):
             # Validate all items are from original list
-            valid = [url for url in filtered if url in urls]
+            original_set = set(urls)
+            valid = [url for url in filtered if url in original_set]
+            invalid = [url for url in filtered if url not in original_set]
+            if invalid:
+                logger.warning(f"LLM returned {len(invalid)} URLs not in original list, discarded")
             logger.info(f"LLM filtered {len(urls)} URLs to {len(valid)}")
             return valid
 

@@ -2,11 +2,12 @@
 
 import asyncio
 import logging
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 
 from src.jobs.manager import Job
-from src.crawler.discovery import discover_urls
+from src.crawler.discovery import discover_urls, try_sitemap, try_nav_parse, recursive_crawl
 from src.crawler.filter import filter_urls
 from src.crawler.robots import RobotsParser
 from src.llm.filter import filter_urls_with_llm
@@ -15,6 +16,31 @@ from src.scraper.page import PageScraper
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 
 logger = logging.getLogger(__name__)
+
+
+async def _discover_with_events(job: Job, base_url: str, max_depth: int) -> list[str]:
+    """Discovery cascade with granular SSE events."""
+    # Try sitemap
+    await job.emit_event("discovery", {"strategy": "sitemap", "status": "trying"})
+    urls = await try_sitemap(base_url)
+    if urls:
+        await job.emit_event("discovery", {"strategy": "sitemap", "status": "success", "urls_found": len(urls)})
+        return urls
+    await job.emit_event("discovery", {"strategy": "sitemap", "status": "failed"})
+
+    # Try nav parsing
+    await job.emit_event("discovery", {"strategy": "nav_parse", "status": "trying"})
+    urls = await try_nav_parse(base_url)
+    if urls:
+        await job.emit_event("discovery", {"strategy": "nav_parse", "status": "success", "urls_found": len(urls)})
+        return urls
+    await job.emit_event("discovery", {"strategy": "nav_parse", "status": "failed"})
+
+    # Fallback: recursive crawl
+    await job.emit_event("discovery", {"strategy": "recursive", "status": "trying"})
+    urls = await recursive_crawl(base_url, max_depth)
+    await job.emit_event("discovery", {"strategy": "recursive", "status": "success", "urls_found": len(urls)})
+    return urls
 
 
 async def run_job(job: Job) -> None:
@@ -27,7 +53,10 @@ async def run_job(job: Job) -> None:
     robots = RobotsParser()
 
     try:
+        # Browser startup
+        await job.emit_event("browser", {"status": "starting"})
         await scraper.start()
+        await job.emit_event("browser", {"status": "ready"})
 
         # Load robots.txt if requested
         if request.respect_robots_txt:
@@ -40,9 +69,7 @@ async def run_job(job: Job) -> None:
             delay_s = request.delay_ms / 1000
 
         # Discovery phase
-        await job.emit_event("discovery", {"phase": "starting", "status": "trying"})
-        urls = await discover_urls(base_url, request.max_depth)
-        await job.emit_event("discovery", {"phase": "done", "urls_found": len(urls)})
+        urls = await _discover_with_events(job, base_url, request.max_depth)
 
         if job.is_cancelled:
             await _emit_cancelled(job)
@@ -55,8 +82,17 @@ async def run_job(job: Job) -> None:
         if request.respect_robots_txt:
             urls = [u for u in urls if robots.is_allowed(u)]
 
-        await job.emit_event("filtering", {"phase": "llm", "after_basic": len(urls)})
-        urls = await filter_urls_with_llm(urls, request.model)
+        # LLM filtering with events
+        await job.emit_event("llm_start", {"action": "filter", "urls_count": len(urls)})
+        llm_filter_start = time.monotonic()
+        try:
+            urls = await filter_urls_with_llm(urls, request.model)
+            duration_ms = (time.monotonic() - llm_filter_start) * 1000
+            await job.emit_event("llm_done", {"action": "filter", "duration_ms": round(duration_ms), "result": "ok", "urls_count": len(urls)})
+        except Exception as e:
+            duration_ms = (time.monotonic() - llm_filter_start) * 1000
+            await job.emit_event("llm_done", {"action": "filter", "duration_ms": round(duration_ms), "result": "error", "error": str(e)})
+
         await job.emit_event("filtering", {"phase": "done", "after_llm": len(urls)})
 
         job.pages_total = len(urls)
@@ -78,15 +114,24 @@ async def run_job(job: Job) -> None:
                 break
 
             job.current_url = url
-            await job.emit_event("page_start", {
-                "url": url,
-                "index": i + 1,
-                "total": len(urls),
-            })
+
+            # Emit page_loading before fetching
+            await job.emit_event("page_loading", {"url": url})
+
+            page_start_time = time.monotonic()
 
             try:
                 # Scrape page
                 html = await scraper.get_html(url)
+                load_time_ms = (time.monotonic() - page_start_time) * 1000
+
+                await job.emit_event("page_start", {
+                    "url": url,
+                    "index": i + 1,
+                    "total": len(urls),
+                    "load_time_ms": round(load_time_ms),
+                })
+
                 markdown = html_to_markdown(html)
 
                 # Chunk and cleanup
@@ -94,21 +139,53 @@ async def run_job(job: Job) -> None:
                 cleaned_chunks: list[str] = []
                 chunks_failed = 0
 
-                for chunk in chunks:
+                for ci, chunk in enumerate(chunks):
                     if job.is_cancelled:
                         break
+
+                    await job.emit_event("chunk_progress", {
+                        "url": url,
+                        "chunk_index": ci + 1,
+                        "chunks_total": len(chunks),
+                        "action": "cleanup_start",
+                    })
+
+                    chunk_start = time.monotonic()
                     try:
                         cleaned = await cleanup_markdown(chunk, request.model)
+                        chunk_duration_ms = (time.monotonic() - chunk_start) * 1000
                         cleaned_chunks.append(cleaned)
+                        await job.emit_event("chunk_progress", {
+                            "url": url,
+                            "chunk_index": ci + 1,
+                            "chunks_total": len(chunks),
+                            "action": "cleanup_done",
+                            "duration_ms": round(chunk_duration_ms),
+                        })
                     except Exception:
+                        chunk_duration_ms = (time.monotonic() - chunk_start) * 1000
                         chunks_failed += 1
                         cleaned_chunks.append(chunk)  # Use raw on failure
+                        await job.emit_event("chunk_progress", {
+                            "url": url,
+                            "chunk_index": ci + 1,
+                            "chunks_total": len(chunks),
+                            "action": "cleanup_failed",
+                            "retries": 3,
+                            "duration_ms": round(chunk_duration_ms),
+                        })
 
                 # Save to file
                 final_md = "\n\n".join(cleaned_chunks)
                 file_path = _url_to_filepath(url, base_url, output_path)
                 file_path.parent.mkdir(parents=True, exist_ok=True)
                 file_path.write_text(final_md, encoding="utf-8")
+
+                size_bytes = file_path.stat().st_size
+                await job.emit_event("file_saved", {
+                    "path": str(file_path),
+                    "size_bytes": size_bytes,
+                })
 
                 if chunks_failed == 0:
                     pages_ok += 1

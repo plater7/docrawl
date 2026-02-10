@@ -11,4 +11,10 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - OLLAMA_URL=http://host.docker.internal:11434
+      - LOG_LEVEL=DEBUG
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped

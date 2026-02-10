@@ -1,5 +1,6 @@
 """LLM-based markdown cleanup."""
 
+import asyncio
 import logging
 
 from src.llm.client import generate
@@ -37,15 +38,18 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
     prompt = CLEANUP_PROMPT_TEMPLATE.format(markdown=markdown)
 
     for attempt in range(MAX_RETRIES):
+        logger.info(f"Cleanup attempt {attempt + 1}/{MAX_RETRIES}, chunk of {len(markdown)} chars")
         try:
             cleaned = await generate(model, prompt, system=CLEANUP_SYSTEM_PROMPT)
             if cleaned.strip():
                 return cleaned.strip()
         except Exception as e:
-            logger.warning(f"Cleanup attempt {attempt + 1} failed: {e}")
             if attempt < MAX_RETRIES - 1:
-                import asyncio
-                await asyncio.sleep(RETRY_BACKOFF[attempt])
+                backoff = RETRY_BACKOFF[attempt]
+                logger.warning(f"Cleanup attempt {attempt + 1} failed: {e}, retrying in {backoff}s")
+                await asyncio.sleep(backoff)
+            else:
+                logger.warning(f"Cleanup attempt {attempt + 1} failed: {e}, no more retries")
 
-    logger.error("All cleanup attempts failed, returning original")
+    logger.info("All cleanup attempts failed, using raw markdown as fallback")
     return markdown
