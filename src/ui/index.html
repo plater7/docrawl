@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docrawl</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { margin-bottom: 1.5rem; color: #f8fafc; }
+        .form-group { margin-bottom: 1rem; }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+        input, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            background: #1e293b;
+            color: #e2e8f0;
+            font-size: 1rem;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .checkbox-group input { width: auto; }
+        .buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-primary:disabled {
+            background: #475569;
+            cursor: not-allowed;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            display: none;
+        }
+        .btn-danger:hover { background: #dc2626; }
+        .log {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #1e293b;
+            border-radius: 0.5rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry { padding: 0.25rem 0; border-bottom: 1px solid #334155; }
+        .log-entry.error { color: #f87171; }
+        .log-entry.success { color: #4ade80; }
+        .log-entry.info { color: #60a5fa; }
+        .summary {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #1e293b;
+            border-radius: 0.5rem;
+            display: none;
+        }
+        .summary h3 { margin-bottom: 0.5rem; }
+        .stat { display: inline-block; margin-right: 1.5rem; }
+        .stat-value { font-size: 1.5rem; font-weight: bold; color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Docrawl</h1>
+
+        <form id="crawlForm">
+            <div class="form-group">
+                <label for="url">Documentation URL</label>
+                <input type="url" id="url" required placeholder="https://docs.example.com">
+            </div>
+
+            <div class="form-group">
+                <label for="model">Ollama Model</label>
+                <select id="model" required>
+                    <option value="">Loading models...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="outputPath">Output Path</label>
+                <input type="text" id="outputPath" value="/data/output">
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="delayMs">Delay between requests (ms)</label>
+                    <input type="number" id="delayMs" value="500" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="maxConcurrent">Max concurrent pages</label>
+                    <input type="number" id="maxConcurrent" value="3" min="1" max="10">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label for="maxDepth">Max crawl depth</label>
+                    <input type="number" id="maxDepth" value="5" min="1" max="20">
+                </div>
+                <div class="form-group checkbox-group" style="align-self: end; padding-bottom: 0.75rem;">
+                    <input type="checkbox" id="respectRobots" checked>
+                    <label for="respectRobots" style="margin: 0;">Respect robots.txt</label>
+                </div>
+            </div>
+
+            <div class="buttons">
+                <button type="submit" class="btn-primary" id="startBtn">Start Crawl</button>
+                <button type="button" class="btn-danger" id="cancelBtn">Cancel</button>
+            </div>
+        </form>
+
+        <div class="log" id="log"></div>
+
+        <div class="summary" id="summary">
+            <h3>Results</h3>
+            <div>
+                <span class="stat"><span class="stat-value" id="pagesOk">0</span> OK</span>
+                <span class="stat"><span class="stat-value" id="pagesPartial">0</span> Partial</span>
+                <span class="stat"><span class="stat-value" id="pagesFailed">0</span> Failed</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('crawlForm');
+        const startBtn = document.getElementById('startBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const modelSelect = document.getElementById('model');
+        const logDiv = document.getElementById('log');
+        const summaryDiv = document.getElementById('summary');
+
+        let currentJobId = null;
+        let eventSource = null;
+
+        // Load models on page load
+        async function loadModels() {
+            try {
+                const res = await fetch('/api/models');
+                const models = await res.json();
+                modelSelect.innerHTML = models.length
+                    ? models.map(m => `<option value="${m.name}">${m.name}</option>`).join('')
+                    : '<option value="">No models available</option>';
+            } catch (e) {
+                modelSelect.innerHTML = '<option value="">Error loading models</option>';
+                log('Failed to load Ollama models', 'error');
+            }
+        }
+
+        function log(message, type = '') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function setRunning(running) {
+            startBtn.disabled = running;
+            cancelBtn.style.display = running ? 'block' : 'none';
+        }
+
+        async function startCrawl(e) {
+            e.preventDefault();
+            logDiv.innerHTML = '';
+            summaryDiv.style.display = 'none';
+
+            const payload = {
+                url: document.getElementById('url').value,
+                model: modelSelect.value,
+                output_path: document.getElementById('outputPath').value,
+                delay_ms: parseInt(document.getElementById('delayMs').value),
+                max_concurrent: parseInt(document.getElementById('maxConcurrent').value),
+                max_depth: parseInt(document.getElementById('maxDepth').value),
+                respect_robots_txt: document.getElementById('respectRobots').checked,
+            };
+
+            try {
+                const res = await fetch('/api/jobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const job = await res.json();
+                currentJobId = job.id;
+                log(`Job started: ${job.id}`, 'info');
+                setRunning(true);
+                subscribeToEvents(job.id);
+            } catch (e) {
+                log(`Failed to start job: ${e.message}`, 'error');
+            }
+        }
+
+        function subscribeToEvents(jobId) {
+            eventSource = new EventSource(`/api/jobs/${jobId}/events`);
+
+            eventSource.addEventListener('discovery', (e) => {
+                const data = JSON.parse(e.data);
+                log(`Discovery: ${data.phase} - ${data.status || ''} ${data.urls_found ? `(${data.urls_found} URLs)` : ''}`);
+            });
+
+            eventSource.addEventListener('filtering', (e) => {
+                const data = JSON.parse(e.data);
+                log(`Filtering: ${data.phase} ${data.after_basic ? `(${data.after_basic} URLs)` : ''} ${data.after_llm ? `-> ${data.after_llm} URLs` : ''}`);
+            });
+
+            eventSource.addEventListener('page_start', (e) => {
+                const data = JSON.parse(e.data);
+                log(`[${data.index}/${data.total}] Processing: ${data.url}`, 'info');
+            });
+
+            eventSource.addEventListener('page_done', (e) => {
+                const data = JSON.parse(e.data);
+                const msg = data.chunks_failed > 0
+                    ? `Done (${data.chunks_failed}/${data.chunks_total} chunks failed)`
+                    : 'Done';
+                log(`  -> ${msg}`, data.status === 'ok' ? 'success' : '');
+            });
+
+            eventSource.addEventListener('page_error', (e) => {
+                const data = JSON.parse(e.data);
+                log(`  -> Error: ${data.error}`, 'error');
+            });
+
+            eventSource.addEventListener('job_done', (e) => {
+                const data = JSON.parse(e.data);
+                log(`Job completed! Output: ${data.output_path}`, 'success');
+                showSummary(data);
+                cleanup();
+            });
+
+            eventSource.addEventListener('job_cancelled', (e) => {
+                const data = JSON.parse(e.data);
+                log(`Job cancelled. Processed ${data.pages_completed}/${data.pages_total} pages.`, 'info');
+                cleanup();
+            });
+
+            eventSource.onerror = () => {
+                log('Connection lost', 'error');
+                cleanup();
+            };
+        }
+
+        async function cancelJob() {
+            if (!currentJobId) return;
+            try {
+                await fetch(`/api/jobs/${currentJobId}/cancel`, { method: 'POST' });
+                log('Cancelling...', 'info');
+            } catch (e) {
+                log(`Failed to cancel: ${e.message}`, 'error');
+            }
+        }
+
+        function showSummary(data) {
+            document.getElementById('pagesOk').textContent = data.pages_ok || 0;
+            document.getElementById('pagesPartial').textContent = data.pages_partial || 0;
+            document.getElementById('pagesFailed').textContent = data.pages_failed || 0;
+            summaryDiv.style.display = 'block';
+        }
+
+        function cleanup() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            currentJobId = null;
+            setRunning(false);
+        }
+
+        form.addEventListener('submit', startCrawl);
+        cancelBtn.addEventListener('click', cancelJob);
+        loadModels();
+    </script>
+</body>
+</html>
