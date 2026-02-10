@@ -5,3 +5,4 @@ markdownify>=0.11.6
 httpx>=0.26.0
 pydantic>=2.5.0
 sse-starlette>=1.8.0
+beautifulsoup4>=4.12.0
