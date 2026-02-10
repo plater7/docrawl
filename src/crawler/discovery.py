@@ -170,10 +170,12 @@ async def try_nav_parse(base_url: str) -> list[str]:
     - Multiple nav selectors (nav, aside, sidebar, etc.)
     - External link filtering
     - Deduplication
-    - Timeout (15s page load)
+    - Timeout (10s page load, reduced from 15s)
+    - Max 100 URLs cap
     """
     discovered_urls = set()
     base_domain = urlparse(base_url).netloc
+    MAX_NAV_URLS = 100
 
     # Common navigation selectors
     NAV_SELECTORS = [
@@ -186,19 +188,29 @@ async def try_nav_parse(base_url: str) -> list[str]:
         '.menu a',
     ]
 
+    logger.info(f"Trying nav parsing on {base_url}")
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
 
-            await page.goto(base_url, wait_until='domcontentloaded', timeout=15000)
+            logger.debug("Loading page for nav parsing...")
+            await page.goto(base_url, wait_until='domcontentloaded', timeout=10000)
 
-            # Try each selector
+            # Try each selector with limit
             for selector in NAV_SELECTORS:
+                if len(discovered_urls) >= MAX_NAV_URLS:
+                    logger.info(f"Hit nav URL cap ({MAX_NAV_URLS}), stopping")
+                    break
+
                 try:
                     links = await page.query_selector_all(selector)
+                    logger.debug(f"Selector '{selector}' found {len(links)} links")
 
                     for link in links:
+                        if len(discovered_urls) >= MAX_NAV_URLS:
+                            break
+
                         href = await link.get_attribute('href')
                         if not href:
                             continue
@@ -224,13 +236,13 @@ async def try_nav_parse(base_url: str) -> list[str]:
             await browser.close()
 
     except PlaywrightTimeout:
-        logger.warning(f"Timeout loading {base_url} for nav parsing")
+        logger.warning(f"Nav parsing timeout after 10s on {base_url}")
         return []
     except Exception as e:
-        logger.warning(f"Nav parsing failed for {base_url}: {e}")
+        logger.error(f"Nav parsing failed for {base_url}: {e}")
         return []
 
-    result = list(discovered_urls)
+    result = list(discovered_urls)[:MAX_NAV_URLS]
     logger.info(f"Nav parsing found {len(result)} URLs")
     return result
 
@@ -258,6 +270,7 @@ async def try_sitemap(base_url: str) -> list[str]:
     """
     discovered_urls = set()
     base_domain = urlparse(base_url).netloc
+    logger.info(f"Trying sitemap on {base_url}")
 
     async def parse_sitemap_xml(url: str, client: httpx.AsyncClient) -> set[str]:
         """Parse a sitemap XML file."""
@@ -333,47 +346,78 @@ async def try_sitemap(base_url: str) -> list[str]:
 
         # Parse all discovered sitemaps
         for sitemap_url in sitemap_urls:
+            logger.debug(f"Parsing sitemap: {sitemap_url}")
             urls = await parse_sitemap_xml(sitemap_url, client)
-            discovered_urls.update(urls)
+            if urls:
+                logger.debug(f"Sitemap {sitemap_url} contributed {len(urls)} URLs")
+                discovered_urls.update(urls)
 
     result = list(discovered_urls)
-    logger.info(f"Sitemap parsing found {len(result)} URLs")
+    if result:
+        logger.info(f"Sitemap parsing found {len(result)} URLs")
+    else:
+        logger.info("Sitemap parsing found no URLs")
     return result
 
 
 async def discover_urls(base_url: str, max_depth: int = 5) -> list[str]:
     """
-    Discover URLs using cascade strategy:
-    1. Try sitemap
-    2. Try nav parsing
-    3. Fall back to recursive crawl
+    Discover URLs using cascade strategy with smart fallbacks:
+    1. Try sitemap (fast, authoritative)
+    2. Try nav parsing (if sitemap < 100 URLs)
+    3. Always try recursive crawl as final fallback
 
-    Returns deduplicated, normalized URLs.
+    Returns deduplicated, normalized URLs. Never returns empty list.
     """
     all_urls = set()
+    logger.info(f"=== Starting URL discovery for {base_url} (max_depth={max_depth}) ===")
 
     # Strategy 1: Sitemap (fast, authoritative)
-    logger.info("Trying sitemap discovery...")
-    sitemap_urls = await try_sitemap(base_url)
-    if sitemap_urls:
-        all_urls.update(sitemap_urls)
-        logger.info(f"Sitemap discovery: {len(sitemap_urls)} URLs")
+    logger.info("Strategy 1/3: Trying sitemap discovery...")
+    try:
+        sitemap_urls = await try_sitemap(base_url)
+        if sitemap_urls:
+            all_urls.update(sitemap_urls)
+            logger.info(f"✓ Sitemap success: {len(sitemap_urls)} URLs found")
+        else:
+            logger.info("✗ Sitemap: No URLs found")
+    except Exception as e:
+        logger.error(f"✗ Sitemap failed with exception: {e}")
 
-    # Strategy 2: Nav parsing (good for JS-heavy sites)
-    logger.info("Trying nav parsing...")
-    nav_urls = await try_nav_parse(base_url)
-    if nav_urls:
-        all_urls.update(nav_urls)
-        logger.info(f"Nav parsing: {len(nav_urls)} URLs")
+    # Strategy 2: Nav parsing (skip if sitemap found 100+ URLs)
+    if len(all_urls) < 100:
+        logger.info("Strategy 2/3: Trying nav parsing...")
+        try:
+            nav_urls = await try_nav_parse(base_url)
+            if nav_urls:
+                all_urls.update(nav_urls)
+                logger.info(f"✓ Nav parsing success: {len(nav_urls)} URLs found")
+            else:
+                logger.info("✗ Nav parsing: No URLs found")
+        except Exception as e:
+            logger.error(f"✗ Nav parsing failed with exception: {e}")
+    else:
+        logger.info(f"Strategy 2/3: Skipping nav parsing (sitemap found {len(all_urls)} URLs)")
 
-    # Strategy 3: Recursive crawl (comprehensive fallback)
-    logger.info(f"Starting recursive crawl (max_depth={max_depth})...")
-    crawl_urls = await recursive_crawl(base_url, max_depth)
-    all_urls.update(crawl_urls)
-    logger.info(f"Recursive crawl: {len(crawl_urls)} URLs")
+    # Strategy 3: Recursive crawl (always attempt as comprehensive fallback)
+    logger.info("Strategy 3/3: Falling back to recursive crawl (comprehensive)")
+    try:
+        crawl_urls = await recursive_crawl(base_url, max_depth)
+        if crawl_urls:
+            all_urls.update(crawl_urls)
+            logger.info(f"✓ Recursive crawl success: {len(crawl_urls)} URLs found")
+        else:
+            logger.warning("✗ Recursive crawl returned no URLs (unexpected)")
+    except Exception as e:
+        logger.error(f"✗ Recursive crawl failed with exception: {e}")
 
     # Deduplicate and sort
     final_urls = sorted(list(all_urls))
 
-    logger.info(f"Total discovered URLs: {len(final_urls)}")
+    # Absolute minimum fallback: return base URL if nothing else worked
+    if not final_urls:
+        logger.warning("⚠ All strategies failed! Returning base URL as minimum fallback")
+        final_urls = [normalize_url(base_url)]
+
+    logger.info(f"=== Discovery complete: {len(final_urls)} total unique URLs ===")
     return final_urls
