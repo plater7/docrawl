@@ -50,3 +50,8 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Cloudflare
+.env
+worker/node_modules/
+worker/.wrangler/

@@ -1,0 +1,11 @@
+name = "docrawl-worker"
+main = "src/index.js"
+compatibility_date = "2024-09-25"
+
+[vars]
+TUNNEL_HOSTNAME = "docrawl.midominio.com"
+
+# Opcional: configurar route en vez de workers.dev
+# [route]
+# pattern = "docrawl.midominio.com/*"
+# zone_name = "midominio.com"

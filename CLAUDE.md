@@ -44,7 +44,7 @@ Una aplicación web dockerizada que crawlea sitios de documentación y los convi
 
 ```
 
-\[Browser/UI :8080] → \[FastAPI container] → \[Ollama en host :11434]
+\[Browser/UI :8002] → \[FastAPI container] → \[Ollama en host :11434]
 
 &nbsp;                          │
 
@@ -302,7 +302,7 @@ HTML + CSS + JS vanilla. Sin frameworks. Un solo archivo `index.html` servido po
 
 \- Copiar código
 
-\- Exponer puerto 8080
+\- Exponer puerto 8002
 
 
 
@@ -310,7 +310,7 @@ HTML + CSS + JS vanilla. Sin frameworks. Un solo archivo `index.html` servido po
 
 \- Un solo servicio: `docrawl`
 
-\- Puerto: `8080:8080`
+\- Puerto: `8002:8002`
 
 \- Volume: `./data:/data` (para persistir output)
 
@@ -405,6 +405,20 @@ Este proyecto se inspira en dos repos de scraping con LLM. El código de preproc
 Estos repos extraen datos estructurados con schemas. Docrawl es diferente: convierte documentación completa a Markdown. Pero el código de preprocessado y cleanup del DOM es reutilizable.
 
 
+
+\## Cloudflare Tunnel + Worker
+
+\### Exposición a internet
+\- \*\*cloudflared\*\* corre como sidecar en docker-compose, conecta al Cloudflare Tunnel
+\- El tunnel se configura en el dashboard de Cloudflare Zero Trust
+\- El servicio apunta a `http://docrawl:8002` (nombre del servicio docker)
+\- Variable de entorno requerida: `CLOUDFLARE_TUNNEL_TOKEN` (en archivo `.env`)
+
+\### Worker (opcional)
+\- Directorio `worker/` con Cloudflare Worker como proxy de edge
+\- Usa `wrangler.toml` para configuración
+\- Variable `TUNNEL_HOSTNAME` define el hostname del tunnel
+\- Deploy: `cd worker && npx wrangler deploy`
 
 \## Convenciones de código
 
