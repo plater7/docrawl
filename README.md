@@ -67,24 +67,40 @@ docrawl/
 
 Los archivos Markdown se guardan en `./data/` respetando la estructura de URLs del sitio crawleado.
 
-## Exponer a internet (Cloudflare Tunnel + Worker)
+## Exponer a internet (Cloudflare Tunnel + Workers VPC)
+
+### Arquitectura
+
+```
+[Internet] → [Cloudflare Worker] → (VPC Service binding) → [Cloudflare Tunnel] → [cloudflared container] → [docrawl:8002]
+```
+
+La app queda completamente privada (sin hostname público). El Worker es el único punto de entrada y se conecta al servicio a través de un VPC Service binding que rutea internamente por la red de Cloudflare.
 
 ### Prerequisitos
 - Cuenta de Cloudflare con un dominio configurado
 - [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) (plan gratuito funciona)
-- Node.js (para el Worker, opcional)
+- Node.js 18+ (para deployar el Worker)
+- Workers VPC (beta, disponible gratis en todos los planes Workers)
 
 ### 1. Crear el Tunnel
 
-1. Ir a [Zero Trust Dashboard](https://one.dash.cloudflare.com/) → Networks → Tunnels
-2. Crear tunnel → tipo "Cloudflared"
-3. Copiar el token generado
-4. Configurar Public Hostname:
-   - Subdomain: `docrawl` (o el que prefieras)
-   - Domain: tu dominio en Cloudflare
-   - Service: `http://docrawl:8002`
+1. Ir al [Workers VPC dashboard](https://dash.cloudflare.com/) → Tunnels
+2. Create Tunnel → nombrar (ej: `docrawl-tunnel`)
+3. Copiar el token de instalación
+4. **No configurar Public Hostname**
 
-### 2. Configurar variables de entorno
+### 2. Crear VPC Service
+
+1. Workers VPC dashboard → VPC Services
+2. Create VPC Service:
+   - Name: `docrawl-service`
+   - Tunnel: el creado en paso 1
+   - Host: `docrawl`
+   - HTTP Port: `8002`
+3. Copiar el **Service ID**
+
+### 3. Configurar variables de entorno
 
 Crear archivo `.env` en la raíz del proyecto:
 
@@ -92,21 +108,20 @@ Crear archivo `.env` en la raíz del proyecto:
 CLOUDFLARE_TUNNEL_TOKEN=eyJ...tu-token
 ```
 
-### 3. Levantar con tunnel
+Editar `worker/wrangler.jsonc` y reemplazar `<TU_VPC_SERVICE_ID>` con el Service ID del paso 2.
+
+### 4. Levantar con tunnel
 
 ```bash
 docker compose up -d
 ```
 
-La aplicación estará disponible en `https://docrawl.tudominio.com`
-
-### 4. Worker de edge (opcional)
-
-Para agregar un proxy en el edge de Cloudflare con lógica adicional:
+### 5. Deployar el Worker
 
 ```bash
 cd worker
 npm install
-# Editar wrangler.toml con tu TUNNEL_HOSTNAME
 npx wrangler deploy
 ```
+
+La aplicación estará disponible en la URL del Worker o en tu custom domain.

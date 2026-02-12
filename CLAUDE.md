@@ -308,7 +308,7 @@ HTML + CSS + JS vanilla. Sin frameworks. Un solo archivo `index.html` servido po
 
 \### docker-compose.yml
 
-\- Un solo servicio: `docrawl`
+\- Servicio `docrawl`: app principal
 
 \- Puerto: `8002:8002`
 
@@ -317,6 +317,50 @@ HTML + CSS + JS vanilla. Sin frameworks. Un solo archivo `index.html` servido po
 \- Extra host: `host.docker.internal:host-gateway` (acceso a Ollama en el host)
 
 \- Variable de entorno: `OLLAMA\_URL=http://host.docker.internal:11434`
+
+\- Servicio `cloudflared`: sidecar para tunnel a Cloudflare
+
+
+
+\## Cloudflare Tunnel + Workers VPC
+
+
+
+\### Arquitectura de exposición a internet
+
+```
+
+\[Internet] → \[Worker] → (VPC binding) → \[Tunnel] → \[cloudflared] → \[docrawl:8002]
+
+```
+
+
+
+\- \*\*cloudflared\*\* corre como sidecar en docker-compose, crea conexión saliente al tunnel
+
+\- \*\*NO hay Public Hostname\*\* — la app es completamente privada
+
+\- Un \*\*VPC Service\*\* vincula el tunnel con el Worker
+
+\- El \*\*Worker\*\* usa un VPC Service binding (`env.VPC\_SERVICE.fetch(...)`) para acceder al servicio privado
+
+\- El Worker es el único punto de entrada público
+
+
+
+\### Variables de entorno
+
+\- `CLOUDFLARE\_TUNNEL\_TOKEN` — en `.env`, token del tunnel (se obtiene del dashboard Workers VPC)
+
+
+
+\### Configuración del Worker
+
+\- Directorio `worker/` con Cloudflare Worker
+
+\- `wrangler.jsonc` contiene el `vpc\_services` binding con el Service ID
+
+\- Deploy: `cd worker \&\& npx wrangler deploy`
 
 
 
@@ -376,9 +420,21 @@ docrawl/
 
 │       └── index.html        # UI estática
 
+├── worker/
+
+│   ├── wrangler.jsonc        # Config Cloudflare Worker + VPC binding
+
+│   ├── package.json
+
+│   └── src/
+
+│       └── index.js          # Worker proxy via VPC Service
+
 ├── requirements.txt
 
 ├── .gitignore
+
+├── .env.example
 
 ├── README.md
 
@@ -406,20 +462,6 @@ Estos repos extraen datos estructurados con schemas. Docrawl es diferente: convi
 
 
 
-\## Cloudflare Tunnel + Worker
-
-\### Exposición a internet
-\- \*\*cloudflared\*\* corre como sidecar en docker-compose, conecta al Cloudflare Tunnel
-\- El tunnel se configura en el dashboard de Cloudflare Zero Trust
-\- El servicio apunta a `http://docrawl:8002` (nombre del servicio docker)
-\- Variable de entorno requerida: `CLOUDFLARE_TUNNEL_TOKEN` (en archivo `.env`)
-
-\### Worker (opcional)
-\- Directorio `worker/` con Cloudflare Worker como proxy de edge
-\- Usa `wrangler.toml` para configuración
-\- Variable `TUNNEL_HOSTNAME` define el hostname del tunnel
-\- Deploy: `cd worker && npx wrangler deploy`
-
 \## Convenciones de código
 
 
@@ -435,4 +477,3 @@ Estos repos extraen datos estructurados con schemas. Docrawl es diferente: convi
 \- Docstrings breves, código autoexplicativo
 
 \- Sin abstracciones innecesarias: si algo se usa en un solo lugar, no crear una clase/interface para ello
-
