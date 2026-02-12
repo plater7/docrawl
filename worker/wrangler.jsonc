@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "docrawl-worker",
+  "main": "src/index.js",
+  "compatibility_date": "2025-01-28",
+  "vpc_services": [
+    {
+      "binding": "VPC_SERVICE",
+      "service_id": "019c53c3-e7ab-7ca1-b454-93cdb207dbd4",
+      "remote": true
+    }
+  ]
+}
