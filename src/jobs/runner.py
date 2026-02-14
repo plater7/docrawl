@@ -19,6 +19,11 @@ logger = logging.getLogger(__name__)
 
 async def run_job(job: Job) -> None:
     """Execute a crawl job."""
+    # TODO: reasoning_model will be used for:
+    # - Site structure analysis before crawling
+    # - Complex content filtering (language selection, cross-page dedup)
+    # - Documentation quality assessment
+    # Currently unused, passed through for future pipeline stages
     job.status = "running"
     request = job.request
     base_url = str(request.url)
@@ -55,7 +60,7 @@ async def run_job(job: Job) -> None:
             urls = [u for u in urls if robots.is_allowed(u)]
 
         await job.emit_event("filtering", {"phase": "llm", "after_basic": len(urls)})
-        urls = await filter_urls_with_llm(urls, request.model)
+        urls = await filter_urls_with_llm(urls, request.crawl_model)
         await job.emit_event("filtering", {"phase": "done", "after_llm": len(urls)})
 
         job.pages_total = len(urls)
@@ -96,7 +101,7 @@ async def run_job(job: Job) -> None:
                     if job.is_cancelled:
                         break
                     try:
-                        cleaned = await cleanup_markdown(chunk, request.model)
+                        cleaned = await cleanup_markdown(chunk, request.pipeline_model)
                         cleaned_chunks.append(cleaned)
                     except Exception:
                         chunks_failed += 1

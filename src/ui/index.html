@@ -94,6 +94,54 @@
         .summary h3 { margin-bottom: 0.5rem; }
         .stat { display: inline-block; margin-right: 1.5rem; }
         .stat-value { font-size: 1.5rem; font-weight: bold; color: #3b82f6; }
+        .models-section {
+            margin-bottom: 1rem;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            background: #1a2332;
+        }
+        .section-label {
+            display: block;
+            color: #e2e8f0;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+        .model-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .model-row:last-child { margin-bottom: 0; }
+        .model-select {
+            flex: 1;
+            min-width: 0;
+        }
+        .model-select label {
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+        .model-hint {
+            flex: 0 0 auto;
+            max-width: 280px;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.35rem;
+            padding-top: 1.5rem;
+            font-size: 0.75rem;
+            color: #64748b;
+            line-height: 1.3;
+        }
+        .hint-icon {
+            color: #475569;
+            flex-shrink: 0;
+        }
+        @media (max-width: 640px) {
+            .model-row { flex-direction: column; }
+            .model-hint { padding-top: 0; max-width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -106,15 +154,51 @@
                 <input type="url" id="url" required placeholder="https://docs.example.com">
             </div>
 
-            <div class="form-group">
-                <label for="model">Ollama Model</label>
-                <select id="model" required>
-                    <option value="">Loading models...</option>
-                </select>
+            <div class="models-section">
+                <label class="section-label">Ollama Models</label>
+
+                <div class="model-row">
+                    <div class="model-select">
+                        <label for="crawlModel">Crawl Model</label>
+                        <select id="crawlModel" required>
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                    <div class="model-hint">
+                        <span class="hint-icon">&#8505;</span>
+                        <span class="hint-text">URL discovery & filtering. Priorizar velocidad.<br>Ej: mistral:7b, llama3.2:3b, qwen3:14b</span>
+                    </div>
+                </div>
+
+                <div class="model-row">
+                    <div class="model-select">
+                        <label for="pipelineModel">Pipeline Model</label>
+                        <select id="pipelineModel" required>
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                    <div class="model-hint">
+                        <span class="hint-icon">&#8505;</span>
+                        <span class="hint-text">Markdown cleanup por chunks. Balance velocidad/calidad.<br>Ej: qwen3:14b, mistral:7b, llama3.1:8b</span>
+                    </div>
+                </div>
+
+                <div class="model-row">
+                    <div class="model-select">
+                        <label for="reasoningModel">Reasoning Model</label>
+                        <select id="reasoningModel" required>
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                    <div class="model-hint">
+                        <span class="hint-icon">&#8505;</span>
+                        <span class="hint-text">Analisis de estructura y filtrado complejo. Maxima calidad.<br>Ej: deepseek-r1:32b, qwen3:14b, kimi-k2.5</span>
+                    </div>
+                </div>
             </div>
 
             <div class="form-group">
-                <label for="outputPath">Output Path</label>
+                <label for="outputPath">Output Path <span style="color:#64748b;font-size:0.75rem;">(auto-generated from URL)</span></label>
                 <input type="text" id="outputPath" value="/data/output">
             </div>
 
@@ -162,7 +246,9 @@
         const form = document.getElementById('crawlForm');
         const startBtn = document.getElementById('startBtn');
         const cancelBtn = document.getElementById('cancelBtn');
-        const modelSelect = document.getElementById('model');
+        const crawlModelSelect = document.getElementById('crawlModel');
+        const pipelineModelSelect = document.getElementById('pipelineModel');
+        const reasoningModelSelect = document.getElementById('reasoningModel');
         const logDiv = document.getElementById('log');
         const summaryDiv = document.getElementById('summary');
 
@@ -171,17 +257,56 @@
 
         // Load models on page load
         async function loadModels() {
+            const selects = [crawlModelSelect, pipelineModelSelect, reasoningModelSelect];
             try {
                 const res = await fetch('/api/models');
                 const models = await res.json();
-                modelSelect.innerHTML = models.length
+                const optionsHtml = models.length
                     ? models.map(m => `<option value="${m.name}">${m.name}</option>`).join('')
                     : '<option value="">No models available</option>';
+                selects.forEach(s => s.innerHTML = optionsHtml);
             } catch (e) {
-                modelSelect.innerHTML = '<option value="">Error loading models</option>';
+                selects.forEach(s => s.innerHTML = '<option value="">Error loading models</option>');
                 log('Failed to load Ollama models', 'error');
             }
         }
+
+        // Auto-generate output path from URL
+        function updateOutputPath() {
+            const urlInput = document.getElementById('url').value.trim();
+            if (!urlInput) {
+                document.getElementById('outputPath').value = '/data/output';
+                return;
+            }
+            try {
+                const parsed = new URL(urlInput);
+                let domain = parsed.hostname;
+                domain = domain.replace(/^(www|docs|doc|documentation|wiki)\./i, '');
+
+                let section = parsed.pathname
+                    .replace(/\/$/, '')
+                    .replace(/^\/(latest|stable|v\d[^/]*)/i, '')
+                    .replace(/^\/docs?\/?/i, '')
+                    .replace(/^\//, '');
+
+                let outputPath = `/data/output/${domain}`;
+                if (section) {
+                    const parts = section.split('/').filter(Boolean);
+                    if (parts.length > 3) {
+                        section = parts[0] + '/' + parts[parts.length - 1];
+                    } else {
+                        section = parts.join('/');
+                    }
+                    outputPath += `/${section}`;
+                }
+
+                document.getElementById('outputPath').value = outputPath;
+            } catch (e) {
+                // URL not valid yet, do nothing
+            }
+        }
+
+        document.getElementById('url').addEventListener('input', updateOutputPath);
 
         function log(message, type = '') {
             const entry = document.createElement('div');
@@ -203,7 +328,9 @@
 
             const payload = {
                 url: document.getElementById('url').value,
-                model: modelSelect.value,
+                crawl_model: crawlModelSelect.value,
+                pipeline_model: pipelineModelSelect.value,
+                reasoning_model: reasoningModelSelect.value,
                 output_path: document.getElementById('outputPath').value,
                 delay_ms: parseInt(document.getElementById('delayMs').value),
                 max_concurrent: parseInt(document.getElementById('maxConcurrent').value),
