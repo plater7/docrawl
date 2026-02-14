@@ -3,6 +3,7 @@
 import asyncio
 import re
 import logging
+from typing import Any
 
 from src.llm.client import generate
 
@@ -61,6 +62,18 @@ def needs_llm_cleanup(markdown: str) -> bool:
     return True
 
 
+def _cleanup_options(markdown: str) -> dict[str, Any]:
+    """Calculate Ollama options optimized for cleanup tasks."""
+    # Rough estimate: 1 token ≈ 4 chars for English/markdown
+    estimated_tokens = len(markdown) // 4
+    return {
+        "num_ctx": 8192,
+        "num_predict": min(estimated_tokens + 512, 4096),  # output ≤ input + margin, capped
+        "temperature": 0.1,
+        "num_batch": 1024,
+    }
+
+
 def _calculate_timeout(content: str) -> int:
     """Calculate dynamic timeout based on chunk size."""
     content_kb = len(content) / 1024
@@ -76,10 +89,11 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
     """
     prompt = CLEANUP_PROMPT_TEMPLATE.format(markdown=markdown)
     timeout = _calculate_timeout(markdown)
+    options = _cleanup_options(markdown)
 
     for attempt in range(MAX_RETRIES):
         try:
-            cleaned = await generate(model, prompt, system=CLEANUP_SYSTEM_PROMPT, timeout=timeout)
+            cleaned = await generate(model, prompt, system=CLEANUP_SYSTEM_PROMPT, timeout=timeout, options=options)
             if cleaned.strip():
                 return cleaned.strip()
         except Exception as e:

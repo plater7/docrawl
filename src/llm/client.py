@@ -29,6 +29,7 @@ async def generate(
     prompt: str,
     system: str | None = None,
     timeout: int = 120,
+    options: dict[str, Any] | None = None,
 ) -> str:
     """Generate text using Ollama."""
     payload: dict[str, Any] = {
@@ -38,6 +39,8 @@ async def generate(
     }
     if system:
         payload["system"] = system
+    if options:
+        payload["options"] = options
 
     try:
         async with httpx.AsyncClient() as client:
