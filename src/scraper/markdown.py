@@ -1,13 +1,74 @@
-"""HTML to Markdown conversion and chunking."""
+"""HTML to Markdown conversion, pre-cleaning, and chunking."""
 
+import re
 import logging
 from markdownify import markdownify as md
 
 logger = logging.getLogger(__name__)
 
-# Default chunk size for LLM processing (in characters)
-DEFAULT_CHUNK_SIZE = 8000
+# Chunk size for LLM processing (in characters)
+# 16000 chars is safe for qwen3:14b context window after pre-cleaning
+DEFAULT_CHUNK_SIZE = 16000
 CHUNK_OVERLAP = 200
+
+# Regex patterns for noise in markdown (compiled for performance)
+NOISE_PATTERNS = [
+    re.compile(r"self\.__next_[a-zA-Z_]*", re.IGNORECASE),      # Next.js hydration
+    re.compile(r"document\.querySelectorAll\([^)]*\)"),           # JS DOM manipulation
+    re.compile(r"document\.getElementById\([^)]*\)"),
+    re.compile(r"window\.addEventListener\([^)]*\)"),
+    re.compile(r"data-page-mode\s*="),                            # Framework attributes
+    re.compile(r"suppressHydrationWarning"),
+]
+
+# Line-level noise patterns
+NOISE_LINE_PATTERNS = [
+    re.compile(r"^\s*On this page\s*$", re.IGNORECASE),
+    re.compile(r"^\s*Edit this page\s*$", re.IGNORECASE),
+    re.compile(r"^\s*Was this page helpful\??\s*$", re.IGNORECASE),
+    re.compile(r"^\s*Last updated\s*(on\s+)?[\d/\-]+\s*$", re.IGNORECASE),
+    re.compile(r"^\s*Skip to (main )?content\s*$", re.IGNORECASE),
+    re.compile(r"^\s*Table of contents?\s*$", re.IGNORECASE),
+    re.compile(r"^\s*Previous\s*$", re.IGNORECASE),
+    re.compile(r"^\s*Next\s*$", re.IGNORECASE),
+]
+
+
+def _pre_clean_markdown(text: str) -> str:
+    """Remove noise patterns from markdown before chunking."""
+    # Remove lines matching noise patterns
+    lines = text.split("\n")
+    cleaned_lines: list[str] = []
+    in_noise_block = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Skip CSS/JS blocks (lines between lone { and })
+        if stripped == "{" and not in_noise_block:
+            in_noise_block = True
+            continue
+        if in_noise_block:
+            if stripped == "}" or stripped == "};":
+                in_noise_block = False
+            continue
+
+        # Skip lines matching noise patterns
+        if any(p.search(line) for p in NOISE_PATTERNS):
+            continue
+
+        # Skip noise lines
+        if any(p.match(line) for p in NOISE_LINE_PATTERNS):
+            continue
+
+        cleaned_lines.append(line)
+
+    result = "\n".join(cleaned_lines)
+
+    # Collapse 3+ consecutive blank lines to 2
+    result = re.sub(r"\n{3,}", "\n\n", result)
+
+    return result.strip()
 
 
 def html_to_markdown(html: str) -> str:
@@ -16,13 +77,16 @@ def html_to_markdown(html: str) -> str:
 
 
 def chunk_markdown(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
-    """
-    Split markdown into chunks for LLM processing.
+    """Split markdown into chunks for LLM processing.
 
-    Tries to split at paragraph boundaries.
+    Pre-cleans markdown, tries heading boundaries first, then paragraphs.
+    Skips tiny fragments (< 50 chars).
     """
+    # Pre-clean before chunking
+    text = _pre_clean_markdown(text)
+
     if len(text) <= chunk_size:
-        return [text]
+        return [text] if len(text) >= 50 else ([text] if text.strip() else [])
 
     chunks: list[str] = []
     current_pos = 0
@@ -30,24 +94,27 @@ def chunk_markdown(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]
     while current_pos < len(text):
         end_pos = min(current_pos + chunk_size, len(text))
 
-        # Try to find a good break point (paragraph)
         if end_pos < len(text):
-            # Look for double newline (paragraph break)
-            break_pos = text.rfind("\n\n", current_pos, end_pos)
-            if break_pos > current_pos + chunk_size // 2:
-                end_pos = break_pos + 2
+            # Try heading boundary first
+            heading_pos = text.rfind("\n#", current_pos + chunk_size // 2, end_pos)
+            if heading_pos > current_pos:
+                end_pos = heading_pos + 1
             else:
-                # Fall back to single newline
-                break_pos = text.rfind("\n", current_pos, end_pos)
+                # Try paragraph boundary
+                break_pos = text.rfind("\n\n", current_pos, end_pos)
                 if break_pos > current_pos + chunk_size // 2:
-                    end_pos = break_pos + 1
+                    end_pos = break_pos + 2
+                else:
+                    # Fall back to single newline
+                    break_pos = text.rfind("\n", current_pos, end_pos)
+                    if break_pos > current_pos + chunk_size // 2:
+                        end_pos = break_pos + 1
 
         chunk = text[current_pos:end_pos].strip()
-        if chunk:
+        if chunk and len(chunk) >= 50:  # Skip tiny fragments
             chunks.append(chunk)
 
-        # Move position with overlap for context continuity
         current_pos = end_pos - CHUNK_OVERLAP if end_pos < len(text) else end_pos
 
-    logger.info(f"Split markdown into {len(chunks)} chunks")
-    return chunks
+    logger.info(f"Split markdown into {len(chunks)} chunks (pre-cleaned)")
+    return chunks if chunks else [text.strip()]

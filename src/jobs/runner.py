@@ -11,7 +11,7 @@ from src.crawler.discovery import discover_urls
 from src.crawler.filter import filter_urls
 from src.crawler.robots import RobotsParser
 from src.llm.filter import filter_urls_with_llm
-from src.llm.cleanup import cleanup_markdown
+from src.llm.cleanup import cleanup_markdown, needs_llm_cleanup
 from src.scraper.page import PageScraper
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 
@@ -180,6 +180,17 @@ async def run_job(job: Job) -> None:
                 for ci, chunk in enumerate(chunks):
                     if job.is_cancelled:
                         break
+
+                    # Skip LLM cleanup for already-clean chunks
+                    if not needs_llm_cleanup(chunk):
+                        cleaned_chunks.append(chunk)
+                        if len(chunks) > 1:
+                            await job.emit_event("log", {
+                                "phase": "cleanup",
+                                "message": f"[{i+1}/{len(urls)}] Chunk {ci+1}/{len(chunks)} ⚡ skip (clean)",
+                            })
+                        continue
+
                     try:
                         chunk_start = time.monotonic()
                         cleaned = await cleanup_markdown(chunk, request.pipeline_model)
