@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import Any
 
 from src.llm.client import generate
 
@@ -22,6 +23,14 @@ Return a JSON array of filtered URLs, ordered by suggested reading order (basics
 Only return the JSON array, no other text."""
 
 
+FILTER_OPTIONS: dict[str, Any] = {
+    "num_ctx": 4096,
+    "num_predict": 2048,
+    "temperature": 0.0,
+    "num_batch": 1024,
+}
+
+
 async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
     """
     Use LLM to filter and order documentation URLs.
@@ -34,7 +43,7 @@ async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
     prompt = FILTER_PROMPT_TEMPLATE.format(urls="\n".join(urls))
 
     try:
-        response = await generate(model, prompt, system=FILTER_SYSTEM_PROMPT)
+        response = await generate(model, prompt, system=FILTER_SYSTEM_PROMPT, options=FILTER_OPTIONS)
 
         # Try to parse JSON from response
         # Handle potential markdown code blocks
