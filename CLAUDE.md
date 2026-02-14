@@ -108,37 +108,31 @@ GET  /api/jobs/{id}/status      -> Estado actual del job
 
 ### Eventos SSE (GET /api/jobs/{id}/events)
 
-```
-event: discovery
-data: {"phase": "sitemap", "status": "trying"}
+Dos tipos principales de eventos:
 
-event: discovery
-data: {"phase": "sitemap", "status": "failed", "reason": "404"}
+**`phase_change`** — Actualiza el indicador de fase en la UI:
+- `phase`: nombre de la fase (init, discovery, filtering, scraping, cleanup, save, done, failed, cancelled)
+- `active_model`: (opcional) modelo Ollama activo en esta fase
+- `message`: descripcion breve
+- `progress`: (opcional) progreso contextual, ej "3/47"
+- `url`: (opcional) URL siendo procesada
 
-event: discovery
-data: {"phase": "nav_parse", "status": "success", "urls_found": 47}
+**`log`** — Entrada de log detallada:
+- `phase`: nombre de la fase (para el badge de color)
+- `active_model`: (opcional) modelo usado
+- `message`: texto del log
+- `level`: (opcional) "error", "warning", o vacio
 
-event: filtering
-data: {"total": 47, "after_basic": 42, "after_llm": 38}
+**`job_done`** — Resultado final del job:
+- `status`: "completed" o "failed"
+- `pages_ok`, `pages_partial`, `pages_failed`: contadores
+- `output_path`: path donde se guardaron los archivos
 
-event: page_start
-data: {"url": "https://docs.example.com/guide/install", "index": 1, "total": 38}
+**`job_cancelled`** — Job cancelado por el usuario:
+- `pages_completed`, `pages_total`: progreso al cancelar
+- `output_path`: path con archivos parciales
 
-event: page_done
-data: {"url": "https://docs.example.com/guide/install", "status": "ok", "chunks_failed": 0}
-
-event: page_done
-data: {"url": "https://docs.example.com/guide/advanced", "status": "partial", "chunks_failed": 2, "chunks_total": 5}
-
-event: page_error
-data: {"url": "https://docs.example.com/guide/broken", "error": "timeout"}
-
-event: job_done
-data: {"status": "completed", "pages_ok": 35, "pages_partial": 2, "pages_failed": 1, "output_path": "/data/example-docs"}
-
-event: job_cancelled
-data: {"pages_completed": 20, "pages_total": 38, "output_path": "/data/example-docs"}
-```
+Los eventos legacy (discovery, filtering, page_start, page_done, page_error) siguen soportados en la UI para backwards compat.
 
 ## UI
 
