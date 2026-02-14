@@ -6,7 +6,9 @@ from pydantic import BaseModel, HttpUrl
 class JobRequest(BaseModel):
     """Request to create a new crawl job."""
     url: HttpUrl
-    model: str
+    crawl_model: str          # Para discovery y filtrado de URLs
+    pipeline_model: str       # Para cleanup de markdown chunks
+    reasoning_model: str      # Para análisis de estructura y decisiones complejas
     output_path: str = "/data/output"
     delay_ms: int = 500
     max_concurrent: int = 3
