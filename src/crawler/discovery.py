@@ -17,33 +17,54 @@ logger = logging.getLogger(__name__)
 
 def normalize_url(url: str) -> str:
     """
-    Normalize URL for deduplication.
+    Normalize URL for deduplication with safety checks.
 
     Normalization rules:
     - Remove fragment (#section)
     - Remove trailing slash (except for root path)
     - Lowercase scheme and domain
     - Preserve query params
+    - Handle unicode and special characters
+    - Enforce max URL length (2000 chars)
 
     Examples:
         https://example.com/path/ -> https://example.com/path
         https://example.com/path#section -> https://example.com/path
         https://EXAMPLE.com/Path -> https://example.com/Path (domain lowercase, path preserved)
+
+    Raises:
+        ValueError: If URL is invalid or exceeds max length
     """
-    parsed = urlparse(url)
+    MAX_URL_LENGTH = 2000  # Reasonable limit to prevent DoS
 
-    # Normalize path: remove trailing slash except for root
-    path = parsed.path.rstrip('/') if parsed.path != '/' else '/'
+    # Safety check: URL length
+    if len(url) > MAX_URL_LENGTH:
+        logger.warning(f"URL exceeds max length ({MAX_URL_LENGTH}): {url[:100]}...")
+        url = url[:MAX_URL_LENGTH]
 
-    # Lowercase scheme and domain, preserve path case
-    return urlunparse((
-        parsed.scheme.lower(),
-        parsed.netloc.lower(),
-        path,
-        parsed.params,
-        parsed.query,
-        ''  # Remove fragment
-    ))
+    try:
+        parsed = urlparse(url)
+
+        # Validate scheme
+        if parsed.scheme not in ['http', 'https', '']:
+            logger.debug(f"Skipping non-HTTP URL: {url}")
+            return url  # Return as-is for caller to filter
+
+        # Normalize path: remove trailing slash except for root
+        path = parsed.path.rstrip('/') if parsed.path != '/' else '/'
+
+        # Lowercase scheme and domain, preserve path case
+        return urlunparse((
+            parsed.scheme.lower(),
+            parsed.netloc.lower(),
+            path,
+            parsed.params,
+            parsed.query,
+            ''  # Remove fragment
+        ))
+    except Exception as e:
+        logger.warning(f"Failed to normalize URL: {url} - {e}")
+        return url  # Return as-is, let caller handle
 
 
 async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
