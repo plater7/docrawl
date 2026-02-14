@@ -428,18 +428,14 @@ async def try_sitemap(base_url: str) -> list[str]:
 
 async def discover_urls(base_url: str, max_depth: int = 5) -> list[str]:
     """
-    Discover URLs using cascade strategy with smart fallbacks:
+    Discover URLs using cascade strategy — stops at first success:
     1. Try sitemap (fast, authoritative)
-    2. Try nav parsing (if sitemap < 100 URLs)
-    3. Try recursive crawl (if < 500 URLs so far)
+    2. Try nav parsing (only if sitemap failed)
+    3. Try recursive crawl (only if both above failed)
 
     Returns deduplicated, normalized URLs. Never returns empty list.
-
-    Progressive timeout: base 60s + 30s per depth level
-    Early exit: skip crawl if sitemap finds 500+ URLs
     """
     all_urls = set()
-    MAX_URLS_BEFORE_SKIP_CRAWL = 500
 
     msg = f"=== Starting URL discovery for {base_url} (max_depth={max_depth}) ==="
     logger.info(msg)
@@ -466,19 +462,16 @@ async def discover_urls(base_url: str, max_depth: int = 5) -> list[str]:
         logger.error(msg)
         print(f"[DISCOVERY] {msg}", flush=True)
 
-    # Early exit if sitemap found 500+ URLs
-    if len(all_urls) >= MAX_URLS_BEFORE_SKIP_CRAWL:
-        msg = f"Strategy 2/3 & 3/3: Skipping nav/crawl (sitemap found {len(all_urls)} URLs, sufficient)"
+    # Cascade: stop at first successful strategy
+    if all_urls:
+        msg = f"Strategy 2/3: Skipping nav parsing (sitemap found {len(all_urls)} URLs)"
         logger.info(msg)
         print(f"[DISCOVERY] {msg}", flush=True)
-        final_urls = sorted(list(all_urls))
-        msg = f"=== Discovery complete: {len(final_urls)} total unique URLs ==="
+        msg = f"Strategy 3/3: Skipping recursive crawl (sitemap succeeded)"
         logger.info(msg)
         print(f"[DISCOVERY] {msg}", flush=True)
-        return final_urls
-
-    # Strategy 2: Nav parsing (skip if sitemap found 100+ URLs)
-    if len(all_urls) < 100:
+    else:
+        # Strategy 2: Nav parsing (only if sitemap failed)
         msg = "Strategy 2/3: Trying nav parsing..."
         logger.info(msg)
         print(f"[DISCOVERY] {msg}", flush=True)
@@ -498,36 +491,32 @@ async def discover_urls(base_url: str, max_depth: int = 5) -> list[str]:
             msg = f"✗ Nav parsing failed with exception: {e}"
             logger.error(msg)
             print(f"[DISCOVERY] {msg}", flush=True)
-    else:
-        msg = f"Strategy 2/3: Skipping nav parsing (sitemap found {len(all_urls)} URLs)"
-        logger.info(msg)
-        print(f"[DISCOVERY] {msg}", flush=True)
 
-    # Strategy 3: Recursive crawl (skip if we already have 500+ URLs)
-    if len(all_urls) >= MAX_URLS_BEFORE_SKIP_CRAWL:
-        msg = f"Strategy 3/3: Skipping recursive crawl ({len(all_urls)} URLs already discovered)"
-        logger.info(msg)
-        print(f"[DISCOVERY] {msg}", flush=True)
-    else:
-        msg = "Strategy 3/3: Falling back to recursive crawl (comprehensive)"
-        logger.info(msg)
-        print(f"[DISCOVERY] {msg}", flush=True)
-
-        try:
-            crawl_urls = await recursive_crawl(base_url, max_depth)
-            if crawl_urls:
-                all_urls.update(crawl_urls)
-                msg = f"✓ Recursive crawl success: {len(crawl_urls)} URLs found"
-                logger.info(msg)
-                print(f"[DISCOVERY] {msg}", flush=True)
-            else:
-                msg = "✗ Recursive crawl returned no URLs (unexpected)"
-                logger.warning(msg)
-                print(f"[DISCOVERY] {msg}", flush=True)
-        except Exception as e:
-            msg = f"✗ Recursive crawl failed with exception: {e}"
-            logger.error(msg)
+        # Strategy 3: Recursive crawl (only if sitemap and nav both failed)
+        if all_urls:
+            msg = f"Strategy 3/3: Skipping recursive crawl (nav parsing found {len(all_urls)} URLs)"
+            logger.info(msg)
             print(f"[DISCOVERY] {msg}", flush=True)
+        else:
+            msg = "Strategy 3/3: Falling back to recursive crawl (comprehensive)"
+            logger.info(msg)
+            print(f"[DISCOVERY] {msg}", flush=True)
+
+            try:
+                crawl_urls = await recursive_crawl(base_url, max_depth)
+                if crawl_urls:
+                    all_urls.update(crawl_urls)
+                    msg = f"✓ Recursive crawl success: {len(crawl_urls)} URLs found"
+                    logger.info(msg)
+                    print(f"[DISCOVERY] {msg}", flush=True)
+                else:
+                    msg = "✗ Recursive crawl returned no URLs (unexpected)"
+                    logger.warning(msg)
+                    print(f"[DISCOVERY] {msg}", flush=True)
+            except Exception as e:
+                msg = f"✗ Recursive crawl failed with exception: {e}"
+                logger.error(msg)
+                print(f"[DISCOVERY] {msg}", flush=True)
 
     # Deduplicate and sort
     final_urls = sorted(list(all_urls))
