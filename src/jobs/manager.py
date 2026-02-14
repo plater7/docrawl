@@ -5,7 +5,7 @@ import uuid
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from src.api.models import JobRequest
 
@@ -23,6 +23,7 @@ class Job:
     current_url: str | None = None
     _cancelled: bool = False
     _events: asyncio.Queue = field(default_factory=asyncio.Queue)
+    _task: Any = field(default=None, repr=False)  # asyncio.Task
 
     def cancel(self) -> None:
         """Mark job as cancelled."""
@@ -38,16 +39,32 @@ class Job:
         await self._events.put({"event": event_type, "data": json.dumps(data)})
 
     async def event_stream(self) -> AsyncGenerator[dict, None]:
-        """Yield events as they occur."""
-        while True:
-            try:
-                event = await asyncio.wait_for(self._events.get(), timeout=30)
-                yield event
-                if event["event"] in ("job_done", "job_cancelled", "job_error"):
-                    break
-            except asyncio.TimeoutError:
-                # Send keepalive
-                yield {"event": "keepalive", "data": "{}"}
+        """Yield events for SSE consumption. Handles client disconnect gracefully."""
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(self._events.get(), timeout=20)
+                    yield event
+                    if event["event"] in ("job_done", "job_cancelled", "job_error"):
+                        break
+                except asyncio.TimeoutError:
+                    # Check if runner task died without terminal event
+                    if self._task and self._task.done():
+                        exc = self._task.exception() if not self._task.cancelled() else None
+                        error_msg = str(exc) if exc else "Runner task ended unexpectedly"
+                        logger.error(f"Job {self.id}: runner died: {error_msg}")
+                        yield {
+                            "event": "job_done",
+                            "data": json.dumps({"status": "failed", "error": error_msg}),
+                        }
+                        break
+                    # Send keepalive comment
+                    yield {"event": "keepalive", "data": "{}"}
+        except GeneratorExit:
+            # Client disconnected — sse_starlette closed the generator
+            logger.info(f"Job {self.id}: SSE client disconnected")
+        except Exception as e:
+            logger.error(f"Job {self.id}: event_stream error: {e}")
 
 
 class JobManager:
@@ -62,9 +79,9 @@ class JobManager:
         job = Job(id=job_id, request=request)
         self._jobs[job_id] = job
 
-        # Start job in background
+        # Start job in background, keep task reference
         from src.jobs.runner import run_job
-        asyncio.create_task(run_job(job))
+        job._task = asyncio.create_task(run_job(job))
 
         logger.info(f"Created job {job_id} for {request.url}")
         return job

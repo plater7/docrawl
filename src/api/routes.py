@@ -39,7 +39,10 @@ async def job_events(job_id: str) -> EventSourceResponse:
     job = job_manager.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return EventSourceResponse(job.event_stream())
+    return EventSourceResponse(
+        job.event_stream(),
+        ping=15,
+    )
 
 
 @router.post("/jobs/{job_id}/cancel")
