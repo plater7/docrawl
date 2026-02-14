@@ -142,6 +142,93 @@
             .model-row { flex-direction: column; }
             .model-hint { padding-top: 0; max-width: 100%; }
         }
+
+        /* Phase banner */
+        .phase-banner {
+            margin-top: 2rem;
+            margin-bottom: 0;
+            padding: 0.6rem 1rem;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-bottom: none;
+            border-radius: 0.5rem 0.5rem 0 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .phase-banner + .log {
+            margin-top: 0;
+            border-radius: 0 0 0.5rem 0.5rem;
+            border-top: 1px solid #334155;
+        }
+        .phase-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3b82f6;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .phase-name {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .phase-separator { color: #475569; }
+        .phase-detail { color: #94a3b8; }
+
+        /* Phase colors */
+        .phase-init .phase-name, .phase-init .phase-dot { color: #94a3b8; background: #94a3b8; }
+        .phase-init .phase-name { background: none; }
+        .phase-discovery .phase-name { color: #f59e0b; }
+        .phase-discovery .phase-dot { background: #f59e0b; }
+        .phase-filtering .phase-name { color: #8b5cf6; }
+        .phase-filtering .phase-dot { background: #8b5cf6; }
+        .phase-scraping .phase-name { color: #3b82f6; }
+        .phase-scraping .phase-dot { background: #3b82f6; }
+        .phase-cleanup .phase-name { color: #06b6d4; }
+        .phase-cleanup .phase-dot { background: #06b6d4; }
+        .phase-save .phase-name { color: #10b981; }
+        .phase-save .phase-dot { background: #10b981; }
+        .phase-done .phase-name { color: #4ade80; }
+        .phase-done .phase-dot { background: #4ade80; animation: none; }
+        .phase-failed .phase-name { color: #ef4444; }
+        .phase-failed .phase-dot { background: #ef4444; animation: none; }
+        .phase-cancelled .phase-name { color: #f97316; }
+        .phase-cancelled .phase-dot { background: #f97316; animation: none; }
+
+        /* Log badges */
+        .log-badge {
+            display: inline-block;
+            padding: 0.05rem 0.4rem;
+            border-radius: 0.2rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-right: 0.4rem;
+            min-width: 65px;
+            text-align: center;
+        }
+        .badge-init { background: #1e293b; color: #94a3b8; border: 1px solid #475569; }
+        .badge-discovery { background: #451a03; color: #fbbf24; }
+        .badge-filtering { background: #2e1065; color: #a78bfa; }
+        .badge-scraping { background: #172554; color: #60a5fa; }
+        .badge-cleanup { background: #083344; color: #22d3ee; }
+        .badge-save { background: #022c22; color: #34d399; }
+        .badge-done { background: #052e16; color: #4ade80; }
+        .badge-failed { background: #450a0a; color: #f87171; }
+
+        .log-model {
+            color: #64748b;
+            font-size: 0.75rem;
+        }
+        .log-entry.warning { color: #fbbf24; }
     </style>
 </head>
 <body>
@@ -230,6 +317,12 @@
             </div>
         </form>
 
+        <div class="phase-banner" id="phaseBanner" style="display:none;">
+            <span class="phase-dot" id="phaseDot"></span>
+            <span class="phase-name" id="phaseName">INIT</span>
+            <span class="phase-separator">·</span>
+            <span class="phase-detail" id="phaseDetail"></span>
+        </div>
         <div class="log" id="log"></div>
 
         <div class="summary" id="summary">
@@ -246,16 +339,20 @@
         const form = document.getElementById('crawlForm');
         const startBtn = document.getElementById('startBtn');
         const cancelBtn = document.getElementById('cancelBtn');
+        const logDiv = document.getElementById('log');
+        const summaryDiv = document.getElementById('summary');
+        const phaseBanner = document.getElementById('phaseBanner');
+        const phaseDot = document.getElementById('phaseDot');
+        const phaseName = document.getElementById('phaseName');
+        const phaseDetail = document.getElementById('phaseDetail');
+
         const crawlModelSelect = document.getElementById('crawlModel');
         const pipelineModelSelect = document.getElementById('pipelineModel');
         const reasoningModelSelect = document.getElementById('reasoningModel');
-        const logDiv = document.getElementById('log');
-        const summaryDiv = document.getElementById('summary');
 
         let currentJobId = null;
         let eventSource = null;
 
-        // Load models on page load
         async function loadModels() {
             const selects = [crawlModelSelect, pipelineModelSelect, reasoningModelSelect];
             try {
@@ -267,11 +364,10 @@
                 selects.forEach(s => s.innerHTML = optionsHtml);
             } catch (e) {
                 selects.forEach(s => s.innerHTML = '<option value="">Error loading models</option>');
-                log('Failed to load Ollama models', 'error');
+                logMessage('Failed to load Ollama models', 'init', 'error');
             }
         }
 
-        // Auto-generate output path from URL
         function updateOutputPath() {
             const urlInput = document.getElementById('url').value.trim();
             if (!urlInput) {
@@ -280,15 +376,12 @@
             }
             try {
                 const parsed = new URL(urlInput);
-                let domain = parsed.hostname;
-                domain = domain.replace(/^(www|docs|doc|documentation|wiki)\./i, '');
-
+                let domain = parsed.hostname.replace(/^(www|docs|doc|documentation|wiki)\./i, '');
                 let section = parsed.pathname
                     .replace(/\/$/, '')
                     .replace(/^\/(latest|stable|v\d[^/]*)/i, '')
                     .replace(/^\/docs?\/?/i, '')
                     .replace(/^\//, '');
-
                 let outputPath = `/data/output/${domain}`;
                 if (section) {
                     const parts = section.split('/').filter(Boolean);
@@ -299,19 +392,31 @@
                     }
                     outputPath += `/${section}`;
                 }
-
                 document.getElementById('outputPath').value = outputPath;
-            } catch (e) {
-                // URL not valid yet, do nothing
-            }
+            } catch (e) { /* URL not valid yet */ }
         }
 
-        document.getElementById('url').addEventListener('input', updateOutputPath);
+        function updatePhaseBanner(phase, detail) {
+            phaseBanner.style.display = 'flex';
+            phaseBanner.className = `phase-banner phase-${phase}`;
+            phaseName.textContent = phase;
+            phaseDetail.textContent = detail || '';
+        }
 
-        function log(message, type = '') {
+        function hidePhaseBanner() {
+            phaseBanner.style.display = 'none';
+        }
+
+        function logMessage(message, phase, level) {
             const entry = document.createElement('div');
-            entry.className = `log-entry ${type}`;
-            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            const levelClass = level === 'error' ? 'error' : level === 'warning' ? 'warning' : level === 'success' ? 'success' : '';
+            entry.className = `log-entry ${levelClass}`;
+
+            const time = new Date().toLocaleTimeString();
+            const badgeClass = phase ? `badge-${phase}` : '';
+            const badge = phase ? `<span class="log-badge ${badgeClass}">${phase}</span>` : '';
+
+            entry.innerHTML = `<span style="color:#475569">[${time}]</span> ${badge}${message}`;
             logDiv.appendChild(entry);
             logDiv.scrollTop = logDiv.scrollHeight;
         }
@@ -319,6 +424,7 @@
         function setRunning(running) {
             startBtn.disabled = running;
             cancelBtn.style.display = running ? 'block' : 'none';
+            if (!running) hidePhaseBanner();
         }
 
         async function startCrawl(e) {
@@ -346,63 +452,89 @@
                 });
                 const job = await res.json();
                 currentJobId = job.id;
-                log(`Job started: ${job.id}`, 'info');
+                logMessage(`Job started: ${job.id}`, 'init', 'info');
                 setRunning(true);
                 subscribeToEvents(job.id);
             } catch (e) {
-                log(`Failed to start job: ${e.message}`, 'error');
+                logMessage(`Failed to start job: ${e.message}`, 'init', 'error');
             }
         }
 
         function subscribeToEvents(jobId) {
             eventSource = new EventSource(`/api/jobs/${jobId}/events`);
 
+            // Phase change — updates the banner
+            eventSource.addEventListener('phase_change', (e) => {
+                const data = JSON.parse(e.data);
+                let detail = data.message || '';
+                if (data.active_model) detail += ` · ${data.active_model}`;
+                if (data.progress) detail += ` · ${data.progress}`;
+                updatePhaseBanner(data.phase, detail);
+            });
+
+            // General log entries — go to the log panel with badges
+            eventSource.addEventListener('log', (e) => {
+                const data = JSON.parse(e.data);
+                let msg = data.message;
+                if (data.active_model) {
+                    msg += ` <span class="log-model">[${data.active_model}]</span>`;
+                }
+                logMessage(msg, data.phase, data.level || '');
+            });
+
+            // Backwards compat with legacy event types
             eventSource.addEventListener('discovery', (e) => {
                 const data = JSON.parse(e.data);
-                log(`Discovery: ${data.phase} - ${data.status || ''} ${data.urls_found ? `(${data.urls_found} URLs)` : ''}`);
+                logMessage(`${data.phase} - ${data.status || ''} ${data.urls_found ? `(${data.urls_found} URLs)` : ''}`, 'discovery');
             });
 
             eventSource.addEventListener('filtering', (e) => {
                 const data = JSON.parse(e.data);
-                log(`Filtering: ${data.phase} ${data.after_basic ? `(${data.after_basic} URLs)` : ''} ${data.after_llm ? `-> ${data.after_llm} URLs` : ''}`);
+                logMessage(`${data.phase} ${data.after_basic ? `(${data.after_basic} URLs)` : ''} ${data.after_llm ? `→ ${data.after_llm} URLs` : ''}`, 'filtering');
             });
 
             eventSource.addEventListener('page_start', (e) => {
                 const data = JSON.parse(e.data);
-                log(`[${data.index}/${data.total}] Processing: ${data.url}`, 'info');
+                logMessage(`[${data.index}/${data.total}] Loading: ${data.url}`, 'scraping', 'info');
             });
 
             eventSource.addEventListener('page_done', (e) => {
                 const data = JSON.parse(e.data);
                 const msg = data.chunks_failed > 0
                     ? `Done (${data.chunks_failed}/${data.chunks_total} chunks failed)`
-                    : 'Done';
-                log(`  -> ${msg}`, data.status === 'ok' ? 'success' : '');
+                    : '✓ Done';
+                logMessage(`  → ${msg}`, 'save', data.status === 'ok' ? 'success' : 'warning');
             });
 
             eventSource.addEventListener('page_error', (e) => {
                 const data = JSON.parse(e.data);
-                log(`  -> Error: ${data.error}`, 'error');
+                logMessage(`  → Error: ${data.error}`, 'scraping', 'error');
             });
 
             eventSource.addEventListener('job_done', (e) => {
                 const data = JSON.parse(e.data);
-                log(`Job completed! Output: ${data.output_path}`, 'success');
+                if (data.status === 'completed') {
+                    updatePhaseBanner('done', `Output: ${data.output_path}`);
+                    logMessage(`Job completed! ${data.pages_ok} OK, ${data.pages_partial || 0} partial, ${data.pages_failed || 0} failed`, 'done', 'success');
+                } else {
+                    updatePhaseBanner('failed', data.error || 'Unknown error');
+                    logMessage(`Job failed: ${data.error}`, 'failed', 'error');
+                }
                 showSummary(data);
-                cleanup();
+                cleanupJob();
             });
 
             eventSource.addEventListener('job_cancelled', (e) => {
                 const data = JSON.parse(e.data);
-                log(`Job cancelled. Processed ${data.pages_completed}/${data.pages_total} pages.`, 'info');
-                cleanup();
+                updatePhaseBanner('cancelled', `${data.pages_completed}/${data.pages_total} pages processed`);
+                logMessage(`Job cancelled. Processed ${data.pages_completed}/${data.pages_total} pages.`, 'cancelled');
+                cleanupJob();
             });
 
             eventSource.onerror = (e) => {
-                // Only cleanup if connection is truly closed (not just a reconnect attempt)
                 if (e.target.readyState === EventSource.CLOSED) {
-                    log('Connection lost', 'error');
-                    cleanup();
+                    logMessage('Connection lost', 'failed', 'error');
+                    cleanupJob();
                 }
             };
         }
@@ -411,9 +543,9 @@
             if (!currentJobId) return;
             try {
                 await fetch(`/api/jobs/${currentJobId}/cancel`, { method: 'POST' });
-                log('Cancelling...', 'info');
+                logMessage('Cancelling...', 'init', 'info');
             } catch (e) {
-                log(`Failed to cancel: ${e.message}`, 'error');
+                logMessage(`Failed to cancel: ${e.message}`, 'init', 'error');
             }
         }
 
@@ -424,15 +556,17 @@
             summaryDiv.style.display = 'block';
         }
 
-        function cleanup() {
+        function cleanupJob() {
             if (eventSource) {
                 eventSource.close();
                 eventSource = null;
             }
             currentJobId = null;
             setRunning(false);
+            // Keep banner visible showing terminal state (done/failed/cancelled)
         }
 
+        document.getElementById('url').addEventListener('input', updateOutputPath);
         form.addEventListener('submit', startCrawl);
         cancelBtn.addEventListener('click', cancelJob);
         loadModels();
