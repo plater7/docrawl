@@ -23,6 +23,7 @@ class Job:
     current_url: str | None = None
     _cancelled: bool = False
     _events: asyncio.Queue = field(default_factory=asyncio.Queue)
+    _task: asyncio.Task | None = field(default=None)
 
     def cancel(self) -> None:
         """Mark job as cancelled."""
@@ -38,7 +39,7 @@ class Job:
         await self._events.put({"event": event_type, "data": json.dumps(data)})
 
     async def event_stream(self) -> AsyncGenerator[dict, None]:
-        """Yield events as they occur."""
+        """Yield events as they occur. Detects dead runner tasks."""
         while True:
             try:
                 event = await asyncio.wait_for(self._events.get(), timeout=30)
@@ -46,7 +47,17 @@ class Job:
                 if event["event"] in ("job_done", "job_cancelled", "job_error"):
                     break
             except asyncio.TimeoutError:
-                # Send keepalive
+                # Check if runner task died without emitting terminal event
+                if self._task and self._task.done():
+                    exc = self._task.exception() if not self._task.cancelled() else None
+                    error_msg = str(exc) if exc else "Runner task ended unexpectedly"
+                    logger.error(f"Job {self.id}: runner died without terminal event: {error_msg}")
+                    yield {
+                        "event": "job_done",
+                        "data": json.dumps({"status": "failed", "error": error_msg}),
+                    }
+                    break
+                # Normal keepalive
                 yield {"event": "keepalive", "data": "{}"}
 
 
@@ -64,7 +75,7 @@ class JobManager:
 
         # Start job in background
         from src.jobs.runner import run_job
-        asyncio.create_task(run_job(job))
+        job._task = asyncio.create_task(run_job(job))
 
         logger.info(f"Created job {job_id} for {request.url}")
         return job

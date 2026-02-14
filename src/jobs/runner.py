@@ -266,13 +266,29 @@ async def run_job(job: Job) -> None:
     except Exception as e:
         logger.error(f"Job failed: {e}")
         job.status = "failed"
-        await job.emit_event("phase_change", {
-            "phase": "failed",
-            "message": str(e),
-        })
-        await job.emit_event("job_done", {"status": "failed", "error": str(e)})
+        try:
+            await job.emit_event("phase_change", {
+                "phase": "failed",
+                "message": str(e),
+            })
+            await job.emit_event("job_done", {"status": "failed", "error": str(e)})
+        except Exception as emit_err:
+            logger.error(f"Failed to emit error event: {emit_err}")
     finally:
-        await scraper.stop()
+        try:
+            await scraper.stop()
+        except Exception as stop_err:
+            logger.error(f"Failed to stop browser: {stop_err}")
+        # Safety net: ensure terminal event was emitted
+        if job.status == "running":
+            job.status = "failed"
+            try:
+                await job.emit_event("job_done", {
+                    "status": "failed",
+                    "error": "Job ended without proper completion",
+                })
+            except Exception:
+                pass
 
 
 def _url_to_filepath(url: str, base_url: str, output_path: Path) -> Path:

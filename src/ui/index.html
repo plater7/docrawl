@@ -531,11 +531,63 @@
                 cleanupJob();
             });
 
+            eventSource.addEventListener('keepalive', (e) => {
+                // Silently consume keepalive events — these keep the connection alive
+            });
+
             eventSource.onerror = (e) => {
-                if (e.target.readyState === EventSource.CLOSED) {
-                    logMessage('Connection lost', 'failed', 'error');
-                    cleanupJob();
+                if (!currentJobId) return;
+
+                // Close the dead EventSource
+                if (eventSource) {
+                    eventSource.close();
+                    eventSource = null;
                 }
+
+                // Check if job is still running before giving up
+                fetch(`/api/jobs/${currentJobId}/status`)
+                    .then(r => r.json())
+                    .then(status => {
+                        if (status.status === 'running' || status.status === 'pending') {
+                            logMessage('Connection interrupted, reconnecting...', 'init', 'warning');
+                            setTimeout(() => {
+                                if (currentJobId) {
+                                    subscribeToEvents(currentJobId);
+                                }
+                            }, 2000);
+                        } else if (status.status === 'completed') {
+                            logMessage('Job completed (reconnected)', 'done');
+                            updatePhaseBanner('done', `Completed ${status.pages_completed} pages`);
+                            cleanupJob();
+                        } else if (status.status === 'cancelled') {
+                            logMessage(`Job cancelled. Processed ${status.pages_completed}/${status.pages_total} pages.`, 'cancelled');
+                            updatePhaseBanner('cancelled', `${status.pages_completed}/${status.pages_total} pages`);
+                            cleanupJob();
+                        } else {
+                            logMessage('Connection lost — job may have failed', 'failed', 'error');
+                            cleanupJob();
+                        }
+                    })
+                    .catch(() => {
+                        logMessage('Backend unreachable, retrying...', 'init', 'warning');
+                        setTimeout(() => {
+                            if (currentJobId) {
+                                fetch(`/api/jobs/${currentJobId}/status`)
+                                    .then(r => r.json())
+                                    .then(status => {
+                                        if (status.status === 'running') {
+                                            subscribeToEvents(currentJobId);
+                                        } else {
+                                            cleanupJob();
+                                        }
+                                    })
+                                    .catch(() => {
+                                        logMessage('Connection lost', 'failed', 'error');
+                                        cleanupJob();
+                                    });
+                            }
+                        }, 5000);
+                    });
             };
         }
 
