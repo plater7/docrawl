@@ -172,6 +172,17 @@ La aplicacion estara disponible en la URL del Worker o en tu custom domain.
 
 ## Changelog
 
+### v0.5.5-alpha — SSE stability + discovery fix + docker logs
+- **ASGI crash fix**: `GeneratorExit` handling en `event_stream()` previene crash de Uvicorn cuando el cliente SSE se desconecta durante operaciones largas de LLM
+- **SSE ping**: `EventSourceResponse(ping=15)` mantiene la conexion TCP viva a traves de Cloudflare Tunnel y proxies
+- **Frontend reconnection**: el frontend verifica `/status` antes de rendirse, reconecta automaticamente si el job sigue corriendo
+- **Dead runner detection**: `event_stream()` detecta si el runner task murio sin emitir evento terminal
+- **Error boundaries**: `scraper.stop()` y emision de eventos wrapeados en try/except, safety net si el job queda en estado "running"
+- **Graceful shutdown**: `--timeout-graceful-shutdown 5` en Dockerfile previene que SSE streams colgados bloqueen el shutdown
+- **Discovery cascade fix**: la cascada ahora se detiene en la primera estrategia exitosa (sitemap → nav → crawl). Antes el crawl recursivo corria innecesariamente con 126+ URLs de sitemap
+- **Docker logs**: todos los eventos SSE ahora se loguean via `logger.info()` con timestamps, no solo discovery y errores
+- **Logging format**: `YYYY-MM-DD HH:MM:SS [module] LEVEL: message`
+
 ### v0.5.0 — Ollama inference parameters
 - `generate()` acepta `options` dict para Ollama API (`num_ctx`, `num_predict`, `temperature`, `num_batch`)
 - Cleanup: `num_ctx: 8192`, `num_predict` dinamico capped a 4096, `temperature: 0.1`
