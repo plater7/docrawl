@@ -266,7 +266,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">Markdown cleanup. Modelos balanceados: 8b-14b.<br>Ej: qwen3:14b, llama3.1:8b, mistral:7b</span>
+                        <span class="hint-text">Markdown cleanup. 6b-14b (incluye 8b y quant).<br>Ej: qwen3:14b, llama3.1:8b, mistral</span>
                     </div>
                 </div>
 
@@ -359,18 +359,24 @@
             const size = modelSize || 0;
             
             // Reasoning models (large, high capability) - best for complex analysis
-            const reasoningPatterns = ['r1', 'reasoning', 'deepseek', 'qwen3:32', 'qwen3:30', 'qwq', 'o1', 'o3', 'o4', 'claude-haiku'];
+            const reasoningPatterns = ['r1', 'reasoning', 'deepseek', 'qwen3:32', 'qwen3:30', 'qwq', 'o1', 'o3', 'o4', 'claude-haiku', 'moonshot', 'kimi'];
             if (reasoningPatterns.some(p => name.includes(p)) || size > 20000000000) {
                 return 'reasoning';
             }
             
             // Crawl models (small, fast) - prioritize speed for URL filtering
-            const crawlPatterns = ['3b', '4b', '5b', '1b', '2b', 'llama3.2', 'llama3:8', 'mistral:7', 'phi', 'qwen3:4', 'qwen3:8', 'gemma:2', 'tiny', 'mini'];
-            if (crawlPatterns.some(p => name.includes(p)) || size < 6000000000) {
+            const crawlPatterns = ['1b', '2b', '3b', '4b', '5b', 'phi', 'tiny', 'mini', 'gemma:2', 'mistral:7'];
+            if (crawlPatterns.some(p => name.includes(p)) && !name.includes('8b') || size < 4000000000) {
                 return 'crawl';
             }
             
-            // Pipeline models (medium) - balance of speed and quality
+            // Pipeline models (medium, 6b-14b) - balance of speed and quality, including 8b and quantized
+            const pipelinePatterns = ['6b', '7b', '8b', 'qwen', 'llama3.1', 'llama3:7', 'mistral', 'mixtral', 'gemma'];
+            if (pipelinePatterns.some(p => name.includes(p)) || (size >= 4000000000 && size <= 16000000000)) {
+                return 'pipeline';
+            }
+            
+            // Default to pipeline for medium models
             return 'pipeline';
         }
 
@@ -379,10 +385,13 @@
                 const category = getModelCategory(m.name, m.size);
                 switch (selectorType) {
                     case 'crawl':
-                        return category === 'crawl' || category === 'pipeline';
+                        // Crawl: small fast models (1b-5b, excluding 8b)
+                        return category === 'crawl';
                     case 'pipeline':
+                        // Pipeline: medium models (6b-14b, including 8b and quantized)
                         return category === 'pipeline' || category === 'reasoning';
                     case 'reasoning':
+                        // Reasoning: large models
                         return category === 'reasoning' || category === 'pipeline';
                     default:
                         return true;
