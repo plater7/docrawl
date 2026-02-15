@@ -26,6 +26,7 @@ class JobStatus(BaseModel):
 
 
 class OllamaModel(BaseModel):
-    """Ollama model info."""
+    """LLM model info."""
     name: str
     size: int | None = None
+    provider: str = "ollama"
