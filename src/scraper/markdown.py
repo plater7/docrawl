@@ -76,7 +76,7 @@ def html_to_markdown(html: str) -> str:
     return md(html, heading_style="ATX", strip=["script", "style", "nav", "footer"])
 
 
-def chunk_markdown(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
+def chunk_markdown(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE, native_token_count: int | None = None) -> list[str]:
     """Split markdown into chunks for LLM processing.
 
     Pre-cleans markdown, tries heading boundaries first, then paragraphs.
@@ -84,6 +84,11 @@ def chunk_markdown(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]
     """
     # Pre-clean before chunking
     text = _pre_clean_markdown(text)
+
+    # If server provided a token count and it fits in one chunk, skip splitting.
+    # Rough heuristic: 1 token ≈ 4 chars, so multiply token count by 4 to compare.
+    if native_token_count is not None and native_token_count * 4 <= chunk_size:
+        return [text] if len(text) >= 50 else ([text] if text.strip() else [])
 
     if len(text) <= chunk_size:
         return [text] if len(text) >= 50 else ([text] if text.strip() else [])

@@ -14,6 +14,9 @@ class JobRequest(BaseModel):
     max_concurrent: int = 3
     max_depth: int = 5
     respect_robots_txt: bool = True
+    use_native_markdown: bool = True
+    use_markdown_proxy: bool = False
+    markdown_proxy_url: str = "https://markdown.new"
 
 
 class JobStatus(BaseModel):
