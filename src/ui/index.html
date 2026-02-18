@@ -320,6 +320,22 @@
                 </div>
             </div>
 
+            <div class="models-section" style="margin-top: 1rem;">
+                <label class="section-label">Markdown Optimization</label>
+                <div class="checkbox-group" style="margin-bottom: 0.75rem;">
+                    <input type="checkbox" id="useNativeMarkdown" checked>
+                    <label for="useNativeMarkdown" style="margin: 0;">Try native markdown (Accept: text/markdown)</label>
+                </div>
+                <div class="checkbox-group" style="margin-bottom: 0.75rem;">
+                    <input type="checkbox" id="useMarkdownProxy">
+                    <label for="useMarkdownProxy" style="margin: 0;">Use markdown proxy as fallback</label>
+                </div>
+                <div class="form-group" id="proxyUrlGroup" style="display: none;">
+                    <label for="markdownProxyUrl">Proxy URL</label>
+                    <input type="text" id="markdownProxyUrl" value="https://markdown.new" placeholder="https://markdown.new">
+                </div>
+            </div>
+
             <div class="buttons">
                 <button type="submit" class="btn-primary" id="startBtn">Start Crawl</button>
                 <button type="button" class="btn-danger" id="cancelBtn">Cancel</button>
@@ -341,6 +357,7 @@
                 <span class="stat"><span class="stat-value" id="pagesPartial">0</span> Partial</span>
                 <span class="stat"><span class="stat-value" id="pagesFailed">0</span> Failed</span>
             </div>
+            <div id="fetchStats" style="margin-top: 0.75rem; font-family: monospace; font-size: 0.85rem; color: #94a3b8; display: none;"></div>
         </div>
     </div>
 
@@ -359,6 +376,12 @@
         const crawlModelSelect = document.getElementById('crawlModel');
         const pipelineModelSelect = document.getElementById('pipelineModel');
         const reasoningModelSelect = document.getElementById('reasoningModel');
+
+        const useMarkdownProxyCheckbox = document.getElementById('useMarkdownProxy');
+        const proxyUrlGroup = document.getElementById('proxyUrlGroup');
+        useMarkdownProxyCheckbox.addEventListener('change', () => {
+            proxyUrlGroup.style.display = useMarkdownProxyCheckbox.checked ? 'block' : 'none';
+        });
 
         let currentJobId = null;
         let eventSource = null;
@@ -513,6 +536,9 @@
                 max_concurrent: parseInt(document.getElementById('maxConcurrent').value),
                 max_depth: parseInt(document.getElementById('maxDepth').value),
                 respect_robots_txt: document.getElementById('respectRobots').checked,
+                use_native_markdown: document.getElementById('useNativeMarkdown').checked,
+                use_markdown_proxy: useMarkdownProxyCheckbox.checked,
+                markdown_proxy_url: document.getElementById('markdownProxyUrl').value,
             };
 
             try {
@@ -677,6 +703,19 @@
             document.getElementById('pagesPartial').textContent = data.pages_partial || 0;
             document.getElementById('pagesFailed').textContent = data.pages_failed || 0;
             summaryDiv.style.display = 'block';
+
+            const nativeMd = data.pages_native_md || 0;
+            const proxyMd = data.pages_proxy_md || 0;
+            const playwright = data.pages_playwright || 0;
+            if (nativeMd > 0 || proxyMd > 0) {
+                const statsDiv = document.getElementById('fetchStats');
+                const lines = [];
+                if (nativeMd > 0) lines.push(`⚡ ${nativeMd} via native markdown`);
+                if (proxyMd > 0) lines.push(`🔗 ${proxyMd} via markdown proxy`);
+                if (playwright > 0) lines.push(`🔧 ${playwright} via Playwright`);
+                statsDiv.innerHTML = lines.join('<br>');
+                statsDiv.style.display = 'block';
+            }
         }
 
         function cleanupJob() {

@@ -12,7 +12,7 @@ from src.crawler.filter import filter_urls
 from src.crawler.robots import RobotsParser
 from src.llm.filter import filter_urls_with_llm
 from src.llm.cleanup import cleanup_markdown, needs_llm_cleanup
-from src.scraper.page import PageScraper
+from src.scraper.page import PageScraper, fetch_markdown_native, fetch_markdown_proxy
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 
 logger = logging.getLogger(__name__)
@@ -156,6 +156,9 @@ async def run_job(job: Job) -> None:
         pages_ok = 0
         pages_partial = 0
         pages_failed = 0
+        pages_native_md = 0
+        pages_proxy_md = 0
+        pages_playwright = 0
 
         for i, url in enumerate(urls):
             if job.is_cancelled:
@@ -173,14 +176,50 @@ async def run_job(job: Job) -> None:
             })
 
             try:
-                html = await scraper.get_html(url)
-                load_time = time.monotonic() - page_start
-                markdown = html_to_markdown(html)
-                chunks = chunk_markdown(markdown)
+                markdown = None
+                native_token_count = None
+                fetch_method = "playwright"
+
+                # Try native markdown via content negotiation
+                if request.use_native_markdown:
+                    md_content, token_count = await fetch_markdown_native(url)
+                    if md_content:
+                        markdown = md_content
+                        native_token_count = token_count
+                        fetch_method = "native"
+                        pages_native_md += 1
+                        load_time = time.monotonic() - page_start
+                        token_info = f", {token_count} tokens" if token_count else ""
+                        await _log(job, "log", {
+                            "phase": "scraping",
+                            "message": f"[{i+1}/{len(urls)}] [native-md] Skipped Playwright for {url} ({load_time:.1f}s{token_info})",
+                        })
+
+                # Try markdown proxy as fallback
+                if markdown is None and request.use_markdown_proxy:
+                    md_content, _ = await fetch_markdown_proxy(url, request.markdown_proxy_url)
+                    if md_content:
+                        markdown = md_content
+                        fetch_method = "proxy"
+                        pages_proxy_md += 1
+                        load_time = time.monotonic() - page_start
+                        await _log(job, "log", {
+                            "phase": "scraping",
+                            "message": f"[{i+1}/{len(urls)}] [proxy-md] Fetched via proxy for {url} ({load_time:.1f}s)",
+                        })
+
+                # Fall back to Playwright
+                if markdown is None:
+                    html = await scraper.get_html(url)
+                    load_time = time.monotonic() - page_start
+                    markdown = html_to_markdown(html)
+                    pages_playwright += 1
+
+                chunks = chunk_markdown(markdown, native_token_count=native_token_count)
 
                 await _log(job, "log", {
                     "phase": "scraping",
-                    "message": f"[{i+1}/{len(urls)}] Loaded {url} ({load_time:.1f}s, {len(chunks)} chunks)",
+                    "message": f"[{i+1}/{len(urls)}] Loaded {url} ({load_time:.1f}s, {len(chunks)} chunks, {fetch_method})",
                 })
 
                 # Cleanup sub-phase
@@ -279,6 +318,9 @@ async def run_job(job: Job) -> None:
                 "pages_ok": pages_ok,
                 "pages_partial": pages_partial,
                 "pages_failed": pages_failed,
+                "pages_native_md": pages_native_md,
+                "pages_proxy_md": pages_proxy_md,
+                "pages_playwright": pages_playwright,
                 "output_path": str(output_path),
                 "message": f"Done: {pages_ok} ok, {pages_partial} partial, {pages_failed} failed",
             })
