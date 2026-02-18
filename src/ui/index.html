@@ -253,7 +253,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">URL discovery & filtering. Priorizar velocidad.<br>Ej: mistral:7b, llama3.2:3b, qwen3:14b</span>
+                        <span class="hint-text">URL discovery & filtering. Modelos rapidos: 3b-8b.<br>Ej: llama3.2:3b, mistral:7b, qwen3:4b</span>
                     </div>
                 </div>
 
@@ -266,7 +266,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">Markdown cleanup por chunks. Balance velocidad/calidad.<br>Ej: qwen3:14b, mistral:7b, llama3.1:8b</span>
+                        <span class="hint-text">Markdown cleanup. 6b-14b (incluye 8b y quant).<br>Ej: qwen3:14b, llama3.1:8b, mistral</span>
                     </div>
                 </div>
 
@@ -279,7 +279,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">Analisis de estructura y filtrado complejo. Maxima calidad.<br>Ej: deepseek-r1:32b, qwen3:14b, kimi-k2.5</span>
+                        <span class="hint-text">Analisis complejo. Modelos grandes: +14b o reasoning.<br>Ej: qwen3:14b+, deepseek-r1, claude-haiku</span>
                     </div>
                 </div>
             </div>
@@ -353,15 +353,67 @@
         let currentJobId = null;
         let eventSource = null;
 
+        // Model filtering logic based on model characteristics
+        function getModelCategory(modelName, modelSize) {
+            const name = modelName.toLowerCase();
+            const size = modelSize || 0;
+            
+            // Reasoning models (large, high capability) - best for complex analysis
+            const reasoningPatterns = ['r1', 'reasoning', 'deepseek', 'qwen3:32', 'qwen3:30', 'qwq', 'o1', 'o3', 'o4', 'claude-haiku', 'moonshot', 'kimi'];
+            if (reasoningPatterns.some(p => name.includes(p)) || size > 20000000000) {
+                return 'reasoning';
+            }
+            
+            // Crawl models (small, fast) - prioritize speed for URL filtering
+            const crawlPatterns = ['1b', '2b', '3b', '4b', '5b', 'phi', 'tiny', 'mini', 'gemma:2', 'mistral:7'];
+            if (crawlPatterns.some(p => name.includes(p)) && !name.includes('8b') || size < 4000000000) {
+                return 'crawl';
+            }
+            
+            // Pipeline models (medium, 6b-14b) - balance of speed and quality, including 8b and quantized
+            const pipelinePatterns = ['6b', '7b', '8b', 'qwen', 'llama3.1', 'llama3:7', 'mistral', 'mixtral', 'gemma'];
+            if (pipelinePatterns.some(p => name.includes(p)) || (size >= 4000000000 && size <= 16000000000)) {
+                return 'pipeline';
+            }
+            
+            // Default to pipeline for medium models
+            return 'pipeline';
+        }
+
+        function filterModelsForSelector(models, selectorType) {
+            return models.filter(m => {
+                const category = getModelCategory(m.name, m.size);
+                switch (selectorType) {
+                    case 'crawl':
+                        // Crawl: small fast models (1b-5b, excluding 8b)
+                        return category === 'crawl';
+                    case 'pipeline':
+                        // Pipeline: medium models (6b-14b, including 8b and quantized)
+                        return category === 'pipeline' || category === 'reasoning';
+                    case 'reasoning':
+                        // Reasoning: large models
+                        return category === 'reasoning' || category === 'pipeline';
+                    default:
+                        return true;
+                }
+            });
+        }
+
         async function loadModels() {
             const selects = [crawlModelSelect, pipelineModelSelect, reasoningModelSelect];
+            const selectorTypes = ['crawl', 'pipeline', 'reasoning'];
             try {
                 const res = await fetch('/api/models');
                 const models = await res.json();
-                const optionsHtml = models.length
-                    ? models.map(m => `<option value="${m.name}">${m.name}</option>`).join('')
-                    : '<option value="">No models available</option>';
-                selects.forEach(s => s.innerHTML = optionsHtml);
+                
+                // Filter models for each selector
+                selects.forEach((select, index) => {
+                    const filteredModels = filterModelsForSelector(models, selectorTypes[index]);
+                    const optionsHtml = filteredModels.length
+                        ? filteredModels.map(m => `<option value="${m.name}">${m.name}</option>`).join('')
+                        : '<option value="">No suitable models</option>';
+                    select.innerHTML = optionsHtml;
+                });
             } catch (e) {
                 selects.forEach(s => s.innerHTML = '<option value="">Error loading models</option>');
                 logMessage('Failed to load Ollama models', 'init', 'error');
