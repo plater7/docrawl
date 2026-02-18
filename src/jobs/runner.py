@@ -107,7 +107,7 @@ async def run_job(job: Job) -> None:
             "message": "Applying basic filters...",
         })
 
-        urls = filter_urls(urls, base_url)
+        urls = filter_urls(urls, base_url, request.language)
         after_basic = len(urls)
         removed_basic = total_before - after_basic
         await _log(job, "log", {

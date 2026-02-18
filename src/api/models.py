@@ -6,9 +6,9 @@ from pydantic import BaseModel, HttpUrl
 class JobRequest(BaseModel):
     """Request to create a new crawl job."""
     url: HttpUrl
-    crawl_model: str          # Para discovery y filtrado de URLs
-    pipeline_model: str       # Para cleanup de markdown chunks
-    reasoning_model: str      # Para análisis de estructura y decisiones complejas
+    crawl_model: str
+    pipeline_model: str
+    reasoning_model: str
     output_path: str = "/data/output"
     delay_ms: int = 500
     max_concurrent: int = 3
@@ -17,6 +17,7 @@ class JobRequest(BaseModel):
     use_native_markdown: bool = True
     use_markdown_proxy: bool = False
     markdown_proxy_url: str = "https://markdown.new"
+    language: str = "en"
 
 
 class JobStatus(BaseModel):
