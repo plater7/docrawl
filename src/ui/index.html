@@ -241,8 +241,17 @@
                 <input type="url" id="url" required placeholder="https://docs.example.com">
             </div>
 
+            <div class="form-group">
+                <label for="provider">LLM Provider</label>
+                <select id="provider">
+                    <option value="ollama">Ollama (local)</option>
+                    <option value="openrouter">OpenRouter (API)</option>
+                    <option value="opencode">OpenCode (API)</option>
+                </select>
+            </div>
+
             <div class="models-section">
-                <label class="section-label">Ollama Models</label>
+                <label class="section-label">Models</label>
 
                 <div class="model-row">
                     <div class="model-select">
@@ -253,7 +262,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">URL discovery & filtering. Modelos rapidos: 3b-8b.<br>Ej: llama3.2:3b, mistral:7b, qwen3:4b</span>
+                        <span class="hint-text">URL discovery & filtering. Modelos rapidos: 3b-8b.<br>Local: llama3.2:3b, mistral:7b | API: qwen3-8b, gemma-3-12b</span>
                     </div>
                 </div>
 
@@ -266,7 +275,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">Markdown cleanup. 6b-14b (incluye 8b y quant).<br>Ej: qwen3:14b, llama3.1:8b, mistral</span>
+                        <span class="hint-text">Markdown cleanup. 6b-14b (incluye 8b y quant).<br>Local: qwen3:14b, llama3.1:8b | API: qwen3-14b, llama-3.1-8b</span>
                     </div>
                 </div>
 
@@ -279,7 +288,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">Analisis complejo. Modelos grandes: +14b o reasoning.<br>Ej: qwen3:14b+, deepseek-r1, claude-haiku</span>
+                        <span class="hint-text">Analisis complejo. Modelos grandes: +14b o reasoning.<br>Local: deepseek-r1:32b | API: deepseek-r1, kimi-k2.5</span>
                     </div>
                 </div>
             </div>
@@ -346,6 +355,7 @@
         const phaseName = document.getElementById('phaseName');
         const phaseDetail = document.getElementById('phaseDetail');
 
+        const providerSelect = document.getElementById('provider');
         const crawlModelSelect = document.getElementById('crawlModel');
         const pipelineModelSelect = document.getElementById('pipelineModel');
         const reasoningModelSelect = document.getElementById('reasoningModel');
@@ -402,23 +412,32 @@
         async function loadModels() {
             const selects = [crawlModelSelect, pipelineModelSelect, reasoningModelSelect];
             const selectorTypes = ['crawl', 'pipeline', 'reasoning'];
+            const provider = providerSelect.value;
             try {
-                const res = await fetch('/api/models');
+                const res = await fetch(`/api/models?provider=${provider}`);
                 const models = await res.json();
-                
-                // Filter models for each selector
+                if (models.length === 0) {
+                    selects.forEach(s => s.innerHTML = `<option value="">No ${provider} models available</option>`);
+                    logMessage(`No ${provider} models available. Check API key or Ollama connection.`, 'init', 'warning');
+                    return;
+                }
+
+                // Filter models for each selector by role
                 selects.forEach((select, index) => {
                     const filteredModels = filterModelsForSelector(models, selectorTypes[index]);
-                    const optionsHtml = filteredModels.length
-                        ? filteredModels.map(m => `<option value="${m.name}">${m.name}</option>`).join('')
-                        : '<option value="">No suitable models</option>';
+                    // If no models match the filter, show all models for this provider
+                    const modelsToShow = filteredModels.length > 0 ? filteredModels : models;
+                    const optionsHtml = modelsToShow.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
                     select.innerHTML = optionsHtml;
                 });
             } catch (e) {
                 selects.forEach(s => s.innerHTML = '<option value="">Error loading models</option>');
-                logMessage('Failed to load Ollama models', 'init', 'error');
+                logMessage(`Failed to load ${provider} models`, 'init', 'error');
             }
         }
+
+        // Load models when provider changes
+        providerSelect.addEventListener('change', loadModels);
 
         function updateOutputPath() {
             const urlInput = document.getElementById('url').value.trim();

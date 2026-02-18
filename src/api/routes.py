@@ -1,11 +1,13 @@
 """API endpoints for crawl jobs."""
 
 import logging
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
 
 from src.api.models import JobRequest, JobStatus, OllamaModel
-from src.llm.client import get_available_models
+from src.llm.client import get_available_models, PROVIDERS, PROVIDER_MODELS
 from src.jobs.manager import JobManager
 
 logger = logging.getLogger(__name__)
@@ -15,10 +17,37 @@ job_manager = JobManager()
 
 
 @router.get("/models")
-async def list_models() -> list[OllamaModel]:
-    """List available Ollama models."""
-    models = await get_available_models()
-    return [OllamaModel(name=m["name"], size=m.get("size")) for m in models]
+async def list_models(provider: Optional[str] = Query(None, description="Provider: ollama, openrouter, or opencode")) -> list[OllamaModel]:
+    """List available models. If provider specified, returns models for that provider."""
+    if provider:
+        models = await get_available_models(provider)
+    else:
+        # Return all models from all providers
+        all_models = []
+        for p in PROVIDERS.keys():
+            all_models.extend(await get_available_models(p))
+        models = all_models
+    return [OllamaModel(name=m["name"], size=m.get("size"), provider=m.get("provider", "ollama")) for m in models]
+
+
+@router.get("/providers")
+async def list_providers():
+    """List available providers and their status."""
+    return {
+        "providers": [
+            {
+                "id": p_id,
+                "name": p_id.capitalize(),
+                "configured": (
+                    True if p_id == "ollama" 
+                    else p_id == "openrouter" and bool(__import__('os').environ.get('OPENROUTER_API_KEY'))
+                    else p_id == "opencode" and bool(__import__('os').environ.get('OPENCODE_API_KEY'))
+                ),
+                "requires_api_key": config["requires_api_key"],
+            }
+            for p_id, config in PROVIDERS.items()
+        ]
+    }
 
 
 @router.post("/jobs")
