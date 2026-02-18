@@ -176,40 +176,45 @@ class TestRecursiveCrawl:
                     assert len(result) >= 1
 
     @pytest.mark.asyncio
-    async def test_deduplicates_across_strategies(self):
-        """URLs found by multiple strategies should be deduplicated."""
-        common_url = 'https://example.com/common'
+    async def test_deduplicates_within_sitemap(self):
+        """Duplicate URLs from sitemap should be deduplicated."""
+        # Cascade: sitemap succeeds → nav and crawl are skipped
+        sitemap_urls = [
+            'https://docs.stripe.com/api/charges',
+            'https://docs.stripe.com/api/charges',  # exact duplicate
+            'https://docs.stripe.com/api/customers',
+            'https://docs.stripe.com/api/refunds',
+        ]
 
-        with patch('src.crawler.discovery.try_sitemap', return_value=[common_url, 'https://example.com/sitemap1']):
-            with patch('src.crawler.discovery.try_nav_parse', return_value=[common_url, 'https://example.com/nav1']):
-                with patch('src.crawler.discovery.recursive_crawl', return_value=[common_url, 'https://example.com/crawl1']):
-                    result = await discover_urls('https://example.com/', max_depth=1)
+        with patch('src.crawler.discovery.try_sitemap', return_value=sitemap_urls):
+            with patch('src.crawler.discovery.try_nav_parse') as mock_nav:
+                with patch('src.crawler.discovery.recursive_crawl') as mock_crawl:
+                    result = await discover_urls('https://docs.stripe.com/', max_depth=1)
 
-                    # common_url should appear only once
-                    assert result.count(common_url) == 1
+                    # Exact duplicate should be removed (set dedup)
+                    assert len(result) == len(set(result))
+                    assert len(result) == 3  # charges + customers + refunds
 
-                    # Should have URLs from all strategies
-                    assert len(result) >= 4  # At least common + 3 unique
+                    # Cascade: nav and crawl should NOT be called
+                    mock_nav.assert_not_called()
+                    mock_crawl.assert_not_called()
 
 
 class TestStrategySelection:
     """Test discovery strategy selection logic."""
 
     @pytest.mark.asyncio
-    async def test_tries_all_strategies_when_small_results(self):
-        """All strategies should run if results are small."""
-        with patch('src.crawler.discovery.try_sitemap', return_value=['https://example.com/s1']) as mock_sitemap:
-            with patch('src.crawler.discovery.try_nav_parse', return_value=['https://example.com/n1']) as mock_nav:
-                with patch('src.crawler.discovery.recursive_crawl', return_value=['https://example.com/c1']) as mock_crawl:
-                    result = await discover_urls('https://example.com/', max_depth=1)
+    async def test_cascade_skips_later_strategies_on_success(self):
+        """Cascade: if sitemap succeeds, nav and crawl are skipped."""
+        with patch('src.crawler.discovery.try_sitemap', return_value=['https://docs.python.org/3/library/asyncio']) as mock_sitemap:
+            with patch('src.crawler.discovery.try_nav_parse') as mock_nav:
+                with patch('src.crawler.discovery.recursive_crawl') as mock_crawl:
+                    result = await discover_urls('https://docs.python.org/', max_depth=1)
 
-                    # All strategies should be called
                     mock_sitemap.assert_called_once()
-                    mock_nav.assert_called_once()
-                    mock_crawl.assert_called_once()
-
-                    # Should combine results from all
-                    assert len(result) >= 3
+                    mock_nav.assert_not_called()
+                    mock_crawl.assert_not_called()
+                    assert len(result) == 1
 
     @pytest.mark.asyncio
     async def test_minimum_fallback_returns_base_url(self):
@@ -225,14 +230,17 @@ class TestStrategySelection:
 
     @pytest.mark.asyncio
     async def test_strategy_exceptions_dont_stop_discovery(self):
-        """Exception in one strategy shouldn't stop others."""
+        """Exception in one strategy shouldn't stop others (cascade continues)."""
+        # Sitemap throws → cascade falls through to nav
         with patch('src.crawler.discovery.try_sitemap', side_effect=Exception("Sitemap error")):
-            with patch('src.crawler.discovery.try_nav_parse', return_value=['https://example.com/nav1']):
-                with patch('src.crawler.discovery.recursive_crawl', return_value=['https://example.com/crawl1']):
-                    result = await discover_urls('https://example.com/', max_depth=1)
+            with patch('src.crawler.discovery.try_nav_parse', return_value=['https://docs.fastapi.tiangolo.com/tutorial/first-steps']):
+                with patch('src.crawler.discovery.recursive_crawl') as mock_crawl:
+                    result = await discover_urls('https://docs.fastapi.tiangolo.com/', max_depth=1)
 
-                    # Should still get results from other strategies
-                    assert len(result) >= 2
+                    # Nav succeeds → crawl is skipped (cascade)
+                    mock_crawl.assert_not_called()
+                    assert len(result) == 1
+                    assert 'https://docs.fastapi.tiangolo.com/tutorial/first-steps' in result
 
 
 class TestEdgeCases:
@@ -310,28 +318,35 @@ class TestIntegrationScenarios:
                     assert all('docs.nvidia.com' in url for url in result)
 
     @pytest.mark.asyncio
-    async def test_small_docs_site_scenario(self):
-        """Small documentation site uses all strategies."""
+    async def test_small_docs_site_falls_through_to_nav(self):
+        """Small docs site with no sitemap cascades to nav parsing."""
         with patch('src.crawler.discovery.try_sitemap', return_value=[]):
-            with patch('src.crawler.discovery.try_nav_parse', return_value=['https://small-docs.com/guide', 'https://small-docs.com/api']):
-                with patch('src.crawler.discovery.recursive_crawl', return_value=['https://small-docs.com/', 'https://small-docs.com/about']):
-                    result = await discover_urls('https://small-docs.com/', max_depth=2)
+            with patch('src.crawler.discovery.try_nav_parse', return_value=[
+                'https://htmx.org/docs',
+                'https://htmx.org/reference',
+            ]):
+                with patch('src.crawler.discovery.recursive_crawl') as mock_crawl:
+                    result = await discover_urls('https://htmx.org/', max_depth=2)
 
-                    # Should combine all strategies
-                    assert len(result) >= 3
+                    # Nav succeeds → crawl skipped
+                    mock_crawl.assert_not_called()
+                    assert len(result) == 2
+                    assert 'https://htmx.org/docs' in result
+                    assert 'https://htmx.org/reference' in result
 
     @pytest.mark.asyncio
-    async def test_js_heavy_site_scenario(self):
-        """JS-heavy site relies on nav parsing."""
+    async def test_js_heavy_site_falls_back_to_crawl(self):
+        """JS-heavy site with no sitemap and no nav falls back to recursive crawl."""
         with patch('src.crawler.discovery.try_sitemap', return_value=[]):
-            # Nav parsing finds URLs that recursive crawl can't see
-            with patch('src.crawler.discovery.try_nav_parse', return_value=[
-                'https://js-site.com/page1',
-                'https://js-site.com/page2',
-                'https://js-site.com/page3',
-            ]):
-                with patch('src.crawler.discovery.recursive_crawl', return_value=['https://js-site.com/']):
-                    result = await discover_urls('https://js-site.com/', max_depth=2)
+            with patch('src.crawler.discovery.try_nav_parse', return_value=[]):
+                with patch('src.crawler.discovery.recursive_crawl', return_value=[
+                    'https://react.dev/',
+                    'https://react.dev/learn',
+                    'https://react.dev/reference',
+                ]) as mock_crawl:
+                    result = await discover_urls('https://react.dev/', max_depth=2)
 
-                    # Should include nav results
-                    assert len(result) >= 4
+                    # Both sitemap and nav failed → crawl is called
+                    mock_crawl.assert_called_once()
+                    assert len(result) == 3
+                    assert 'https://react.dev/learn' in result
