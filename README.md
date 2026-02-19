@@ -30,20 +30,38 @@
 | 📊 **Real-time UI** | SSE con phases, modelos y progreso en vivo |
 | 🐳 **Docker-ready** | Un comando: `docker compose up` |
 
+## 📋 System Requirements
+
+| Requirement | Minimum | Recommended |
+|-------------|---------|-------------|
+| **RAM** | 4GB | 8GB+ |
+| **CPU** | 2 cores | 4+ cores |
+| **Disk** | 5GB free | 20GB+ free |
+| **Docker** | 20.10+ | Latest |
+| **Ollama** | Optional | 1 model pulled |
+
+> 💡 **Note**: Without Ollama, you'll need to use OpenRouter or OpenCode API (set keys in `.env`)
+
 ## 🚀 Quick Start
 
 ```bash
-# 1. Asegurate de tener Ollama corriendo
-ollama serve
-ollama pull mistral  # o tu modelo favorito
-
-# 2. Clona y levanta
+# 1. Clone and verify prerequisites
 git clone https://github.com/plater7/docrawl.git
 cd docrawl
+./setup.sh  # Checks Docker, memory, creates ./data directory
+
+# 2. Setup Ollama (if using local LLMs)
+ollama serve
+ollama pull mistral:7b        # Crawl model (fast)
+ollama pull qwen2.5:14b       # Pipeline model (balanced)
+
+# 3. Start Docrawl
 docker compose up --build
 
-# 3. Abre http://localhost:8002
+# 4. Open http://localhost:8002
 ```
+
+> ⚠️ **Troubleshooting**: See [docs/TROUBLESHOOTING.md](./docs/TROUBLESHOOTING.md) for common issues.
 
 ## 🎯 Cómo Funciona
 
