@@ -1,219 +1,199 @@
-# Docrawl
+<p align="center">
+  <img src="https://img.shields.io/badge/version-v0.6.0--alpha-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="license">
+  <img src="https://img.shields.io/badge/ai--assisted-✓-purple?style=for-the-badge" alt="ai-assisted">
+</p>
 
-Aplicacion web dockerizada que crawlea sitios de documentacion y los convierte a archivos Markdown organizados. Usa Playwright para renderizar paginas, markdownify para conversion HTML->MD, y Ollama (modelos locales) para filtrado inteligente de URLs y limpieza de contenido.
+<h1 align="center">🕷️ Docrawl</h1>
 
-## Stack
+<p align="center">
+  <strong>Transforma cualquier documentación web en Markdown limpio y organizado</strong>
+</p>
 
-- **Python 3.12**
-- **FastAPI** — API + servir UI estatica
-- **Playwright** — renderizado de paginas (headless Chromium)
-- **markdownify** — conversion HTML a Markdown
-- **Ollama** — LLM local via API REST (corre en el host)
-- **SSE (Server-Sent Events)** — progreso en tiempo real a la UI
-- **Docker** — container unico con docker-compose
+<p align="center">
+  <em>Powered by LLMs • Docker-ready • Real-time progress</em>
+</p>
 
-## Requisitos
+---
 
-- Docker y Docker Compose
-- Ollama corriendo en el host (puerto 11434)
-- Al menos un modelo descargado (ej: `ollama pull mistral`)
+## ✨ Features
 
-## Uso
+| Feature | Descripción |
+|---------|-------------|
+| 🔍 **Discovery Inteligente** | Sitemap → Navegación → Crawl recursivo en cascada |
+| 🧠 **Filtrado LLM** | Solo URLs relevantes, ordenadas por importancia |
+| 📝 **Markdown Limpio** | DOM pre-cleaning + LLM cleanup por chunks |
+| ⚡ **Native Markdown** | `Accept: text/markdown` cuando el server lo soporta |
+| 🌐 **Multi-Provider** | Ollama (local), OpenRouter, OpenCode APIs |
+| 🌍 **Language Filter** | Filtra por idioma (default: English only) |
+| 📊 **Real-time UI** | SSE con phases, modelos y progreso en vivo |
+| 🐳 **Docker-ready** | Un comando: `docker compose up` |
 
-1. Asegurate de tener Ollama corriendo:
-   ```bash
-   ollama serve
-   ```
+## 🚀 Quick Start
 
-2. Levanta el container:
-   ```bash
-   docker-compose up --build
-   ```
+```bash
+# 1. Asegurate de tener Ollama corriendo
+ollama serve
+ollama pull mistral  # o tu modelo favorito
 
-3. Accede a la UI en http://localhost:8002
+# 2. Clona y levanta
+git clone https://github.com/plater7/docrawl.git
+cd docrawl
+docker compose up --build
 
-## UI
-
-Interfaz web minimalista (HTML + CSS + JS vanilla, sin frameworks). Permite configurar y lanzar jobs de crawl con feedback en tiempo real.
-
-- **URL raiz** — sitio de documentacion a crawlear
-- **3 selectores de modelo Ollama** — uno por rol:
-  - **Crawl Model** — discovery y filtrado de URLs (priorizar velocidad)
-  - **Pipeline Model** — cleanup de markdown por chunks (balance velocidad/calidad)
-  - **Reasoning Model** — analisis de estructura y decisiones complejas (reservado para uso futuro)
-- **Output path** — auto-generado desde la URL (dominio + seccion), editable
-- **Configuracion avanzada** — delay entre requests, concurrencia maxima, max depth, respetar robots.txt
-- **Log de progreso** — consola en tiempo real con indicador de fase activa (discovery, filtering, scraping, cleanup, save), modelo en uso, y badges de color por fase
-- **Cancelacion** — boton para detener el job en cualquier momento, conservando lo ya procesado
-
-## Flujo de un job
-
-1. **Discovery** — descubre URLs via sitemap.xml, navegacion del sitio, o crawl recursivo (cascada)
-2. **Filtrado deterministico** — mismo dominio, excluir extensiones no-doc, deduplicar
-3. **Filtrado LLM** — el modelo crawl filtra URLs irrelevantes y propone orden
-4. **Scraping** — Playwright navega cada pagina, extrae HTML con pre-limpieza de DOM (remueve nav, footer, sidebar, etc.)
-5. **Cleanup LLM** — cada chunk de markdown pasa por el modelo pipeline para limpieza (chunks limpios se saltan automaticamente)
-6. **Output** — archivos .md respetando estructura de URLs + indice `_index.md`
-
-## API
-
-```
-GET  /                          UI estatica
-GET  /api/models                Lista modelos Ollama disponibles
-POST /api/jobs                  Crear y lanzar job de crawl
-GET  /api/jobs/{id}/events      SSE stream de progreso
-POST /api/jobs/{id}/cancel      Cancelar job
-GET  /api/jobs/{id}/status      Estado actual del job
+# 3. Abre http://localhost:8002
 ```
 
-## Estructura del proyecto
+## 🎯 Cómo Funciona
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  INPUT: https://docs.example.com                                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  🔍 DISCOVERY (cascade)                                         │
+│  sitemap.xml → nav/sidebar → recursive crawl                    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  🧹 FILTERING                                                    │
+│  • Deterministic: same domain, exclude .pdf/.zip/etc           │
+│  • Language: /en/ only (configurable)                          │
+│  • LLM: filter irrelevant URLs, sort by relevance              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  📄 SCRAPING                                                     │
+│  1. Try native markdown (Accept: text/markdown)                │
+│  2. Fallback to markdown proxy (optional)                      │
+│  3. Final fallback: Playwright → html_to_md                    │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  ✨ LLM CLEANUP                                                  │
+│  • DOM pre-cleaning (remove nav, footer, sidebar)              │
+│  • Chunking by headings (16KB chunks)                          │
+│  • LLM cleanup per chunk (smart skip for clean chunks)         │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  💾 OUTPUT                                                       │
+│  ./data/example.com/                                            │
+│  ├── introduction.md                                            │
+│  ├── getting-started.md                                         │
+│  ├── api/                                                       │
+│  │   ├── endpoints.md                                           │
+│  │   └── authentication.md                                      │
+│  └── _index.md                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 🤖 Modelos
+
+Docrawl usa **3 modelos especializados** por rol:
+
+| Rol | Uso | Tamaño sugerido |
+|-----|-----|-----------------|
+| 🏃 **Crawl** | Discovery & filtrado de URLs | 3B-8B (rápido) |
+| 🔧 **Pipeline** | Cleanup de markdown | 6B-14B (balanceado) |
+| 🧠 **Reasoning** | Análisis complejo (futuro) | 14B+ (potente) |
+
+**Hints dinámicos** - La UI sugiere modelos basados en los disponibles en tu provider.
+
+### Providers Soportados
+
+| Provider | Tipo | Config |
+|----------|------|--------|
+| 🦙 **Ollama** | Local (gratis) | Corre en `localhost:11434` |
+| 🌐 **OpenRouter** | API | Set `OPENROUTER_API_KEY` |
+| 💎 **OpenCode** | API | Set `OPENCODE_API_KEY` |
+
+## 📡 API
+
+```
+GET  /                          # UI dashboard
+GET  /api/providers             # Lista providers y estado
+GET  /api/models?provider=...   # Modelos disponibles
+POST /api/jobs                  # Crear job
+GET  /api/jobs/{id}/events      # SSE stream
+POST /api/jobs/{id}/cancel      # Cancelar
+GET  /api/jobs/{id}/status      # Estado actual
+```
+
+## 🔧 Configuración
+
+### Job Options
+
+| Campo | Default | Descripción |
+|-------|---------|-------------|
+| `language` | `"en"` | Filtrar por idioma (`en`, `es`, `all`, etc.) |
+| `max_depth` | `5` | Profundidad máxima de crawl |
+| `delay_ms` | `500` | Delay entre requests |
+| `max_concurrent` | `3` | Requests concurrentes |
+| `respect_robots_txt` | `true` | Respetar robots.txt |
+| `use_native_markdown` | `true` | Intentar `Accept: text/markdown` |
+| `use_markdown_proxy` | `false` | Usar proxy como fallback |
+
+## 🌐 Exponer a Internet
+
+Docrawl se puede exponer vía **Cloudflare Tunnel + Workers VPC** sin IP pública:
+
+```
+[Internet] → [Worker] → (VPC binding) → [Tunnel] → [docrawl:8002]
+```
+
+Ver [SETUP.md](./docs/SETUP.md) para instrucciones completas.
+
+## 📁 Estructura
 
 ```
 docrawl/
-├── docker/
-│   └── Dockerfile
-├── docker-compose.yml
 ├── src/
 │   ├── main.py              # FastAPI app
-│   ├── api/
-│   │   ├── routes.py        # Endpoints REST + SSE
-│   │   └── models.py        # Pydantic models
-│   ├── crawler/
-│   │   ├── discovery.py     # sitemap, nav, crawl recursivo
-│   │   ├── filter.py        # Filtrado de URLs
-│   │   └── robots.py        # Parser robots.txt
-│   ├── scraper/
-│   │   ├── page.py          # Playwright + DOM pre-cleaning
-│   │   └── markdown.py      # HTML a MD + chunking
-│   ├── llm/
-│   │   ├── client.py        # Cliente Ollama con inference params
-│   │   ├── filter.py        # Filtrado LLM de URLs
-│   │   └── cleanup.py       # Cleanup MD + smart skip
-│   ├── jobs/
-│   │   ├── manager.py       # Gestion de jobs + SSE stream
-│   │   └── runner.py        # Orquestacion del pipeline
-│   └── ui/
-│       └── index.html       # UI estatica
-├── worker/
-│   ├── wrangler.jsonc       # Config Cloudflare Worker
-│   └── src/
-│       └── index.js         # Worker proxy via VPC binding
-├── tests/
-│   ├── conftest.py
-│   └── crawler/
-│       └── test_discovery.py
-├── requirements.txt
-├── CLAUDE.md
-└── README.md
+│   ├── api/                 # REST + SSE endpoints
+│   ├── crawler/             # Discovery, filter, robots
+│   ├── scraper/             # Playwright, markdown
+│   ├── llm/                 # Client, filter, cleanup
+│   ├── jobs/                # Manager, runner
+│   └── ui/                  # Dashboard HTML
+├── worker/                  # Cloudflare Worker
+├── tests/                   # Pytest suite
+└── docker/                  # Dockerfile
 ```
 
-## Output
-
-Los archivos Markdown se guardan en `./data/` respetando la estructura de URLs del sitio crawleado. Se genera un `_index.md` con tabla de contenidos y links relativos.
-
-## Exponer a internet (Cloudflare Tunnel + Workers VPC)
-
-### Arquitectura
-
-```
-[Internet] → [Cloudflare Worker] → (VPC Service binding) → [Cloudflare Tunnel] → [cloudflared container] → [docrawl:8002]
-```
-
-La app queda completamente privada (sin hostname publico). El Worker es el unico punto de entrada y se conecta al servicio a traves de un VPC Service binding que rutea internamente por la red de Cloudflare.
-
-### Prerequisitos
-- Cuenta de Cloudflare con un dominio configurado
-- [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) (plan gratuito funciona)
-- Node.js 18+ (para deployar el Worker)
-- Workers VPC (beta, disponible gratis en todos los planes Workers)
-
-### 1. Crear el Tunnel
-
-1. Ir al [Workers VPC dashboard](https://dash.cloudflare.com/) → Tunnels
-2. Create Tunnel → nombrar (ej: `docrawl-tunnel`)
-3. Copiar el token de instalacion
-4. **No configurar Public Hostname**
-
-### 2. Crear VPC Service
-
-1. Workers VPC dashboard → VPC Services
-2. Create VPC Service:
-   - Name: `docrawl-service`
-   - Tunnel: el creado en paso 1
-   - Host: `docrawl`
-   - HTTP Port: `8002`
-3. Copiar el **Service ID**
-
-### 3. Configurar variables de entorno
-
-Crear archivo `.env` en la raiz del proyecto:
-
-```
-CLOUDFLARE_TUNNEL_TOKEN=eyJ...tu-token
-```
-
-Editar `worker/wrangler.jsonc` y reemplazar `<TU_VPC_SERVICE_ID>` con el Service ID del paso 2.
-
-### 4. Levantar con tunnel
+## 🧪 Testing
 
 ```bash
-docker compose up -d
+pytest tests/ -v
 ```
 
-### 5. Deployar el Worker
+## 📜 Changelog
 
-```bash
-cd worker
-npm install
-npx wrangler deploy
-```
+Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
-La aplicacion estara disponible en la URL del Worker o en tu custom domain.
+## 🤝 Contributing
 
-## Changelog
+1. Fork → Branch → PR
+2. Sign commits: `git commit -s`
+3. AI-assisted code welcome with human review
 
-### v0.5.5-alpha — SSE stability + discovery fix + docker logs
-- **ASGI crash fix**: `GeneratorExit` handling en `event_stream()` previene crash de Uvicorn cuando el cliente SSE se desconecta durante operaciones largas de LLM
-- **SSE ping**: `EventSourceResponse(ping=15)` mantiene la conexion TCP viva a traves de Cloudflare Tunnel y proxies
-- **Frontend reconnection**: el frontend verifica `/status` antes de rendirse, reconecta automaticamente si el job sigue corriendo
-- **Dead runner detection**: `event_stream()` detecta si el runner task murio sin emitir evento terminal
-- **Error boundaries**: `scraper.stop()` y emision de eventos wrapeados en try/except, safety net si el job queda en estado "running"
-- **Graceful shutdown**: `--timeout-graceful-shutdown 5` en Dockerfile previene que SSE streams colgados bloqueen el shutdown
-- **Discovery cascade fix**: la cascada ahora se detiene en la primera estrategia exitosa (sitemap → nav → crawl). Antes el crawl recursivo corria innecesariamente con 126+ URLs de sitemap
-- **Docker logs**: todos los eventos SSE ahora se loguean via `logger.info()` con timestamps, no solo discovery y errores
-- **Logging format**: `YYYY-MM-DD HH:MM:SS [module] LEVEL: message`
+## 📄 License
 
-### v0.5.0 — Ollama inference parameters
-- `generate()` acepta `options` dict para Ollama API (`num_ctx`, `num_predict`, `temperature`, `num_batch`)
-- Cleanup: `num_ctx: 8192`, `num_predict` dinamico capped a 4096, `temperature: 0.1`
-- Filtering: `num_ctx: 4096`, `num_predict: 2048`, `temperature: 0.0`
-- Previene truncado silencioso de contexto y generacion infinita de tokens
+MIT
 
-### v0.4.0 — Cleanup pipeline performance
-- Pre-limpieza de DOM: remueve nav, footer, sidebar, cookie banners antes de extraer HTML
-- Extraccion enfocada en contenido (`main`, `article`, `[role='main']`) con fallback a body
-- Pre-limpieza de markdown con regex (hydration Next.js, atributos de framework, lineas de ruido)
-- Chunks de 16K (antes 8K), split por heading boundaries
-- Timeouts dinamicos: 45s base + 10s/KB, max 90s (antes fijo 120s)
-- Smart skip: chunks >60% code blocks o <2000 chars sin ruido se saltan el LLM
+---
 
-### v0.3.0 — Job log con fase activa y modelo
-- Indicador de fase con dot pulsante y colores por fase (init, discovery, filtering, scraping, cleanup, save, done, failed, cancelled)
-- Eventos SSE enriquecidos: `phase_change` y `log` con `active_model`, `progress`, `url`
-- Badges de color en cada entrada de log
-- Timing por operacion
+> 🤖 **AI-Assisted Development**: Este proyecto fue desarrollado con asistencia de IA y revisión humana.
+>
+> _Co-authored-by: OpenCode 🤖 <opencode@anomaly.la>_
 
-### v0.2.0 — Multi-model selectors + smart output path
-- 3 selectores de modelo Ollama por rol (crawl, pipeline, reasoning)
-- Auto-generacion de output path desde URL (extrae dominio sin subdominios comunes, ignora prefijos de version)
-- UI responsive con hints por selector
-
-### v0.1.0 — Release inicial
-- Discovery en cascada: sitemap.xml → nav/sidebar → crawl recursivo BFS
-- Filtrado deterministico + LLM de URLs
-- Scraping con Playwright + conversion markdownify
-- Cleanup LLM por chunks con retry y backoff
-- SSE para progreso en tiempo real
-- Cancelacion de jobs
-- Soporte robots.txt
-- Exposicion via Cloudflare Tunnel + Workers VPC
+<p align="center">
+  <sub>Built with ❤️ by <a href="https://github.com/plater7">plater7</a> + OpenCode 🤖</sub>
+</p>
