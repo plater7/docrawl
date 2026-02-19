@@ -27,7 +27,7 @@ async def list_models(provider: Optional[str] = Query(None, description="Provide
         for p in PROVIDERS.keys():
             all_models.extend(await get_available_models(p))
         models = all_models
-    return [OllamaModel(name=m["name"], size=m.get("size"), provider=m.get("provider", "ollama")) for m in models]
+    return [OllamaModel(name=m["name"], size=m.get("size"), provider=m.get("provider", "ollama"), is_free=m.get("is_free", True)) for m in models]
 
 
 @router.get("/providers")

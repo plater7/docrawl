@@ -90,20 +90,40 @@ async def _get_ollama_models() -> list[dict[str, Any]]:
             response = await client.get(f"{OLLAMA_URL}/api/tags", timeout=10)
             response.raise_for_status()
             data = response.json()
-            return [{"name": m["name"], "size": m.get("size"), "provider": "ollama"} for m in data.get("models", [])]
+            return [
+                {"name": m["name"], "size": m.get("size"), "provider": "ollama", "is_free": True}
+                for m in data.get("models", [])
+            ]
     except Exception as e:
         logger.error(f"Failed to get Ollama models: {e}")
         return []
 
 
+def _is_free_model(model_name: str, provider: str) -> bool:
+    """Determine if a model is free based on name patterns."""
+    if provider == "ollama":
+        return True
+    if provider == "openrouter":
+        return ":free" in model_name
+    if provider == "opencode":
+        return "-free" in model_name or "free" in model_name.lower()
+    return False
+
+
 def _get_openrouter_models() -> list[dict[str, Any]]:
     """Get list of OpenRouter models (from known free tier)."""
-    return [{"name": m, "size": None, "provider": "openrouter"} for m in PROVIDER_MODELS["openrouter"]]
+    return [
+        {"name": m, "size": None, "provider": "openrouter", "is_free": _is_free_model(m, "openrouter")}
+        for m in PROVIDER_MODELS["openrouter"]
+    ]
 
 
 def _get_opencode_models() -> list[dict[str, Any]]:
     """Get list of OpenCode models."""
-    return [{"name": m, "size": None, "provider": "opencode"} for m in PROVIDER_MODELS["opencode"]]
+    return [
+        {"name": m, "size": None, "provider": "opencode", "is_free": _is_free_model(m, "opencode")}
+        for m in PROVIDER_MODELS["opencode"]
+    ]
 
 
 def get_provider_for_model(model: str) -> str:

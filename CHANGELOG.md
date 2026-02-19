@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.7.0-alpha] - 2026-02-19
+
+### Added
+- **Free Model Indicators** - Badges visuales para modelos gratuitos
+  - 🏠 **Local** para Ollama (todos son locales/free)
+  - 🆓 **Free** para OpenRouter/OpenCode modelos gratuitos
+- **Priority Sorting** - Modelos free se muestran primero en selectores
+- **Smart Hints** - Sugerencias priorizan modelos free disponibles
+- **API Enhancement** - Nuevo campo `is_free` en `/api/models`
+
+### Changed
+- Selectores ordenan modelos: free → paid
+- Hints dinámicos muestran badge de tipo (Local/Free)
+
+---
+
 ## [v0.6.0-alpha] - 2026-02-19
 
 ### Added

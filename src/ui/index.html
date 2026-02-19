@@ -445,29 +445,39 @@
 
         function generateDynamicHints(models, provider) {
             const hints = { crawl: [], pipeline: [], reasoning: [] };
+            const freeHints = { crawl: [], pipeline: [], reasoning: [] };
             
             models.forEach(m => {
                 const category = getModelCategory(m.name, m.size);
                 if (hints[category]) {
                     hints[category].push(m.name);
+                    if (m.is_free) {
+                        freeHints[category].push(m.name);
+                    }
                 }
             });
 
             const topN = 3;
-            const updateHint = (elementId, models, fallbackDesc) => {
+            const updateHint = (elementId, modelList, freeList, fallbackDesc, providerType) => {
                 const el = document.getElementById(elementId);
                 if (!el) return;
-                if (models.length > 0) {
-                    const suggestions = models.slice(0, topN).join(', ');
-                    el.innerHTML = `${fallbackDesc}<br><strong>Sugeridos:</strong> ${suggestions}`;
+                
+                const isLocal = providerType === 'ollama';
+                const priorityList = freeList.length > 0 ? freeList : modelList;
+                
+                if (priorityList.length > 0) {
+                    const suggestions = priorityList.slice(0, topN).join(', ');
+                    const badge = isLocal ? '<span style="color:#4ade80">🏠 Local</span>' : '<span style="color:#60a5fa">🆓 Free</span>';
+                    el.innerHTML = `${fallbackDesc}<br><strong>Sugeridos (${badge}):</strong> ${suggestions}`;
                 } else {
                     el.textContent = fallbackDesc;
                 }
             };
 
-            updateHint('crawlHint', hints.crawl, 'URL discovery & filtering. Modelos rapidos: 3b-8b.');
-            updateHint('pipelineHint', hints.pipeline, 'Markdown cleanup. 6b-14b (incluye 8b y quant).');
-            updateHint('reasoningHint', hints.reasoning, 'Analisis complejo. Modelos grandes: +14b o reasoning.');
+            const providerType = provider;
+            updateHint('crawlHint', hints.crawl, freeHints.crawl, 'URL discovery & filtering. Modelos rapidos: 3b-8b.', providerType);
+            updateHint('pipelineHint', hints.pipeline, freeHints.pipeline, 'Markdown cleanup. 6b-14b (incluye 8b y quant).', providerType);
+            updateHint('reasoningHint', hints.reasoning, freeHints.reasoning, 'Analisis complejo. Modelos grandes: +14b o reasoning.', providerType);
         }
 
         async function loadModels() {
@@ -485,10 +495,22 @@
 
                 generateDynamicHints(models, provider);
 
+                const isLocal = provider === 'ollama';
+                const badge = isLocal ? '🏠' : '🆓';
+
                 selects.forEach((select, index) => {
                     const filteredModels = filterModelsForSelector(models, selectorTypes[index]);
-                    const modelsToShow = filteredModels.length > 0 ? filteredModels : models;
-                    const optionsHtml = modelsToShow.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+                    let modelsToShow = filteredModels.length > 0 ? filteredModels : models;
+                    
+                    modelsToShow.sort((a, b) => {
+                        if (a.is_free !== b.is_free) return b.is_free ? 1 : -1;
+                        return a.name.localeCompare(b.name);
+                    });
+                    
+                    const optionsHtml = modelsToShow.map(m => {
+                        const modelBadge = m.is_free ? ` ${badge}` : '';
+                        return `<option value="${m.name}">${m.name}${modelBadge}</option>`;
+                    }).join('');
                     select.innerHTML = optionsHtml;
                 });
             } catch (e) {

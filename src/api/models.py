@@ -34,3 +34,4 @@ class OllamaModel(BaseModel):
     name: str
     size: int | None = None
     provider: str = "ollama"
+    is_free: bool = True
