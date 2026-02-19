@@ -3,126 +3,353 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Docrawl</title>
+    <title>Docrawl // SYNTHWAVE interface</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=VT323&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            min-height: 100vh;
-            padding: 2rem;
+        :root {
+            --bg-deep: #0a0a12;
+            --bg-panel: #12121f;
+            --bg-input: #0d0d18;
+            --accent-magenta: #ff00ff;
+            --accent-cyan: #00ffff;
+            --accent-amber: #ff6b00;
+            --accent-green: #00ff88;
+            --text-primary: #e0e0e0;
+            --text-dim: #6a6a8a;
+            --chrome-border: linear-gradient(180deg, #3a3a5a 0%, #1a1a2a 50%, #2a2a4a 100%);
+            --glow-magenta: 0 0 10px #ff00ff, 0 0 20px #ff00ff40;
+            --glow-cyan: 0 0 10px #00ffff, 0 0 20px #00ffff40;
+            --glow-amber: 0 0 10px #ff6b00, 0 0 20px #ff6b0040;
+            --scanline-opacity: 0.03;
         }
-        .container { max-width: 800px; margin: 0 auto; }
-        h1 { margin-bottom: 1.5rem; color: #f8fafc; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'VT323', monospace;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 1.5rem;
+            font-size: 18px;
+            line-height: 1.4;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 255, 255, var(--scanline-opacity)) 2px,
+                    rgba(0, 255, 255, var(--scanline-opacity)) 4px
+                ),
+                linear-gradient(180deg, #0a0a12 0%, #0f0f1a 50%, #0a0a12 100%);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at 50% 0%, rgba(255, 0, 255, 0.1) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container { 
+            max-width: 900px; 
+            margin: 0 auto; 
+            position: relative;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3em;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(90deg, var(--accent-magenta), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: var(--glow-magenta);
+            position: relative;
+            display: inline-block;
+        }
+
+        h1::before {
+            content: '//';
+            color: var(--accent-cyan);
+            margin-right: 0.5em;
+            opacity: 0.7;
+        }
+
+        h1::after {
+            content: 'DOCUMENTATION FLEET COMMAND';
+            position: absolute;
+            bottom: -1.5rem;
+            left: 0;
+            font-size: 0.5rem;
+            letter-spacing: 0.5em;
+            color: var(--text-dim);
+            font-family: 'VT323', monospace;
+            font-weight: normal;
+        }
+
+        /* Status Bar - Systems Diagnostics Panel */
+        .status-bar {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-panel);
+            border: 1px solid #2a2a4a;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            box-shadow: 
+                inset 0 1px 0 rgba(255,255,255,0.05),
+                0 0 20px rgba(0,0,0,0.5);
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            background: linear-gradient(180deg, #1a1a2a 0%, #0d0d18 100%);
+            border: 1px solid #2a2a4a;
+            border-radius: 2px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--text-dim);
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+        }
+
+        .status-dot.ok { 
+            background: var(--accent-green); 
+            box-shadow: var(--glow-cyan), inset 0 1px 2px rgba(0,0,0,0.3);
+            animation: blink-green 2s infinite;
+        }
+
+        .status-dot.warning { 
+            background: var(--accent-amber); 
+            box-shadow: var(--glow-amber);
+            animation: blink-amber 1s infinite;
+        }
+
+        .status-dot.error { 
+            background: #ff3366; 
+            box-shadow: 0 0 10px #ff3366;
+        }
+
+        .status-dot.loading { 
+            background: var(--accent-cyan); 
+            box-shadow: var(--glow-cyan);
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes blink-green { 0%, 90%, 100% { opacity: 1; } 95% { opacity: 0.5; } }
+        @keyframes blink-amber { 0%, 50%, 100% { opacity: 1; } 25%, 75% { opacity: 0.5; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .status-label { 
+            color: var(--accent-cyan); 
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .status-value { 
+            color: var(--text-primary); 
+            font-size: 0.9rem;
+        }
+
+        /* Form Groups */
         .form-group { margin-bottom: 1rem; }
+
         label {
             display: block;
-            margin-bottom: 0.5rem;
-            color: #94a3b8;
-            font-size: 0.875rem;
+            margin-bottom: 0.4rem;
+            color: var(--accent-cyan);
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
         }
+
+        label span {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
         input, select {
             width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #334155;
-            border-radius: 0.5rem;
-            background: #1e293b;
-            color: #e2e8f0;
-            font-size: 1rem;
+            padding: 0.7rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid #2a2a4a;
+            border-radius: 2px;
+            color: var(--accent-green);
+            font-family: 'VT323', monospace;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            box-shadow: 
+                inset 0 2px 4px rgba(0,0,0,0.3),
+                0 0 0 1px transparent;
         }
+
         input:focus, select:focus {
             outline: none;
-            border-color: #3b82f6;
+            border-color: var(--accent-magenta);
+            box-shadow: 
+                inset 0 2px 4px rgba(0,0,0,0.3),
+                0 0 15px rgba(255, 0, 255, 0.3),
+                inset 0 0 10px rgba(255, 0, 255, 0.1);
+            color: var(--accent-magenta);
         }
+
+        input::placeholder { color: #3a3a5a; }
+
+        input[type="url"] {
+            background: var(--bg-input);
+            position: relative;
+        }
+
+        input[type="url"]::before {
+            content: '>';
+            position: absolute;
+            left: 1rem;
+            color: var(--accent-cyan);
+        }
+
         .row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
         }
+
+        @media (max-width: 600px) {
+            .row { grid-template-columns: 1fr; }
+        }
+
+        /* Checkbox - Retro toggle */
         .checkbox-group {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
         }
-        .checkbox-group input { width: auto; }
-        .buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
-        button {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 0.5rem;
-            font-size: 1rem;
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            appearance: none;
+            background: var(--bg-input);
+            border: 2px solid #3a3a5a;
+            border-radius: 2px;
             cursor: pointer;
-            transition: background 0.2s;
+            position: relative;
         }
-        .btn-primary {
-            background: #3b82f6;
-            color: white;
+
+        .checkbox-group input[type="checkbox"]:checked {
+            background: var(--accent-magenta);
+            border-color: var(--accent-magenta);
+            box-shadow: var(--glow-magenta);
         }
-        .btn-primary:hover { background: #2563eb; }
-        .btn-primary:disabled {
-            background: #475569;
-            cursor: not-allowed;
+
+        .checkbox-group input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--bg-deep);
+            font-weight: bold;
+            font-size: 14px;
         }
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-            display: none;
+
+        .checkbox-group label {
+            margin: 0;
+            color: var(--text-primary);
+            text-transform: none;
+            letter-spacing: 0;
+            cursor: pointer;
         }
-        .btn-danger:hover { background: #dc2626; }
-        .log {
-            margin-top: 2rem;
-            padding: 1rem;
-            background: #1e293b;
-            border-radius: 0.5rem;
-            font-family: monospace;
-            font-size: 0.875rem;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        .log-entry { padding: 0.25rem 0; border-bottom: 1px solid #334155; }
-        .log-entry.error { color: #f87171; }
-        .log-entry.success { color: #4ade80; }
-        .log-entry.info { color: #60a5fa; }
-        .summary {
-            margin-top: 1rem;
-            padding: 1rem;
-            background: #1e293b;
-            border-radius: 0.5rem;
-            display: none;
-        }
-        .summary h3 { margin-bottom: 0.5rem; }
-        .stat { display: inline-block; margin-right: 1.5rem; }
-        .stat-value { font-size: 1.5rem; font-weight: bold; color: #3b82f6; }
+
+        /* Models Section - Holographic Panel */
         .models-section {
             margin-bottom: 1rem;
-            border: 1px solid #334155;
-            border-radius: 0.5rem;
+            background: linear-gradient(180deg, #15152a 0%, #0d0d1a 100%);
+            border: 1px solid #2a2a5a;
+            border-radius: 4px;
             padding: 1rem;
-            background: #1a2332;
+            box-shadow: 
+                0 0 30px rgba(0, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            position: relative;
+            overflow: hidden;
         }
+
+        .models-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+        }
+
         .section-label {
             display: block;
-            color: #e2e8f0;
-            font-size: 0.95rem;
-            font-weight: 600;
+            color: var(--accent-magenta);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
             margin-bottom: 0.75rem;
+            text-shadow: var(--glow-magenta);
         }
+
         .model-row {
             display: flex;
             align-items: flex-start;
             gap: 0.75rem;
             margin-bottom: 0.75rem;
         }
+
         .model-row:last-child { margin-bottom: 0; }
-        .model-select {
-            flex: 1;
-            min-width: 0;
-        }
+
+        .model-select { flex: 1; min-width: 0; }
+
         .model-select label {
             font-size: 0.8rem;
+            color: var(--accent-amber);
             margin-bottom: 0.25rem;
         }
+
         .model-hint {
             flex: 0 0 auto;
             max-width: 280px;
@@ -131,132 +358,294 @@
             gap: 0.35rem;
             padding-top: 1.5rem;
             font-size: 0.75rem;
-            color: #64748b;
+            color: var(--text-dim);
             line-height: 1.3;
         }
-        .hint-icon {
-            color: #475569;
-            flex-shrink: 0;
-        }
+
+        .hint-icon { color: #4a4a6a; flex-shrink: 0; }
+
         @media (max-width: 640px) {
             .model-row { flex-direction: column; }
             .model-hint { padding-top: 0; max-width: 100%; }
         }
 
-        /* Phase banner */
+        /* Buttons */
+        .buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
+
+        button {
+            padding: 0.8rem 2rem;
+            border: none;
+            border-radius: 2px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(180deg, #ff00ff 0%, #aa00aa 100%);
+            color: white;
+            box-shadow: var(--glow-magenta), inset 0 1px 0 rgba(255,255,255,0.3);
+        }
+
+        .btn-primary:hover { 
+            background: linear-gradient(180deg, #ff33ff 0%, #cc00cc 100%);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:disabled {
+            background: #3a3a4a;
+            color: #6a6a8a;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(180deg, #ff3366 0%, #cc0033 100%);
+            color: white;
+            box-shadow: 0 0 15px rgba(255, 51, 102, 0.5);
+            display: none;
+        }
+
+        .btn-danger:hover { 
+            background: linear-gradient(180deg, #ff4477 0%, #ff0044 100%);
+            transform: translateY(-2px);
+        }
+
+        /* Phase Banner - HUD Element */
         .phase-banner {
-            margin-top: 2rem;
+            margin-top: 1.5rem;
             margin-bottom: 0;
             padding: 0.6rem 1rem;
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-bottom: none;
-            border-radius: 0.5rem 0.5rem 0 0;
-            display: flex;
+            background: var(--bg-panel);
+            border: 1px solid #2a2a4a;
+            border-left: 3px solid var(--accent-cyan);
+            border-radius: 0 4px 4px 0;
+            display: none;
             align-items: center;
-            gap: 0.5rem;
-            font-family: monospace;
-            font-size: 0.85rem;
+            gap: 0.75rem;
+            font-family: 'VT323', monospace;
+            font-size: 1rem;
+            position: relative;
+            overflow: hidden;
         }
-        .phase-banner + .log {
-            margin-top: 0;
-            border-radius: 0 0 0.5rem 0.5rem;
-            border-top: 1px solid #334155;
+
+        .phase-banner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
+            animation: scan 2s linear infinite;
         }
+
+        @keyframes scan {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .phase-banner.active { display: flex; }
+
         .phase-dot {
-            width: 8px;
-            height: 8px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            background: #3b82f6;
+            background: var(--accent-cyan);
+            box-shadow: var(--glow-cyan);
             animation: pulse 1.5s ease-in-out infinite;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
+
         .phase-name {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 0.2rem 0.5rem;
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 2px;
+        }
+
+        .phase-separator { color: #4a4a6a; }
+        .phase-detail { color: var(--text-dim); }
+
+        /* Phase Colors */
+        .phase-init .phase-name { color: #8a8aaa; border-color: #8a8aaa; background: rgba(138, 138, 170, 0.1); }
+        .phase-discovery .phase-name { color: #ffaa00; border-color: #ffaa00; background: rgba(255, 170, 0, 0.1); }
+        .phase-discovery .phase-dot { background: #ffaa00; box-shadow: 0 0 10px #ffaa00; }
+        .phase-filtering .phase-name { color: #aa66ff; border-color: #aa66ff; background: rgba(170, 102, 255, 0.1); }
+        .phase-filtering .phase-dot { background: #aa66ff; box-shadow: 0 0 10px #aa66ff; }
+        .phase-scraping .phase-name { color: #00aaff; border-color: #00aaff; background: rgba(0, 170, 255, 0.1); }
+        .phase-scraping .phase-dot { background: #00aaff; box-shadow: 0 0 10px #00aaff; }
+        .phase-cleanup .phase-name { color: #00ffaa; border-color: #00ffaa; background: rgba(0, 255, 170, 0.1); }
+        .phase-cleanup .phase-dot { background: #00ffaa; box-shadow: 0 0 10px #00ffaa; }
+        .phase-save .phase-name { color: #66ff66; border-color: #66ff66; background: rgba(102, 255, 102, 0.1); }
+        .phase-save .phase-dot { background: #66ff66; box-shadow: 0 0 10px #66ff66; }
+        .phase-done .phase-name { color: var(--accent-green); border-color: var(--accent-green); background: rgba(0, 255, 136, 0.1); }
+        .phase-done .phase-dot { background: var(--accent-green); box-shadow: var(--glow-cyan); animation: none; }
+        .phase-failed .phase-name { color: #ff3366; border-color: #ff3366; background: rgba(255, 51, 102, 0.1); }
+        .phase-failed .phase-dot { background: #ff3366; box-shadow: 0 0 10px #ff3366; animation: none; }
+        .phase-cancelled .phase-name { color: #ff8800; border-color: #ff8800; background: rgba(255, 136, 0, 0.1); }
+        .phase-cancelled .phase-dot { background: #ff8800; box-shadow: 0 0 10px #ff8800; animation: none; }
+
+        /* Log Console - CRT Terminal */
+        .log {
+            margin-top: 0;
+            padding: 1rem;
+            background: #080810;
+            border: 1px solid #2a2a4a;
+            border-radius: 0 0 4px 4px;
+            font-family: 'VT323', monospace;
+            font-size: 0.95rem;
+            max-height: 350px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .log::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 1px,
+                    rgba(0, 255, 255, 0.02) 1px,
+                    rgba(0, 255, 255, 0.02) 2px
+                );
+            pointer-events: none;
+        }
+
+        .log-entry { 
+            padding: 0.2rem 0; 
+            border-bottom: 1px solid #1a1a2a;
+            position: relative;
+        }
+
+        .log-entry.error { color: #ff3366; text-shadow: 0 0 5px rgba(255, 51, 102, 0.5); }
+        .log-entry.success { color: var(--accent-green); text-shadow: 0 0 5px rgba(0, 255, 136, 0.5); }
+        .log-entry.info { color: var(--accent-cyan); }
+        .log-entry.warning { color: var(--accent-amber); text-shadow: 0 0 5px rgba(255, 107, 0, 0.5); }
+
+        .log-badge {
+            display: inline-block;
+            padding: 0.1rem 0.4rem;
+            border-radius: 2px;
+            font-size: 0.7rem;
+            font-family: 'Orbitron', sans-serif;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-        }
-        .phase-separator { color: #475569; }
-        .phase-detail { color: #94a3b8; }
-
-        /* Phase colors */
-        .phase-init .phase-name, .phase-init .phase-dot { color: #94a3b8; background: #94a3b8; }
-        .phase-init .phase-name { background: none; }
-        .phase-discovery .phase-name { color: #f59e0b; }
-        .phase-discovery .phase-dot { background: #f59e0b; }
-        .phase-filtering .phase-name { color: #8b5cf6; }
-        .phase-filtering .phase-dot { background: #8b5cf6; }
-        .phase-scraping .phase-name { color: #3b82f6; }
-        .phase-scraping .phase-dot { background: #3b82f6; }
-        .phase-cleanup .phase-name { color: #06b6d4; }
-        .phase-cleanup .phase-dot { background: #06b6d4; }
-        .phase-save .phase-name { color: #10b981; }
-        .phase-save .phase-dot { background: #10b981; }
-        .phase-done .phase-name { color: #4ade80; }
-        .phase-done .phase-dot { background: #4ade80; animation: none; }
-        .phase-failed .phase-name { color: #ef4444; }
-        .phase-failed .phase-dot { background: #ef4444; animation: none; }
-        .phase-cancelled .phase-name { color: #f97316; }
-        .phase-cancelled .phase-dot { background: #f97316; animation: none; }
-
-        /* Log badges */
-        .log-badge {
-            display: inline-block;
-            padding: 0.05rem 0.4rem;
-            border-radius: 0.2rem;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-            margin-right: 0.4rem;
-            min-width: 65px;
+            margin-right: 0.5rem;
+            min-width: 60px;
             text-align: center;
         }
-        .badge-init { background: #1e293b; color: #94a3b8; border: 1px solid #475569; }
-        .badge-discovery { background: #451a03; color: #fbbf24; }
-        .badge-filtering { background: #2e1065; color: #a78bfa; }
-        .badge-scraping { background: #172554; color: #60a5fa; }
-        .badge-cleanup { background: #083344; color: #22d3ee; }
-        .badge-save { background: #022c22; color: #34d399; }
-        .badge-done { background: #052e16; color: #4ade80; }
-        .badge-failed { background: #450a0a; color: #f87171; }
+
+        .badge-init { background: #1a1a2a; color: #8a8aaa; border: 1px solid #3a3a5a; }
+        .badge-discovery { background: #2a1a00; color: #ffaa00; border: 1px solid #4a3a00; }
+        .badge-filtering { background: #1a0a2a; color: #aa66ff; border: 1px solid #3a1a4a; }
+        .badge-scraping { background: #001a2a; color: #00aaff; border: 1px solid #003a4a; }
+        .badge-cleanup { background: #002a1a; color: #00ffaa; border: 1px solid #004a3a; }
+        .badge-save { background: #001a1a; color: #66ff66; border: 1px solid #003a3a; }
+        .badge-done { background: #002a0a; color: var(--accent-green); border: 1px solid #004a1a; }
+        .badge-failed { background: #2a001a; color: #ff3366; border: 1px solid #4a003a; }
 
         .log-model {
-            color: #64748b;
-            font-size: 0.75rem;
-        }
-        .log-entry.warning { color: #fbbf24; }
-
-        /* Status bar */
-        .status-bar {
-            display: flex;
-            gap: 1.5rem;
-            padding: 0.5rem 1rem;
-            background: #1e293b;
-            border-radius: 0.5rem;
-            margin-bottom: 1rem;
+            color: #5a5a7a;
             font-size: 0.8rem;
+            margin-left: 0.5rem;
         }
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+
+        /* Summary Panel - Mission Report */
+        .summary {
+            margin-top: 1.5rem;
+            padding: 1.25rem;
+            background: linear-gradient(135deg, #0d0d1a 0%, #15152a 100%);
+            border: 1px solid #2a2a5a;
+            border-radius: 4px;
+            display: none;
+            position: relative;
+            overflow: hidden;
         }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #64748b;
+
+        .summary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-magenta), var(--accent-cyan), var(--accent-green));
         }
-        .status-dot.ok { background: #4ade80; }
-        .status-dot.warning { background: #fbbf24; }
-        .status-dot.error { background: #ef4444; }
-        .status-dot.loading { background: #3b82f6; animation: pulse 1s infinite; }
-        .status-label { color: #94a3b8; }
-        .status-value { color: #e2e8f0; font-weight: 500; }
+
+        .summary h3 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            color: var(--accent-magenta);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            margin-bottom: 1rem;
+            text-shadow: var(--glow-magenta);
+        }
+
+        .stat {
+            display: inline-block;
+            margin-right: 1.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid #2a2a4a;
+            border-radius: 2px;
+        }
+
+        .stat-value { 
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem; 
+            font-weight: 700;
+            color: var(--accent-cyan);
+            text-shadow: var(--glow-cyan);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        #fetchStats {
+            margin-top: 1rem;
+            font-family: 'VT323', monospace;
+            font-size: 0.9rem;
+            color: var(--accent-green);
+            display: none;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0a0a12; }
+        ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3a3a5a; }
+
+        /* Mobile */
+        @media (max-width: 480px) {
+            body { padding: 1rem; }
+            h1 { font-size: 1.8rem; }
+            .status-bar { flex-direction: column; gap: 0.5rem; }
+            .buttons { flex-direction: column; }
+            button { width: 100%; }
+        }
     </style>
 </head>
 <body>
@@ -268,157 +657,157 @@
             <div class="status-item">
                 <span class="status-dot loading" id="ollamaDot"></span>
                 <span class="status-label">Ollama:</span>
-                <span class="status-value" id="ollamaStatus">Checking...</span>
+                <span class="status-value" id="ollamaStatus">INIT...</span>
             </div>
             <div class="status-item">
                 <span class="status-dot loading" id="diskDot"></span>
                 <span class="status-label">Disk:</span>
-                <span class="status-value" id="diskStatus">Checking...</span>
+                <span class="status-value" id="diskStatus">INIT...</span>
             </div>
             <div class="status-item">
                 <span class="status-dot loading" id="writeDot"></span>
                 <span class="status-label">Write:</span>
-                <span class="status-value" id="writeStatus">Checking...</span>
+                <span class="status-value" id="writeStatus">INIT...</span>
             </div>
         </div>
 
         <form id="crawlForm">
             <div class="form-group">
-                <label for="url">Documentation URL</label>
+                <label for="url">[URL] Target Documentation</label>
                 <input type="url" id="url" required placeholder="https://docs.example.com">
             </div>
 
             <div class="form-group">
-                <label for="provider">LLM Provider</label>
+                <label for="provider">// LLM Provider</label>
                 <select id="provider">
-                    <option value="ollama">Ollama (local)</option>
-                    <option value="openrouter">OpenRouter (API)</option>
-                    <option value="opencode">OpenCode (API)</option>
+                    <option value="ollama">◈ OLLAMA (Local)</option>
+                    <option value="openrouter">◉ OPENROUTER (API)</option>
+                    <option value="opencode">◉ OPENCODE (API)</option>
                 </select>
             </div>
 
             <div class="models-section">
-                <label class="section-label">Models</label>
+                <label class="section-label">// Neural Network Configuration</label>
 
                 <div class="model-row">
                     <div class="model-select">
-                        <label for="crawlModel">Crawl Model</label>
+                        <label for="crawlModel">▸ Crawl Model</label>
                         <select id="crawlModel" required>
                             <option value="">Loading models...</option>
                         </select>
                     </div>
                     <div class="model-hint">
-                        <span class="hint-icon">&#8505;</span>
+                        <span class="hint-icon">◈</span>
                         <span class="hint-text" id="crawlHint">URL discovery & filtering. Modelos rapidos: 3b-8b.</span>
                     </div>
                 </div>
 
                 <div class="model-row">
                     <div class="model-select">
-                        <label for="pipelineModel">Pipeline Model</label>
+                        <label for="pipelineModel">▸ Pipeline Model</label>
                         <select id="pipelineModel" required>
                             <option value="">Loading models...</option>
                         </select>
                     </div>
                     <div class="model-hint">
-                        <span class="hint-icon">&#8505;</span>
+                        <span class="hint-icon">◈</span>
                         <span class="hint-text" id="pipelineHint">Markdown cleanup. 6b-14b (incluye 8b y quant).</span>
                     </div>
                 </div>
 
                 <div class="model-row">
                     <div class="model-select">
-                        <label for="reasoningModel">Reasoning Model</label>
+                        <label for="reasoningModel">▸ Reasoning Model</label>
                         <select id="reasoningModel" required>
                             <option value="">Loading models...</option>
                         </select>
                     </div>
                     <div class="model-hint">
-                        <span class="hint-icon">&#8505;</span>
+                        <span class="hint-icon">◈</span>
                         <span class="hint-text" id="reasoningHint">Analisis complejo. Modelos grandes: +14b o reasoning.</span>
                     </div>
                 </div>
             </div>
 
             <div class="form-group">
-                <label for="outputPath">Output Path <span style="color:#64748b;font-size:0.75rem;">(auto-generated from URL)</span></label>
+                <label for="outputPath">[PATH] Output Directory <span>(auto-generated from URL)</span></label>
                 <input type="text" id="outputPath" value="/data/output">
             </div>
 
             <div class="row">
                 <div class="form-group">
-                    <label for="delayMs">Delay between requests (ms)</label>
+                    <label for="delayMs">[MS] Request Delay</label>
                     <input type="number" id="delayMs" value="500" min="0">
                 </div>
                 <div class="form-group">
-                    <label for="maxConcurrent">Max concurrent pages</label>
+                    <label for="maxConcurrent">[N] Max Concurrent</label>
                     <input type="number" id="maxConcurrent" value="3" min="1" max="10">
                 </div>
             </div>
 
             <div class="row">
                 <div class="form-group">
-                    <label for="maxDepth">Max crawl depth</label>
+                    <label for="maxDepth">[N] Max Depth</label>
                     <input type="number" id="maxDepth" value="5" min="1" max="20">
                 </div>
                 <div class="form-group">
-                    <label for="language">Language</label>
+                    <label for="language">[LANG] Language Filter</label>
                     <select id="language">
-                        <option value="en">English only</option>
-                        <option value="es">Spanish only</option>
-                        <option value="fr">French only</option>
-                        <option value="de">German only</option>
-                        <option value="ja">Japanese only</option>
-                        <option value="zh">Chinese only</option>
-                        <option value="pt">Portuguese only</option>
-                        <option value="all">All languages</option>
+                        <option value="en">English (en)</option>
+                        <option value="es">Spanish (es)</option>
+                        <option value="fr">French (fr)</option>
+                        <option value="de">German (de)</option>
+                        <option value="ja">Japanese (ja)</option>
+                        <option value="zh">Chinese (zh)</option>
+                        <option value="pt">Portuguese (pt)</option>
+                        <option value="all">All Languages</option>
                     </select>
                 </div>
             </div>
 
-            <div class="form-group checkbox-group">
+            <div class="checkbox-group">
                 <input type="checkbox" id="respectRobots" checked>
-                <label for="respectRobots" style="margin: 0;">Respect robots.txt</label>
+                <label for="respectRobots">Respect robots.txt Protocol</label>
             </div>
 
             <div class="models-section" style="margin-top: 1rem;">
-                <label class="section-label">Markdown Optimization</label>
+                <label class="section-label">// Markdown Optimization</label>
                 <div class="checkbox-group" style="margin-bottom: 0.75rem;">
                     <input type="checkbox" id="useNativeMarkdown" checked>
-                    <label for="useNativeMarkdown" style="margin: 0;">Try native markdown (Accept: text/markdown)</label>
+                    <label for="useNativeMarkdown">Native Markdown (Accept: text/markdown)</label>
                 </div>
                 <div class="checkbox-group" style="margin-bottom: 0.75rem;">
                     <input type="checkbox" id="useMarkdownProxy">
-                    <label for="useMarkdownProxy" style="margin: 0;">Use markdown proxy as fallback</label>
+                    <label for="useMarkdownProxy">Use markdown proxy as fallback</label>
                 </div>
                 <div class="form-group" id="proxyUrlGroup" style="display: none;">
-                    <label for="markdownProxyUrl">Proxy URL</label>
+                    <label for="markdownProxyUrl">[URL] Proxy Endpoint</label>
                     <input type="text" id="markdownProxyUrl" value="https://markdown.new" placeholder="https://markdown.new">
                 </div>
             </div>
 
             <div class="buttons">
-                <button type="submit" class="btn-primary" id="startBtn">Start Crawl</button>
-                <button type="button" class="btn-danger" id="cancelBtn">Cancel</button>
+                <button type="submit" class="btn-primary" id="startBtn">▶ EXECUTE CRAWL</button>
+                <button type="button" class="btn-danger" id="cancelBtn">■ ABORT</button>
             </div>
         </form>
 
-        <div class="phase-banner" id="phaseBanner" style="display:none;">
+        <div class="phase-banner" id="phaseBanner">
             <span class="phase-dot" id="phaseDot"></span>
             <span class="phase-name" id="phaseName">INIT</span>
-            <span class="phase-separator">·</span>
+            <span class="phase-separator">│</span>
             <span class="phase-detail" id="phaseDetail"></span>
         </div>
         <div class="log" id="log"></div>
 
         <div class="summary" id="summary">
-            <h3>Results</h3>
+            <h3>// Mission Report</h3>
             <div>
-                <span class="stat"><span class="stat-value" id="pagesOk">0</span> OK</span>
-                <span class="stat"><span class="stat-value" id="pagesPartial">0</span> Partial</span>
-                <span class="stat"><span class="stat-value" id="pagesFailed">0</span> Failed</span>
+                <span class="stat"><span class="stat-value" id="pagesOk">0</span><br><span class="stat-label">Complete</span></span>
+                <span class="stat"><span class="stat-value" id="pagesPartial">0</span><br><span class="stat-label">Partial</span></span>
+                <span class="stat"><span class="stat-value" id="pagesFailed">0</span><br><span class="stat-label">Failed</span></span>
             </div>
-            <div id="fetchStats" style="margin-top: 0.75rem; font-family: monospace; font-size: 0.85rem; color: #94a3b8; display: none;"></div>
+            <div id="fetchStats"></div>
         </div>
     </div>
 
@@ -447,30 +836,15 @@
         let currentJobId = null;
         let eventSource = null;
 
-        // Model filtering logic based on model characteristics
         function getModelCategory(modelName, modelSize) {
             const name = modelName.toLowerCase();
             const size = modelSize || 0;
-            
-            // Reasoning models (large, high capability) - best for complex analysis
             const reasoningPatterns = ['r1', 'reasoning', 'deepseek', 'qwen3:32', 'qwen3:30', 'qwq', 'o1', 'o3', 'o4', 'claude-haiku', 'moonshot', 'kimi'];
-            if (reasoningPatterns.some(p => name.includes(p)) || size > 20000000000) {
-                return 'reasoning';
-            }
-            
-            // Crawl models (small, fast) - prioritize speed for URL filtering
+            if (reasoningPatterns.some(p => name.includes(p)) || size > 20000000000) return 'reasoning';
             const crawlPatterns = ['1b', '2b', '3b', '4b', '5b', 'phi', 'tiny', 'mini', 'gemma:2', 'mistral:7'];
-            if (crawlPatterns.some(p => name.includes(p)) && !name.includes('8b') || size < 4000000000) {
-                return 'crawl';
-            }
-            
-            // Pipeline models (medium, 6b-14b) - balance of speed and quality, including 8b and quantized
+            if (crawlPatterns.some(p => name.includes(p)) && !name.includes('8b') || size < 4000000000) return 'crawl';
             const pipelinePatterns = ['6b', '7b', '8b', 'qwen', 'llama3.1', 'llama3:7', 'mistral', 'mixtral', 'gemma'];
-            if (pipelinePatterns.some(p => name.includes(p)) || (size >= 4000000000 && size <= 16000000000)) {
-                return 'pipeline';
-            }
-            
-            // Default to pipeline for medium models
+            if (pipelinePatterns.some(p => name.includes(p)) || (size >= 4000000000 && size <= 16000000000)) return 'pipeline';
             return 'pipeline';
         }
 
@@ -478,14 +852,10 @@
             return models.filter(m => {
                 const category = getModelCategory(m.name, m.size);
                 switch (selectorType) {
-                    case 'crawl':
-                        return category === 'crawl';
-                    case 'pipeline':
-                        return category === 'pipeline' || category === 'reasoning';
-                    case 'reasoning':
-                        return category === 'reasoning' || category === 'pipeline';
-                    default:
-                        return true;
+                    case 'crawl': return category === 'crawl';
+                    case 'pipeline': return category === 'pipeline' || category === 'reasoning';
+                    case 'reasoning': return category === 'reasoning' || category === 'pipeline';
+                    default: return true;
                 }
             });
         }
@@ -493,38 +863,31 @@
         function generateDynamicHints(models, provider) {
             const hints = { crawl: [], pipeline: [], reasoning: [] };
             const freeHints = { crawl: [], pipeline: [], reasoning: [] };
-            
             models.forEach(m => {
                 const category = getModelCategory(m.name, m.size);
                 if (hints[category]) {
                     hints[category].push(m.name);
-                    if (m.is_free) {
-                        freeHints[category].push(m.name);
-                    }
+                    if (m.is_free) freeHints[category].push(m.name);
                 }
             });
-
             const topN = 3;
             const updateHint = (elementId, modelList, freeList, fallbackDesc, providerType) => {
                 const el = document.getElementById(elementId);
                 if (!el) return;
-                
                 const isLocal = providerType === 'ollama';
                 const priorityList = freeList.length > 0 ? freeList : modelList;
-                
                 if (priorityList.length > 0) {
                     const suggestions = priorityList.slice(0, topN).join(', ');
-                    const badge = isLocal ? '<span style="color:#4ade80">🏠 Local</span>' : '<span style="color:#60a5fa">🆓 Free</span>';
-                    el.innerHTML = `${fallbackDesc}<br><strong>Sugeridos (${badge}):</strong> ${suggestions}`;
+                    const badge = isLocal ? '◈ LOCAL' : '◉ FREE';
+                    el.innerHTML = `${fallbackDesc}<br><strong>Suggestions (${badge}):</strong> ${suggestions}`;
                 } else {
                     el.textContent = fallbackDesc;
                 }
             };
-
             const providerType = provider;
-            updateHint('crawlHint', hints.crawl, freeHints.crawl, 'URL discovery & filtering. Modelos rapidos: 3b-8b.', providerType);
-            updateHint('pipelineHint', hints.pipeline, freeHints.pipeline, 'Markdown cleanup. 6b-14b (incluye 8b y quant).', providerType);
-            updateHint('reasoningHint', hints.reasoning, freeHints.reasoning, 'Analisis complejo. Modelos grandes: +14b o reasoning.', providerType);
+            updateHint('crawlHint', hints.crawl, freeHints.crawl, 'URL discovery & filtering. Fast: 3b-8b.', providerType);
+            updateHint('pipelineHint', hints.pipeline, freeHints.pipeline, 'Markdown cleanup. 6b-14b.', providerType);
+            updateHint('reasoningHint', hints.reasoning, freeHints.reasoning, 'Complex analysis. Large: +14b.', providerType);
         }
 
         async function loadModels() {
@@ -539,21 +902,16 @@
                     logMessage(`No ${provider} models available. Check API key or Ollama connection.`, 'init', 'warning');
                     return;
                 }
-
                 generateDynamicHints(models, provider);
-
                 const isLocal = provider === 'ollama';
-                const badge = isLocal ? '🏠' : '🆓';
-
+                const badge = isLocal ? '◈' : '◉';
                 selects.forEach((select, index) => {
                     const filteredModels = filterModelsForSelector(models, selectorTypes[index]);
                     let modelsToShow = filteredModels.length > 0 ? filteredModels : models;
-                    
                     modelsToShow.sort((a, b) => {
                         if (a.is_free !== b.is_free) return b.is_free ? 1 : -1;
                         return a.name.localeCompare(b.name);
                     });
-                    
                     const optionsHtml = modelsToShow.map(m => {
                         const modelBadge = m.is_free ? ` ${badge}` : '';
                         return `<option value="${m.name}">${m.name}${modelBadge}</option>`;
@@ -566,7 +924,6 @@
             }
         }
 
-        // Load models when provider changes
         providerSelect.addEventListener('change', loadModels);
 
         function updateOutputPath() {
@@ -578,46 +935,36 @@
             try {
                 const parsed = new URL(urlInput);
                 let domain = parsed.hostname.replace(/^(www|docs|doc|documentation|wiki)\./i, '');
-                let section = parsed.pathname
-                    .replace(/\/$/, '')
-                    .replace(/^\/(latest|stable|v\d[^/]*)/i, '')
-                    .replace(/^\/docs?\/?/i, '')
-                    .replace(/^\//, '');
+                let section = parsed.pathname.replace(/\/$/, '').replace(/^\/(latest|stable|v\d[^/]*)/i, '').replace(/^\/docs?\/?/i, '').replace(/^\//, '');
                 let outputPath = `/data/output/${domain}`;
                 if (section) {
                     const parts = section.split('/').filter(Boolean);
-                    if (parts.length > 3) {
-                        section = parts[0] + '/' + parts[parts.length - 1];
-                    } else {
-                        section = parts.join('/');
-                    }
+                    if (parts.length > 3) section = parts[0] + '/' + parts[parts.length - 1];
+                    else section = parts.join('/');
                     outputPath += `/${section}`;
                 }
                 document.getElementById('outputPath').value = outputPath;
-            } catch (e) { /* URL not valid yet */ }
+            } catch (e) { }
         }
 
         function updatePhaseBanner(phase, detail) {
-            phaseBanner.style.display = 'flex';
-            phaseBanner.className = `phase-banner phase-${phase}`;
+            phaseBanner.className = `phase-banner phase-${phase} active`;
             phaseName.textContent = phase;
             phaseDetail.textContent = detail || '';
         }
 
         function hidePhaseBanner() {
-            phaseBanner.style.display = 'none';
+            phaseBanner.className = 'phase-banner';
         }
 
         function logMessage(message, phase, level) {
             const entry = document.createElement('div');
             const levelClass = level === 'error' ? 'error' : level === 'warning' ? 'warning' : level === 'success' ? 'success' : '';
             entry.className = `log-entry ${levelClass}`;
-
             const time = new Date().toLocaleTimeString();
             const badgeClass = phase ? `badge-${phase}` : '';
             const badge = phase ? `<span class="log-badge ${badgeClass}">${phase}</span>` : '';
-
-            entry.innerHTML = `<span style="color:#475569">[${time}]</span> ${badge}${message}`;
+            entry.innerHTML = `<span style="color:#4a4a6a">[${time}]</span> ${badge}${message}`;
             logDiv.appendChild(entry);
             logDiv.scrollTop = logDiv.scrollHeight;
         }
@@ -632,7 +979,6 @@
             e.preventDefault();
             logDiv.innerHTML = '';
             summaryDiv.style.display = 'none';
-
             const payload = {
                 url: document.getElementById('url').value,
                 crawl_model: crawlModelSelect.value,
@@ -648,7 +994,6 @@
                 markdown_proxy_url: document.getElementById('markdownProxyUrl').value,
                 language: document.getElementById('language').value,
             };
-
             try {
                 const res = await fetch('/api/jobs', {
                     method: 'POST',
@@ -657,7 +1002,7 @@
                 });
                 const job = await res.json();
                 currentJobId = job.id;
-                logMessage(`Job started: ${job.id}`, 'init', 'info');
+                logMessage(`Job initialized: ${job.id}`, 'init', 'info');
                 setRunning(true);
                 subscribeToEvents(job.id);
             } catch (e) {
@@ -667,106 +1012,75 @@
 
         function subscribeToEvents(jobId) {
             eventSource = new EventSource(`/api/jobs/${jobId}/events`);
-
-            // Phase change — updates the banner
             eventSource.addEventListener('phase_change', (e) => {
                 const data = JSON.parse(e.data);
                 let detail = data.message || '';
-                if (data.active_model) detail += ` · ${data.active_model}`;
-                if (data.progress) detail += ` · ${data.progress}`;
+                if (data.active_model) detail += ` ◈ ${data.active_model}`;
+                if (data.progress) detail += ` // ${data.progress}`;
                 updatePhaseBanner(data.phase, detail);
             });
-
-            // General log entries — go to the log panel with badges
             eventSource.addEventListener('log', (e) => {
                 const data = JSON.parse(e.data);
                 let msg = data.message;
-                if (data.active_model) {
-                    msg += ` <span class="log-model">[${data.active_model}]</span>`;
-                }
+                if (data.active_model) msg += ` <span class="log-model">[${data.active_model}]</span>`;
                 logMessage(msg, data.phase, data.level || '');
             });
-
-            // Backwards compat with legacy event types
             eventSource.addEventListener('discovery', (e) => {
                 const data = JSON.parse(e.data);
                 logMessage(`${data.phase} - ${data.status || ''} ${data.urls_found ? `(${data.urls_found} URLs)` : ''}`, 'discovery');
             });
-
             eventSource.addEventListener('filtering', (e) => {
                 const data = JSON.parse(e.data);
                 logMessage(`${data.phase} ${data.after_basic ? `(${data.after_basic} URLs)` : ''} ${data.after_llm ? `→ ${data.after_llm} URLs` : ''}`, 'filtering');
             });
-
             eventSource.addEventListener('page_start', (e) => {
                 const data = JSON.parse(e.data);
-                logMessage(`[${data.index}/${data.total}] Loading: ${data.url}`, 'scraping', 'info');
+                logMessage(`[${data.index}/${data.total}] LOADING: ${data.url}`, 'scraping', 'info');
             });
-
             eventSource.addEventListener('page_done', (e) => {
                 const data = JSON.parse(e.data);
-                const msg = data.chunks_failed > 0
-                    ? `Done (${data.chunks_failed}/${data.chunks_total} chunks failed)`
-                    : '✓ Done';
+                const msg = data.chunks_failed > 0 ? `DONE (${data.chunks_failed}/${data.chunks_total} failed)` : '✓ COMPLETE';
                 logMessage(`  → ${msg}`, 'save', data.status === 'ok' ? 'success' : 'warning');
             });
-
             eventSource.addEventListener('page_error', (e) => {
                 const data = JSON.parse(e.data);
-                logMessage(`  → Error: ${data.error}`, 'scraping', 'error');
+                logMessage(`  → ERROR: ${data.error}`, 'scraping', 'error');
             });
-
             eventSource.addEventListener('job_done', (e) => {
                 const data = JSON.parse(e.data);
                 if (data.status === 'completed') {
                     updatePhaseBanner('done', `Output: ${data.output_path}`);
-                    logMessage(`Job completed! ${data.pages_ok} OK, ${data.pages_partial || 0} partial, ${data.pages_failed || 0} failed`, 'done', 'success');
+                    logMessage(`Mission complete! ${data.pages_ok} OK, ${data.pages_partial || 0} partial, ${data.pages_failed || 0} failed`, 'done', 'success');
                 } else {
                     updatePhaseBanner('failed', data.error || 'Unknown error');
-                    logMessage(`Job failed: ${data.error}`, 'failed', 'error');
+                    logMessage(`Mission failed: ${data.error}`, 'failed', 'error');
                 }
                 showSummary(data);
                 cleanupJob();
             });
-
             eventSource.addEventListener('job_cancelled', (e) => {
                 const data = JSON.parse(e.data);
-                updatePhaseBanner('cancelled', `${data.pages_completed}/${data.pages_total} pages processed`);
-                logMessage(`Job cancelled. Processed ${data.pages_completed}/${data.pages_total} pages.`, 'cancelled');
+                updatePhaseBanner('cancelled', `${data.pages_completed}/${data.pages_total} processed`);
+                logMessage(`Operation aborted. ${data.pages_completed}/${data.pages_total} pages processed.`, 'cancelled');
                 cleanupJob();
             });
-
-            // Silently consume keepalive events
             eventSource.addEventListener('keepalive', () => {});
-
             eventSource.onerror = (e) => {
                 if (!currentJobId) return;
-
-                // Close dead EventSource
-                if (eventSource) {
-                    eventSource.close();
-                    eventSource = null;
-                }
-
-                // Check if job is still running before giving up
+                if (eventSource) { eventSource.close(); eventSource = null; }
                 fetch(`/api/jobs/${currentJobId}/status`)
-                    .then(r => {
-                        if (!r.ok) throw new Error(`Status ${r.status}`);
-                        return r.json();
-                    })
+                    .then(r => { if (!r.ok) throw new Error(`Status ${r.status}`); return r.json(); })
                     .then(status => {
                         if (status.status === 'running' || status.status === 'pending') {
                             logMessage('SSE reconnecting...', 'init', 'warning');
-                            setTimeout(() => {
-                                if (currentJobId) subscribeToEvents(currentJobId);
-                            }, 2000);
+                            setTimeout(() => { if (currentJobId) subscribeToEvents(currentJobId); }, 2000);
                         } else if (status.status === 'completed') {
                             updatePhaseBanner('done', 'Completed');
                             logMessage('Job completed.', 'done');
                             cleanupJob();
                         } else if (status.status === 'cancelled') {
-                            updatePhaseBanner('cancelled', `${status.pages_completed}/${status.pages_total} pages`);
-                            logMessage(`Cancelled. ${status.pages_completed}/${status.pages_total} pages processed.`, 'cancelled');
+                            updatePhaseBanner('cancelled', `${status.pages_completed}/${status.pages_total}`);
+                            logMessage(`Cancelled. ${status.pages_completed}/${status.pages_total} pages.`, 'cancelled');
                             cleanupJob();
                         } else {
                             logMessage('Job failed.', 'failed', 'error');
@@ -774,23 +1088,15 @@
                         }
                     })
                     .catch(() => {
-                        // Server might be restarting — retry once after 5s
                         setTimeout(() => {
                             if (!currentJobId) return;
                             fetch(`/api/jobs/${currentJobId}/status`)
                                 .then(r => r.ok ? r.json() : Promise.reject())
                                 .then(status => {
-                                    if (status.status === 'running') {
-                                        subscribeToEvents(currentJobId);
-                                    } else {
-                                        logMessage('Connection lost', 'failed', 'error');
-                                        cleanupJob();
-                                    }
+                                    if (status.status === 'running') subscribeToEvents(currentJobId);
+                                    else { logMessage('Connection lost', 'failed', 'error'); cleanupJob(); }
                                 })
-                                .catch(() => {
-                                    logMessage('Connection lost — server may have restarted', 'failed', 'error');
-                                    cleanupJob();
-                                });
+                                .catch(() => { logMessage('Connection lost — server may have restarted', 'failed', 'error'); cleanupJob(); });
                         }, 5000);
                     });
             };
@@ -800,7 +1106,7 @@
             if (!currentJobId) return;
             try {
                 await fetch(`/api/jobs/${currentJobId}/cancel`, { method: 'POST' });
-                logMessage('Cancelling...', 'init', 'info');
+                logMessage('Aborting operation...', 'init', 'info');
             } catch (e) {
                 logMessage(`Failed to cancel: ${e.message}`, 'init', 'error');
             }
@@ -811,7 +1117,6 @@
             document.getElementById('pagesPartial').textContent = data.pages_partial || 0;
             document.getElementById('pagesFailed').textContent = data.pages_failed || 0;
             summaryDiv.style.display = 'block';
-
             const nativeMd = data.pages_native_md || 0;
             const proxyMd = data.pages_proxy_md || 0;
             const playwright = data.pages_playwright || 0;
@@ -819,21 +1124,17 @@
                 const statsDiv = document.getElementById('fetchStats');
                 const lines = [];
                 if (nativeMd > 0) lines.push(`⚡ ${nativeMd} via native markdown`);
-                if (proxyMd > 0) lines.push(`🔗 ${proxyMd} via markdown proxy`);
-                if (playwright > 0) lines.push(`🔧 ${playwright} via Playwright`);
+                if (proxyMd > 0) lines.push(`◈ ${proxyMd} via markdown proxy`);
+                if (playwright > 0) lines.push(`◉ ${playwright} via Playwright`);
                 statsDiv.innerHTML = lines.join('<br>');
                 statsDiv.style.display = 'block';
             }
         }
 
         function cleanupJob() {
-            if (eventSource) {
-                eventSource.close();
-                eventSource = null;
-            }
+            if (eventSource) { eventSource.close(); eventSource = null; }
             currentJobId = null;
             setRunning(false);
-            // Keep banner visible showing terminal state (done/failed/cancelled)
         }
 
         document.getElementById('url').addEventListener('input', updateOutputPath);
@@ -842,7 +1143,6 @@
         loadModels();
         checkHealth();
 
-        // Health check for status bar
         async function checkHealth() {
             const ollamaDot = document.getElementById('ollamaDot');
             const ollamaStatus = document.getElementById('ollamaStatus');
@@ -850,62 +1150,26 @@
             const diskStatus = document.getElementById('diskStatus');
             const writeDot = document.getElementById('writeDot');
             const writeStatus = document.getElementById('writeStatus');
-
             try {
                 const res = await fetch('/api/health/ready');
                 const data = await res.json();
-
-                // Ollama status
                 const ollama = data.checks.ollama || {};
-                if (ollama.status === 'ok') {
-                    ollamaDot.className = 'status-dot ok';
-                    ollamaStatus.textContent = `${ollama.models_count} models`;
-                } else if (ollama.status === 'unreachable') {
-                    ollamaDot.className = 'status-dot error';
-                    ollamaStatus.textContent = 'Not running';
-                    ollamaStatus.title = 'Start with: ollama serve';
-                } else {
-                    ollamaDot.className = 'status-dot warning';
-                    ollamaStatus.textContent = ollama.status || 'Error';
-                }
-
-                // Disk status
+                if (ollama.status === 'ok') { ollamaDot.className = 'status-dot ok'; ollamaStatus.textContent = `${ollama.models_count} models`; }
+                else if (ollama.status === 'unreachable') { ollamaDot.className = 'status-dot error'; ollamaStatus.textContent = 'OFFLINE'; }
+                else { ollamaDot.className = 'status-dot warning'; ollamaStatus.textContent = ollama.status || 'ERROR'; }
                 const disk = data.checks.disk_space || {};
-                if (disk.status === 'ok') {
-                    diskDot.className = 'status-dot ok';
-                    diskStatus.textContent = `${disk.free_gb}GB free`;
-                } else if (disk.status === 'warning') {
-                    diskDot.className = 'status-dot warning';
-                    diskStatus.textContent = `${disk.free_gb}GB (low)`;
-                } else if (disk.status === 'critical') {
-                    diskDot.className = 'status-dot error';
-                    diskStatus.textContent = `${disk.free_gb}GB (critical)`;
-                } else {
-                    diskDot.className = 'status-dot warning';
-                    diskStatus.textContent = disk.status || 'Unknown';
-                }
-
-                // Write permissions
+                if (disk.status === 'ok') { diskDot.className = 'status-dot ok'; diskStatus.textContent = `${disk.free_gb}GB free`; }
+                else if (disk.status === 'warning') { diskDot.className = 'status-dot warning'; diskStatus.textContent = `${disk.free_gb}GB (low)`; }
+                else if (disk.status === 'critical') { diskDot.className = 'status-dot error'; diskStatus.textContent = `${disk.free_gb}GB (crit)`; }
+                else { diskDot.className = 'status-dot warning'; diskStatus.textContent = disk.status || 'UNKNOWN'; }
                 const write = data.checks.write_permissions || {};
-                if (write.status === 'ok') {
-                    writeDot.className = 'status-dot ok';
-                    writeStatus.textContent = 'OK';
-                } else if (write.status === 'denied') {
-                    writeDot.className = 'status-dot error';
-                    writeStatus.textContent = 'Denied';
-                    writeStatus.title = 'Run: sudo chown -R $USER:$USER ./data';
-                } else {
-                    writeDot.className = 'status-dot warning';
-                    writeStatus.textContent = write.status || 'Unknown';
-                }
-
+                if (write.status === 'ok') { writeDot.className = 'status-dot ok'; writeStatus.textContent = 'OK'; }
+                else if (write.status === 'denied') { writeDot.className = 'status-dot error'; writeStatus.textContent = 'DENIED'; }
+                else { writeDot.className = 'status-dot warning'; writeStatus.textContent = write.status || 'UNKNOWN'; }
             } catch (e) {
-                ollamaDot.className = 'status-dot error';
-                ollamaStatus.textContent = 'Error';
-                diskDot.className = 'status-dot error';
-                diskStatus.textContent = 'Error';
-                writeDot.className = 'status-dot error';
-                writeStatus.textContent = 'Error';
+                ollamaDot.className = 'status-dot error'; ollamaStatus.textContent = 'ERROR';
+                diskDot.className = 'status-dot error'; diskStatus.textContent = 'ERROR';
+                writeDot.className = 'status-dot error'; writeStatus.textContent = 'ERROR';
             }
         }
     </script>
