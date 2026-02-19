@@ -229,11 +229,58 @@
             font-size: 0.75rem;
         }
         .log-entry.warning { color: #fbbf24; }
+
+        /* Status bar */
+        .status-bar {
+            display: flex;
+            gap: 1.5rem;
+            padding: 0.5rem 1rem;
+            background: #1e293b;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.8rem;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #64748b;
+        }
+        .status-dot.ok { background: #4ade80; }
+        .status-dot.warning { background: #fbbf24; }
+        .status-dot.error { background: #ef4444; }
+        .status-dot.loading { background: #3b82f6; animation: pulse 1s infinite; }
+        .status-label { color: #94a3b8; }
+        .status-value { color: #e2e8f0; font-weight: 500; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Docrawl</h1>
+
+        <!-- Status Bar -->
+        <div class="status-bar" id="statusBar">
+            <div class="status-item">
+                <span class="status-dot loading" id="ollamaDot"></span>
+                <span class="status-label">Ollama:</span>
+                <span class="status-value" id="ollamaStatus">Checking...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot loading" id="diskDot"></span>
+                <span class="status-label">Disk:</span>
+                <span class="status-value" id="diskStatus">Checking...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-dot loading" id="writeDot"></span>
+                <span class="status-label">Write:</span>
+                <span class="status-value" id="writeStatus">Checking...</span>
+            </div>
+        </div>
 
         <form id="crawlForm">
             <div class="form-group">
@@ -793,6 +840,74 @@
         form.addEventListener('submit', startCrawl);
         cancelBtn.addEventListener('click', cancelJob);
         loadModels();
+        checkHealth();
+
+        // Health check for status bar
+        async function checkHealth() {
+            const ollamaDot = document.getElementById('ollamaDot');
+            const ollamaStatus = document.getElementById('ollamaStatus');
+            const diskDot = document.getElementById('diskDot');
+            const diskStatus = document.getElementById('diskStatus');
+            const writeDot = document.getElementById('writeDot');
+            const writeStatus = document.getElementById('writeStatus');
+
+            try {
+                const res = await fetch('/api/health/ready');
+                const data = await res.json();
+
+                // Ollama status
+                const ollama = data.checks.ollama || {};
+                if (ollama.status === 'ok') {
+                    ollamaDot.className = 'status-dot ok';
+                    ollamaStatus.textContent = `${ollama.models_count} models`;
+                } else if (ollama.status === 'unreachable') {
+                    ollamaDot.className = 'status-dot error';
+                    ollamaStatus.textContent = 'Not running';
+                    ollamaStatus.title = 'Start with: ollama serve';
+                } else {
+                    ollamaDot.className = 'status-dot warning';
+                    ollamaStatus.textContent = ollama.status || 'Error';
+                }
+
+                // Disk status
+                const disk = data.checks.disk_space || {};
+                if (disk.status === 'ok') {
+                    diskDot.className = 'status-dot ok';
+                    diskStatus.textContent = `${disk.free_gb}GB free`;
+                } else if (disk.status === 'warning') {
+                    diskDot.className = 'status-dot warning';
+                    diskStatus.textContent = `${disk.free_gb}GB (low)`;
+                } else if (disk.status === 'critical') {
+                    diskDot.className = 'status-dot error';
+                    diskStatus.textContent = `${disk.free_gb}GB (critical)`;
+                } else {
+                    diskDot.className = 'status-dot warning';
+                    diskStatus.textContent = disk.status || 'Unknown';
+                }
+
+                // Write permissions
+                const write = data.checks.write_permissions || {};
+                if (write.status === 'ok') {
+                    writeDot.className = 'status-dot ok';
+                    writeStatus.textContent = 'OK';
+                } else if (write.status === 'denied') {
+                    writeDot.className = 'status-dot error';
+                    writeStatus.textContent = 'Denied';
+                    writeStatus.title = 'Run: sudo chown -R $USER:$USER ./data';
+                } else {
+                    writeDot.className = 'status-dot warning';
+                    writeStatus.textContent = write.status || 'Unknown';
+                }
+
+            } catch (e) {
+                ollamaDot.className = 'status-dot error';
+                ollamaStatus.textContent = 'Error';
+                diskDot.className = 'status-dot error';
+                diskStatus.textContent = 'Error';
+                writeDot.className = 'status-dot error';
+                writeStatus.textContent = 'Error';
+            }
+        }
     </script>
 </body>
 </html>

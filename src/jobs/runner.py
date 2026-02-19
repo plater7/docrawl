@@ -1,4 +1,7 @@
-"""Job execution orchestration."""
+"""Job execution orchestration.
+
+🤖 Generated with AI assistance by DocCrawler 🕷️ (model: qwen3-coder:free) and human review.
+"""
 
 import asyncio
 import logging
@@ -12,10 +15,52 @@ from src.crawler.filter import filter_urls
 from src.crawler.robots import RobotsParser
 from src.llm.filter import filter_urls_with_llm
 from src.llm.cleanup import cleanup_markdown, needs_llm_cleanup
+from src.llm.client import get_available_models, get_provider_for_model
 from src.scraper.page import PageScraper, fetch_markdown_native, fetch_markdown_proxy
 from src.scraper.markdown import html_to_markdown, chunk_markdown
+from src.exceptions import ModelNotFoundError, ProviderNotConfiguredError
 
 logger = logging.getLogger(__name__)
+
+
+async def validate_models(crawl_model: str, pipeline_model: str, reasoning_model: str) -> list[str]:
+    """Validate that all required models are available.
+    
+    Returns list of errors, empty if all valid.
+    """
+    errors = []
+    models_to_check = [
+        ("crawl_model", crawl_model),
+        ("pipeline_model", pipeline_model),
+        ("reasoning_model", reasoning_model),
+    ]
+    
+    for field, model in models_to_check:
+        provider = get_provider_for_model(model)
+        
+        try:
+            available = await get_available_models(provider)
+            model_names = [m["name"] for m in available]
+            
+            # For Ollama, check exact match or base model name
+            if provider == "ollama":
+                # Handle model names with tags (e.g., mistral:7b vs mistral:latest)
+                base_model = model.split(":")[0]
+                found = any(
+                    m == model or m == f"{base_model}:latest" or m.startswith(f"{base_model}:")
+                    for m in model_names
+                )
+                if not found and model_names:
+                    errors.append(f"Model '{model}' not found. Available: {', '.join(model_names[:5])}{'...' if len(model_names) > 5 else ''}")
+            # For API providers, we trust the model list (they have many models)
+            # Just check that we got a response
+            elif not available and provider in ["openrouter", "opencode"]:
+                errors.append(f"Cannot verify model '{model}' - check {provider} API key")
+                
+        except Exception as e:
+            errors.append(f"Failed to validate {field} '{model}': {e}")
+    
+    return errors
 
 
 async def _log(job: Job, event_type: str, data: dict) -> None:
@@ -53,6 +98,31 @@ async def run_job(job: Job) -> None:
 
     try:
         # INIT phase
+        await _log(job, "phase_change", {
+            "phase": "init",
+            "message": "Validating models...",
+        })
+        
+        # Validate models before starting
+        validation_errors = await validate_models(
+            request.crawl_model,
+            request.pipeline_model,
+            request.reasoning_model
+        )
+        if validation_errors:
+            error_msg = "; ".join(validation_errors)
+            await _log(job, "log", {
+                "phase": "init",
+                "message": f"Model validation failed: {error_msg}",
+                "level": "error",
+            })
+            job.status = "failed"
+            await job.emit_event("job_done", {
+                "status": "failed",
+                "error": f"Model validation failed: {error_msg}",
+            })
+            return
+        
         await _log(job, "phase_change", {
             "phase": "init",
             "message": "Initializing browser...",
@@ -179,6 +249,7 @@ async def run_job(job: Job) -> None:
                 markdown = None
                 native_token_count = None
                 fetch_method = "playwright"
+                load_time = 0.0
 
                 # Try native markdown via content negotiation
                 if request.use_native_markdown:
