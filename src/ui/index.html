@@ -314,10 +314,24 @@
                     <label for="maxDepth">Max crawl depth</label>
                     <input type="number" id="maxDepth" value="5" min="1" max="20">
                 </div>
-                <div class="form-group checkbox-group" style="align-self: end; padding-bottom: 0.75rem;">
-                    <input type="checkbox" id="respectRobots" checked>
-                    <label for="respectRobots" style="margin: 0;">Respect robots.txt</label>
+                <div class="form-group">
+                    <label for="language">Language</label>
+                    <select id="language">
+                        <option value="en">English only</option>
+                        <option value="es">Spanish only</option>
+                        <option value="fr">French only</option>
+                        <option value="de">German only</option>
+                        <option value="ja">Japanese only</option>
+                        <option value="zh">Chinese only</option>
+                        <option value="pt">Portuguese only</option>
+                        <option value="all">All languages</option>
+                    </select>
                 </div>
+            </div>
+
+            <div class="form-group checkbox-group">
+                <input type="checkbox" id="respectRobots" checked>
+                <label for="respectRobots" style="margin: 0;">Respect robots.txt</label>
             </div>
 
             <div class="models-section" style="margin-top: 1rem;">
@@ -563,6 +577,7 @@
                 use_native_markdown: document.getElementById('useNativeMarkdown').checked,
                 use_markdown_proxy: useMarkdownProxyCheckbox.checked,
                 markdown_proxy_url: document.getElementById('markdownProxyUrl').value,
+                language: document.getElementById('language').value,
             };
 
             try {
