@@ -191,9 +191,11 @@ MIT
 ---
 
 > 🤖 **AI-Assisted Development**: Este proyecto fue desarrollado con asistencia de IA y revisión humana.
+> 
+> **Bot**: OpenCode 🤖 (model: glm-5-free)
 >
 > _Co-authored-by: OpenCode 🤖 <opencode@anomaly.la>_
 
 <p align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/plater7">plater7</a> + OpenCode 🤖</sub>
+  <sub>Built with ❤️ by <a href="https://github.com/plater7">plater7</a> + OpenCode 🤖 (glm-5-free)</sub>
 </p>

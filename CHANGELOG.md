@@ -118,4 +118,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > 🤖 **Note**: This project uses AI-assisted development with human review.
 > 
+> **Bot**: OpenCode 🤖 (model: glm-5-free)
+>
 > _Co-authored-by: OpenCode 🤖 <opencode@anomaly.la>_
