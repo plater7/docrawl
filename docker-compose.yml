@@ -1,3 +1,7 @@
+# Docrawl Docker Compose Configuration
+#
+# 🤖 Generated with AI assistance by DocCrawler 🕷️ (model: qwen3-coder:free) and human review.
+
 services:
   docrawl:
     build:
@@ -14,6 +18,22 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - OPENCODE_API_KEY=${OPENCODE_API_KEY:-}
     restart: unless-stopped
+    # Shared memory for Playwright - prevents crashes on large pages
+    shm_size: '2gb'
+    # Resource limits for stability
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 2G
+    # Health check configuration
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/api/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   cloudflared:
     image: cloudflare/cloudflared:latest
@@ -21,5 +41,6 @@ services:
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
-      - docrawl
+      docrawl:
+        condition: service_healthy
     restart: unless-stopped
