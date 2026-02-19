@@ -380,7 +380,7 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
                         # Filter by base path if enabled
                         url_path = parsed.path.rstrip('/') if parsed.path else "/"
                         if filter_by_path and base_path != "/":
-                            if not url_path.startswith(base_path):
+                            if not (url_path == base_path or url_path.startswith(base_path + "/")):
                                 logger.debug(f"Skipping URL not under base path {base_path}: {url_text}")
                                 continue
                         urls.add(normalize_url(url_text))

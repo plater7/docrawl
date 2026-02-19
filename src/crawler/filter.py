@@ -54,7 +54,7 @@ def filter_urls(urls: list[str], base_url: str, language: str = "en") -> list[st
             continue
 
         path = parsed.path.rstrip("/")
-        if not path.startswith(base_path):
+        if not (path == base_path or path.startswith(base_path + "/") or base_path == ""):
             continue
 
         if any(path.lower().endswith(ext) for ext in EXCLUDED_EXTENSIONS):

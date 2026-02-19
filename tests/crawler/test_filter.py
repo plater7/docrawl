@@ -352,6 +352,26 @@ class TestEdgeCases:
         result = filter_urls(urls, "https://example.com/docs/")
         assert len(result) == 3
 
+    def test_prefix_false_positive(self):
+        """Path prefix check must not include similarly-named sibling paths.
+
+        Regression: /intune-for-education/ should NOT match base /intune/
+        """
+        urls = [
+            "https://learn.microsoft.com/es-mx/intune/overview",
+            "https://learn.microsoft.com/es-mx/intune/enrollment/enroll-android",
+            "https://learn.microsoft.com/es-mx/intune-for-education/what-is-intune-for-education",
+            "https://learn.microsoft.com/es-mx/intune-education/dashboard-intro",
+            "https://learn.microsoft.com/es-mx/azure/virtual-machines/overview",
+        ]
+        result = filter_urls(urls, "https://learn.microsoft.com/es-mx/intune/", language="all")
+        assert "https://learn.microsoft.com/es-mx/intune/overview" in result
+        assert "https://learn.microsoft.com/es-mx/intune/enrollment/enroll-android" in result
+        assert "https://learn.microsoft.com/es-mx/intune-for-education/what-is-intune-for-education" not in result
+        assert "https://learn.microsoft.com/es-mx/intune-education/dashboard-intro" not in result
+        assert "https://learn.microsoft.com/es-mx/azure/virtual-machines/overview" not in result
+        assert len(result) == 2
+
 
 class TestIntegrationScenarios:
     """Integration tests for realistic filtering scenarios."""
