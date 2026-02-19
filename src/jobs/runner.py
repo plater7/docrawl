@@ -158,7 +158,7 @@ async def run_job(job: Job) -> None:
             "message": "Crawling site structure...",
         })
 
-        urls = await discover_urls(base_url, request.max_depth)
+        urls = await discover_urls(base_url, request.max_depth, request.filter_sitemap_by_path)
 
         discovery_time = time.monotonic() - phase_start
         await _log(job, "log", {
