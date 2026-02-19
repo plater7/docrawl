@@ -20,8 +20,7 @@ RUN groupadd -r docrawl && useradd -r -g docrawl docrawl
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers
-RUN playwright install chromium
+# Install Playwright system dependencies
 RUN playwright install-deps chromium
 
 # Copy application code
@@ -32,6 +31,9 @@ RUN mkdir -p /data && chown -R docrawl:docrawl /data
 
 # Switch to non-root user
 USER docrawl
+
+# Install Playwright browsers as docrawl user (installs to ~/.cache/ms-playwright)
+RUN playwright install chromium
 
 EXPOSE 8002
 
