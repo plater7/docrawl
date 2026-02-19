@@ -262,7 +262,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">URL discovery & filtering. Modelos rapidos: 3b-8b.<br>Local: llama3.2:3b, mistral:7b | API: qwen3-8b, gemma-3-12b</span>
+                        <span class="hint-text" id="crawlHint">URL discovery & filtering. Modelos rapidos: 3b-8b.</span>
                     </div>
                 </div>
 
@@ -275,7 +275,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">Markdown cleanup. 6b-14b (incluye 8b y quant).<br>Local: qwen3:14b, llama3.1:8b | API: qwen3-14b, llama-3.1-8b</span>
+                        <span class="hint-text" id="pipelineHint">Markdown cleanup. 6b-14b (incluye 8b y quant).</span>
                     </div>
                 </div>
 
@@ -288,7 +288,7 @@
                     </div>
                     <div class="model-hint">
                         <span class="hint-icon">&#8505;</span>
-                        <span class="hint-text">Analisis complejo. Modelos grandes: +14b o reasoning.<br>Local: deepseek-r1:32b | API: deepseek-r1, kimi-k2.5</span>
+                        <span class="hint-text" id="reasoningHint">Analisis complejo. Modelos grandes: +14b o reasoning.</span>
                     </div>
                 </div>
             </div>
@@ -418,18 +418,42 @@
                 const category = getModelCategory(m.name, m.size);
                 switch (selectorType) {
                     case 'crawl':
-                        // Crawl: small fast models (1b-5b, excluding 8b)
                         return category === 'crawl';
                     case 'pipeline':
-                        // Pipeline: medium models (6b-14b, including 8b and quantized)
                         return category === 'pipeline' || category === 'reasoning';
                     case 'reasoning':
-                        // Reasoning: large models
                         return category === 'reasoning' || category === 'pipeline';
                     default:
                         return true;
                 }
             });
+        }
+
+        function generateDynamicHints(models, provider) {
+            const hints = { crawl: [], pipeline: [], reasoning: [] };
+            
+            models.forEach(m => {
+                const category = getModelCategory(m.name, m.size);
+                if (hints[category]) {
+                    hints[category].push(m.name);
+                }
+            });
+
+            const topN = 3;
+            const updateHint = (elementId, models, fallbackDesc) => {
+                const el = document.getElementById(elementId);
+                if (!el) return;
+                if (models.length > 0) {
+                    const suggestions = models.slice(0, topN).join(', ');
+                    el.innerHTML = `${fallbackDesc}<br><strong>Sugeridos:</strong> ${suggestions}`;
+                } else {
+                    el.textContent = fallbackDesc;
+                }
+            };
+
+            updateHint('crawlHint', hints.crawl, 'URL discovery & filtering. Modelos rapidos: 3b-8b.');
+            updateHint('pipelineHint', hints.pipeline, 'Markdown cleanup. 6b-14b (incluye 8b y quant).');
+            updateHint('reasoningHint', hints.reasoning, 'Analisis complejo. Modelos grandes: +14b o reasoning.');
         }
 
         async function loadModels() {
@@ -445,10 +469,10 @@
                     return;
                 }
 
-                // Filter models for each selector by role
+                generateDynamicHints(models, provider);
+
                 selects.forEach((select, index) => {
                     const filteredModels = filterModelsForSelector(models, selectorTypes[index]);
-                    // If no models match the filter, show all models for this provider
                     const modelsToShow = filteredModels.length > 0 ? filteredModels : models;
                     const optionsHtml = modelsToShow.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
                     select.innerHTML = optionsHtml;
