@@ -3,6 +3,7 @@
 import asyncio
 import gzip
 import logging
+import re
 import xml.etree.ElementTree as ET
 from collections import deque
 from io import BytesIO
@@ -289,14 +290,35 @@ async def try_nav_parse(base_url: str) -> list[str]:
     return result
 
 
+_LOCALE_SEGMENT_RE = re.compile(r'^[a-z]{2}(-[a-z]{2,4})?$', re.IGNORECASE)
+
+
+def _path_keywords(base_path: str) -> list[str]:
+    """Extract product keywords from base path, stripping locale segments.
+
+    '/es-mx/intune'       → ['intune']
+    '/en-us/azure/vms'    → ['azure', 'vms']
+    '/'                   → []
+    """
+    return [
+        s.lower() for s in base_path.split('/')
+        if s and not _LOCALE_SEGMENT_RE.match(s)
+    ]
+
+
 async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
     """
     Try to parse sitemap.xml and robots.txt.
 
-    Discovery order:
-    1. /sitemap.xml
-    2. /sitemap_index.xml
-    3. Parse robots.txt for Sitemap: directive
+    Discovery order (stops at first success):
+    1. {base_url}/sitemap.xml  — path-specific, highest priority
+    2. /sitemap.xml            — root standard
+    3. /sitemap_index.xml      — root index
+    4. Sitemap: directives from robots.txt
+
+    For sitemap index files:
+    - Sub-sitemaps are filtered by product keywords before downloading (fix #1)
+    - Recursion is limited to 1 level deep (fix #3)
 
     Args:
         base_url: Base URL of the site
@@ -306,30 +328,32 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
         List of URLs found in sitemaps
 
     Edge cases handled:
+    - Path-specific sitemap tried before global index
+    - Sub-sitemap keyword filtering to avoid downloading unrelated products
+    - Max 1 level of sitemap index recursion
     - Gzipped sitemaps (.xml.gz)
-    - Sitemap index files (nested sitemaps)
-    - Multiple sitemaps in robots.txt
     - Invalid XML handling
     - 404s and network errors
     """
-    discovered_urls = set()
     base_domain = urlparse(base_url).netloc
     base_path = urlparse(base_url).path.rstrip('/') if urlparse(base_url).path else ""
     if base_path == "":
         base_path = "/"
 
+    keywords = _path_keywords(base_path)
+
     msg = f"Trying sitemap on {base_url}"
     logger.info(msg)
     print(f"[DISCOVERY] {msg}", flush=True)
 
-    async def parse_sitemap_xml(url: str, client: httpx.AsyncClient) -> set[str]:
-        """Parse a sitemap XML file with robust error handling."""
-        urls = set()
+    async def parse_sitemap_xml(url: str, client: httpx.AsyncClient, depth: int = 0) -> set[str]:
+        """Parse a sitemap XML file. Max 1 level of sitemap index recursion."""
+        MAX_INDEX_DEPTH = 1
+        urls: set[str] = set()
 
         try:
             response = await client.get(url, timeout=10.0)
 
-            # Skip 404s gracefully
             if response.status_code == 404:
                 logger.debug(f"Sitemap not found (404): {url}")
                 return urls
@@ -339,7 +363,6 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
 
             content = response.content
 
-            # Handle gzipped sitemaps
             if url.endswith('.gz'):
                 try:
                     content = gzip.decompress(content)
@@ -347,7 +370,6 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
                     logger.warning(f"✗ Failed to decompress gzipped sitemap: {url} - {e}")
                     return urls
 
-            # Parse XML with defensive error handling
             try:
                 root = ET.fromstring(content)
             except ET.ParseError as e:
@@ -355,29 +377,51 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
                 print(f"[DISCOVERY] ✗ Invalid XML in sitemap: {url}", flush=True)
                 return urls
 
-            # Handle sitemap index (nested sitemaps)
             namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
 
-            # Check if this is a sitemap index
-            for sitemap_elem in root.findall('.//ns:sitemap/ns:loc', namespace):
-                nested_url = sitemap_elem.text
-                if nested_url:
-                    # Recursively parse nested sitemaps (failures don't stop entire discovery)
-                    try:
-                        nested_urls = await parse_sitemap_xml(nested_url, client)
-                        urls.update(nested_urls)
-                    except Exception as e:
-                        logger.debug(f"Failed to parse nested sitemap {nested_url}: {e}")
-                        continue
+            # Handle sitemap index — only within depth limit
+            if depth < MAX_INDEX_DEPTH:
+                all_sub = [
+                    elem.text for elem in root.findall('.//ns:sitemap/ns:loc', namespace)
+                    if elem.text
+                ]
+                if all_sub:
+                    # Filter sub-sitemaps by product keywords before downloading (#1)
+                    if filter_by_path and keywords and base_path != "/":
+                        relevant = [u for u in all_sub if any(kw in u.lower() for kw in keywords)]
+                        skipped = len(all_sub) - len(relevant)
+                        if relevant:
+                            msg = (f"Sitemap index: {len(relevant)}/{len(all_sub)} sub-sitemaps "
+                                   f"match {keywords} (skipped {skipped})")
+                            logger.info(msg)
+                            print(f"[DISCOVERY] {msg}", flush=True)
+                        else:
+                            # No keyword match — download all to avoid missing content
+                            relevant = all_sub
+                            msg = f"Sitemap index: no keyword match, downloading all {len(all_sub)} sub-sitemaps"
+                            logger.warning(msg)
+                            print(f"[DISCOVERY] {msg}", flush=True)
+                    else:
+                        relevant = all_sub
+
+                    for nested_url in relevant:
+                        try:
+                            nested_urls = await parse_sitemap_xml(nested_url, client, depth + 1)
+                            urls.update(nested_urls)
+                        except Exception as e:
+                            logger.debug(f"Failed to parse nested sitemap {nested_url}: {e}")
+            else:
+                # Depth limit reached — skip further nesting (#3)
+                deep_count = len(root.findall('.//ns:sitemap/ns:loc', namespace))
+                if deep_count:
+                    logger.debug(f"Depth limit reached, skipping {deep_count} nested index entries in {url}")
 
             # Extract URLs from regular sitemap
             for url_elem in root.findall('.//ns:url/ns:loc', namespace):
                 url_text = url_elem.text
                 if url_text:
                     parsed = urlparse(url_text)
-                    # Filter same domain
                     if parsed.netloc == base_domain:
-                        # Filter by base path if enabled
                         url_path = parsed.path.rstrip('/') if parsed.path else "/"
                         if filter_by_path and base_path != "/":
                             if not (url_path == base_path or url_path.startswith(base_path + "/")):
@@ -398,13 +442,18 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
         headers={"User-Agent": "DocRawl/1.0 (Documentation Crawler)"}
     ) as client:
 
-        # Try standard sitemap locations
-        sitemap_urls = [
-            urljoin(base_url, '/sitemap.xml'),
-            urljoin(base_url, '/sitemap_index.xml'),
-        ]
+        # Build candidate list in priority order (#2: path-specific first)
+        candidates: list[str] = []
 
-        # Try to get sitemap URLs from robots.txt
+        if base_path != "/":
+            # Highest priority: sitemap at the crawl path itself
+            candidates.append(base_url.rstrip('/') + '/sitemap.xml')
+
+        # Standard root locations
+        candidates.append(urljoin(base_url, '/sitemap.xml'))
+        candidates.append(urljoin(base_url, '/sitemap_index.xml'))
+
+        # robots.txt sitemap directives (appended last — often the global index)
         try:
             robots_url = urljoin(base_url, '/robots.txt')
             response = await client.get(robots_url, timeout=5.0)
@@ -412,28 +461,29 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
                 for line in response.text.split('\n'):
                     if line.lower().startswith('sitemap:'):
                         sitemap_url = line.split(':', 1)[1].strip()
-                        sitemap_urls.append(sitemap_url)
+                        candidates.append(sitemap_url)
         except Exception:
-            pass  # robots.txt is optional
+            pass
 
-        # Parse all discovered sitemaps
-        for sitemap_url in sitemap_urls:
-            logger.debug(f"Parsing sitemap: {sitemap_url}")
+        # Try candidates in priority order, stop at first success
+        seen: set[str] = set()
+        for sitemap_url in candidates:
+            if sitemap_url in seen:
+                continue
+            seen.add(sitemap_url)
+
+            logger.debug(f"Trying sitemap candidate: {sitemap_url}")
             urls = await parse_sitemap_xml(sitemap_url, client)
             if urls:
-                logger.debug(f"Sitemap {sitemap_url} contributed {len(urls)} URLs")
-                discovered_urls.update(urls)
+                msg = f"Sitemap found {len(urls)} URLs [{sitemap_url}]"
+                logger.info(msg)
+                print(f"[DISCOVERY] {msg}", flush=True)
+                return sorted(list(urls))
 
-    result = list(discovered_urls)
-    if result:
-        msg = f"Sitemap parsing found {len(result)} URLs"
-        logger.info(msg)
-        print(f"[DISCOVERY] {msg}", flush=True)
-    else:
-        msg = "Sitemap parsing found no URLs"
-        logger.info(msg)
-        print(f"[DISCOVERY] {msg}", flush=True)
-    return result
+    msg = "Sitemap parsing found no URLs"
+    logger.info(msg)
+    print(f"[DISCOVERY] {msg}", flush=True)
+    return []
 
 
 async def discover_urls(base_url: str, max_depth: int = 5, filter_by_path: bool = True) -> list[str]:
@@ -461,8 +511,13 @@ async def discover_urls(base_url: str, max_depth: int = 5, filter_by_path: bool 
     logger.info(msg)
     print(f"[DISCOVERY] {msg}", flush=True)
 
+    SITEMAP_TIMEOUT = 360.0
+
     try:
-        sitemap_urls = await try_sitemap(base_url, filter_by_path)
+        sitemap_urls = await asyncio.wait_for(
+            try_sitemap(base_url, filter_by_path),
+            timeout=SITEMAP_TIMEOUT,
+        )
         if sitemap_urls:
             all_urls.update(sitemap_urls)
             msg = f"✓ Sitemap success: {len(sitemap_urls)} URLs found"
@@ -472,6 +527,10 @@ async def discover_urls(base_url: str, max_depth: int = 5, filter_by_path: bool 
             msg = "✗ Sitemap: No URLs found"
             logger.info(msg)
             print(f"[DISCOVERY] {msg}", flush=True)
+    except asyncio.TimeoutError:
+        msg = f"✗ Sitemap timed out after {SITEMAP_TIMEOUT:.0f}s, falling through to nav parsing"
+        logger.warning(msg)
+        print(f"[DISCOVERY] {msg}", flush=True)
     except Exception as e:
         msg = f"✗ Sitemap failed with exception: {e}"
         logger.error(msg)

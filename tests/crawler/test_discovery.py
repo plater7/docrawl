@@ -10,6 +10,7 @@ Tests cover:
 - Error handling and fallbacks
 """
 
+import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urljoin
@@ -18,6 +19,8 @@ import xml.etree.ElementTree as ET
 from src.crawler.discovery import (
     normalize_url,
     discover_urls,
+    _path_keywords,
+    try_sitemap,
 )
 
 
@@ -350,3 +353,106 @@ class TestIntegrationScenarios:
                     mock_crawl.assert_called_once()
                     assert len(result) == 3
                     assert 'https://react.dev/learn' in result
+
+    @pytest.mark.asyncio
+    async def test_sitemap_timeout_falls_through_to_nav(self):
+        """Sitemap timeout should cascade to nav parsing."""
+        with patch('src.crawler.discovery.asyncio.wait_for',
+                   side_effect=asyncio.TimeoutError):
+            with patch('src.crawler.discovery.try_nav_parse', return_value=[
+                'https://docs.example.com/guide',
+            ]):
+                with patch('src.crawler.discovery.recursive_crawl', return_value=[]):
+                    result = await discover_urls('https://docs.example.com/', max_depth=1)
+                    assert 'https://docs.example.com/guide' in result
+
+
+class TestPathKeywords:
+    """Test _path_keywords helper."""
+
+    def test_extracts_product_from_locale_path(self):
+        """/es-mx/intune → ['intune']"""
+        assert _path_keywords('/es-mx/intune') == ['intune']
+
+    def test_extracts_multiple_segments(self):
+        """/en-us/azure/virtual-machines → ['azure', 'virtual-machines']"""
+        assert _path_keywords('/en-us/azure/virtual-machines') == ['azure', 'virtual-machines']
+
+    def test_root_path_returns_empty(self):
+        """/ → []"""
+        assert _path_keywords('/') == []
+
+    def test_strips_en_locale(self):
+        """/en/guide → ['guide']"""
+        assert _path_keywords('/en/guide') == ['guide']
+
+    def test_no_locale_path(self):
+        """/docs/api → ['docs', 'api']"""
+        assert _path_keywords('/docs/api') == ['docs', 'api']
+
+
+class TestSitemapIndexFiltering:
+    """Test sub-sitemap filtering in sitemap index."""
+
+    @pytest.mark.asyncio
+    async def test_filters_irrelevant_sub_sitemaps(self):
+        """Sub-sitemaps not matching path keywords should not be fetched.
+
+        Simulates Microsoft Learn: robots.txt → sitemapindex.xml with many
+        products. Only intune_* sub-sitemaps should be downloaded.
+        """
+        import httpx as _httpx
+
+        sitemap_index_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>https://learn.microsoft.com/_sitemaps/intune_es-mx_1.xml</loc></sitemap>
+  <sitemap><loc>https://learn.microsoft.com/_sitemaps/intune_en-us_1.xml</loc></sitemap>
+  <sitemap><loc>https://learn.microsoft.com/_sitemaps/visualstudio_en-us_1.xml</loc></sitemap>
+  <sitemap><loc>https://learn.microsoft.com/_sitemaps/azure_en-us_1.xml</loc></sitemap>
+  <sitemap><loc>https://learn.microsoft.com/_sitemaps/previous-versions_en-us_1.xml</loc></sitemap>
+</sitemapindex>"""
+
+        intune_sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://learn.microsoft.com/es-mx/intune/overview</loc></url>
+  <url><loc>https://learn.microsoft.com/es-mx/intune/enrollment/android</loc></url>
+</urlset>"""
+
+        robots_txt = "Sitemap: https://learn.microsoft.com/_sitemaps/sitemapindex.xml\n"
+
+        fetched_urls: list[str] = []
+
+        async def mock_get(url, **kwargs):
+            fetched_urls.append(url)
+            if url.endswith('/robots.txt'):
+                return _httpx.Response(200, text=robots_txt,
+                    request=_httpx.Request("GET", url))
+            elif '_sitemaps/sitemapindex.xml' in url:
+                return _httpx.Response(200, text=sitemap_index_xml,
+                    request=_httpx.Request("GET", url))
+            elif 'intune_' in url:
+                return _httpx.Response(200, text=intune_sitemap_xml,
+                    request=_httpx.Request("GET", url))
+            else:
+                return _httpx.Response(404, request=_httpx.Request("GET", url))
+
+        with patch('src.crawler.discovery.httpx.AsyncClient') as MockClient:
+            mock_client = AsyncMock()
+            mock_client.get.side_effect = mock_get
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = mock_client
+
+            result = await try_sitemap(
+                'https://learn.microsoft.com/es-mx/intune',
+                filter_by_path=True,
+            )
+
+        # Only intune sub-sitemaps should have been fetched
+        fetched_sub = [u for u in fetched_urls if '_sitemaps/' in u and 'sitemapindex' not in u]
+        assert all('intune' in u for u in fetched_sub), \
+            f"Non-intune sitemaps fetched: {fetched_sub}"
+        assert len(fetched_sub) == 2  # intune_es-mx_1 + intune_en-us_1
+
+        # Only intune URLs should be in results
+        assert all('/es-mx/intune' in u for u in result)
