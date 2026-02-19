@@ -292,6 +292,9 @@ async def try_nav_parse(base_url: str) -> list[str]:
 
 _LOCALE_SEGMENT_RE = re.compile(r'^[a-z]{2}(-[a-z]{2,4})?$', re.IGNORECASE)
 
+SITEMAP_SAMPLE_SIZE = 5       # how many generic sub-sitemaps to sample
+SITEMAP_MATCH_THRESHOLD = 0.1  # 10% of sampled URLs must match base_path
+
 
 def _path_keywords(base_path: str) -> list[str]:
     """Extract product keywords from base path, stripping locale segments.
@@ -386,30 +389,76 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
                     if elem.text
                 ]
                 if all_sub:
-                    # Filter sub-sitemaps by product keywords before downloading (#1)
                     if filter_by_path and keywords and base_path != "/":
+                        # Split into keyword-matched vs generic (no keyword in filename)
                         relevant = [u for u in all_sub if any(kw in u.lower() for kw in keywords)]
-                        skipped = len(all_sub) - len(relevant)
-                        if relevant:
-                            msg = (f"Sitemap index: {len(relevant)}/{len(all_sub)} sub-sitemaps "
-                                   f"match {keywords} (skipped {skipped})")
-                            logger.info(msg)
-                            print(f"[DISCOVERY] {msg}", flush=True)
-                        else:
-                            # No keyword match — download all to avoid missing content
-                            relevant = all_sub
-                            msg = f"Sitemap index: no keyword match, downloading all {len(all_sub)} sub-sitemaps"
-                            logger.warning(msg)
-                            print(f"[DISCOVERY] {msg}", flush=True)
+                        generic = [u for u in all_sub if u not in relevant]
+                        msg = (f"Sitemap index: {len(relevant)} keyword-matched, "
+                               f"{len(generic)} generic out of {len(all_sub)} total {keywords}")
+                        logger.info(msg)
+                        print(f"[DISCOVERY] {msg}", flush=True)
+
+                        # Always download keyword-matched sub-sitemaps
+                        for nested_url in relevant:
+                            try:
+                                nested_urls = await parse_sitemap_xml(nested_url, client, depth + 1)
+                                urls.update(nested_urls)
+                            except Exception as e:
+                                logger.debug(f"Failed to parse nested sitemap {nested_url}: {e}")
+
+                        # For generic sitemaps: sample first N to check relevance ratio
+                        if generic and not relevant:
+                            # No keyword match at all — sample to decide
+                            sample = generic[:SITEMAP_SAMPLE_SIZE]
+                            sample_urls: set[str] = set()
+                            for nested_url in sample:
+                                try:
+                                    nested_urls = await parse_sitemap_xml(nested_url, client, depth + 1)
+                                    sample_urls.update(nested_urls)
+                                except Exception as e:
+                                    logger.debug(f"Failed to sample sitemap {nested_url}: {e}")
+
+                            if sample_urls:
+                                matched = sum(
+                                    1 for u in sample_urls
+                                    if base_path in urlparse(u).path
+                                )
+                                ratio = matched / len(sample_urls)
+                                msg = (f"[DISCOVERY] Sample ratio: {matched}/{len(sample_urls)} URLs "
+                                       f"match base_path (threshold: {SITEMAP_MATCH_THRESHOLD:.0%})")
+                                logger.info(msg)
+                                print(msg, flush=True)
+
+                                if ratio >= SITEMAP_MATCH_THRESHOLD:
+                                    urls.update(sample_urls)
+                                    # Continue with remaining generic sitemaps
+                                    for nested_url in generic[SITEMAP_SAMPLE_SIZE:]:
+                                        try:
+                                            nested_urls = await parse_sitemap_xml(nested_url, client, depth + 1)
+                                            urls.update(nested_urls)
+                                        except Exception as e:
+                                            logger.debug(f"Failed to parse nested sitemap {nested_url}: {e}")
+                                else:
+                                    skipped = len(generic) - len(sample)
+                                    msg = (f"[DISCOVERY] Sitemap index appears irrelevant "
+                                           f"(ratio {ratio:.0%} < {SITEMAP_MATCH_THRESHOLD:.0%}), "
+                                           f"skipping {skipped} remaining sub-sitemaps")
+                                    logger.warning(msg)
+                                    print(msg, flush=True)
+                            else:
+                                # Sample returned nothing — skip remaining
+                                msg = (f"[DISCOVERY] Sample returned 0 URLs, "
+                                       f"skipping {len(generic) - len(sample)} remaining generic sitemaps")
+                                logger.warning(msg)
+                                print(msg, flush=True)
                     else:
                         relevant = all_sub
-
-                    for nested_url in relevant:
-                        try:
-                            nested_urls = await parse_sitemap_xml(nested_url, client, depth + 1)
-                            urls.update(nested_urls)
-                        except Exception as e:
-                            logger.debug(f"Failed to parse nested sitemap {nested_url}: {e}")
+                        for nested_url in relevant:
+                            try:
+                                nested_urls = await parse_sitemap_xml(nested_url, client, depth + 1)
+                                urls.update(nested_urls)
+                            except Exception as e:
+                                logger.debug(f"Failed to parse nested sitemap {nested_url}: {e}")
             else:
                 # Depth limit reached — skip further nesting (#3)
                 deep_count = len(root.findall('.//ns:sitemap/ns:loc', namespace))

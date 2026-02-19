@@ -19,13 +19,13 @@ EXCLUDED_PATTERNS = {
 }
 
 LANGUAGE_PATTERNS = {
-    "en": ["/en/", "/en-us/", "/en-gb/", "/english/"],
-    "es": ["/es/", "/es-es/", "/spanish/"],
-    "fr": ["/fr/", "/fr-fr/", "/french/"],
-    "de": ["/de/", "/de-de/", "/german/"],
+    "en": ["/en/", "/en-us/", "/en-gb/", "/en-au/", "/en-ca/", "/en-in/", "/english/"],
+    "es": ["/es/", "/es-es/", "/es-mx/", "/es-ar/", "/es-cl/", "/es-co/", "/spanish/"],
+    "fr": ["/fr/", "/fr-fr/", "/fr-ca/", "/french/"],
+    "de": ["/de/", "/de-de/", "/de-at/", "/de-ch/", "/german/"],
     "ja": ["/ja/", "/jp/", "/japanese/"],
-    "zh": ["/zh/", "/zh-cn/", "/zh-tw/", "/chinese/"],
-    "pt": ["/pt/", "/pt-br/", "/portuguese/"],
+    "zh": ["/zh/", "/zh-cn/", "/zh-tw/", "/zh-hk/", "/chinese/"],
+    "pt": ["/pt/", "/pt-br/", "/pt-pt/", "/portuguese/"],
     "ru": ["/ru/", "/russian/"],
     "ko": ["/ko/", "/kr/", "/korean/"],
 }

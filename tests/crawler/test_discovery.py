@@ -456,3 +456,121 @@ class TestSitemapIndexFiltering:
 
         # Only intune URLs should be in results
         assert all('/es-mx/intune' in u for u in result)
+
+    @pytest.mark.asyncio
+    async def test_generic_sitemaps_sampled_and_skipped_when_irrelevant(self):
+        """Generic-named sub-sitemaps with no keyword match are sampled.
+
+        If the sample ratio is below threshold the rest are skipped.
+        Simulates a site where robots.txt points to an index with entries
+        like sitemap_001.xml that contain mostly unrelated content.
+        """
+        import httpx as _httpx
+
+        # Sitemap index with only generic names (no product keyword in URL)
+        sitemap_index_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>https://example.com/sitemap_001.xml</loc></sitemap>
+  <sitemap><loc>https://example.com/sitemap_002.xml</loc></sitemap>
+  <sitemap><loc>https://example.com/sitemap_003.xml</loc></sitemap>
+  <sitemap><loc>https://example.com/sitemap_004.xml</loc></sitemap>
+  <sitemap><loc>https://example.com/sitemap_005.xml</loc></sitemap>
+  <sitemap><loc>https://example.com/sitemap_006.xml</loc></sitemap>
+  <sitemap><loc>https://example.com/sitemap_007.xml</loc></sitemap>
+</sitemapindex>"""
+
+        # Sample sitemaps return URLs from a completely different path (/blog/)
+        irrelevant_sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/blog/post1</loc></url>
+  <url><loc>https://example.com/blog/post2</loc></url>
+  <url><loc>https://example.com/blog/post3</loc></url>
+</urlset>"""
+
+        robots_txt = "Sitemap: https://example.com/sitemap_index.xml\n"
+        fetched_urls: list[str] = []
+
+        async def mock_get(url, **kwargs):
+            fetched_urls.append(url)
+            if url.endswith('/robots.txt'):
+                return _httpx.Response(200, text=robots_txt,
+                    request=_httpx.Request("GET", url))
+            elif 'sitemap_index' in url:
+                return _httpx.Response(200, text=sitemap_index_xml,
+                    request=_httpx.Request("GET", url))
+            else:
+                return _httpx.Response(200, text=irrelevant_sitemap_xml,
+                    request=_httpx.Request("GET", url))
+
+        with patch('src.crawler.discovery.httpx.AsyncClient') as MockClient:
+            mock_client = AsyncMock()
+            mock_client.get.side_effect = mock_get
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = mock_client
+
+            result = await try_sitemap(
+                'https://example.com/docs',
+                filter_by_path=True,
+            )
+
+        # Only SITEMAP_SAMPLE_SIZE (5) generic sitemaps should have been fetched,
+        # not all 7 (the remaining 2 should be skipped due to low ratio).
+        fetched_sub = [u for u in fetched_urls if 'sitemap_0' in u]
+        assert len(fetched_sub) == 5, (
+            f"Expected 5 sampled sitemaps, got {len(fetched_sub)}: {fetched_sub}"
+        )
+
+        # Result should be empty since blog/ paths don't match /docs base path
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_generic_sitemaps_fully_downloaded_when_relevant(self):
+        """Generic-named sub-sitemaps are fully downloaded if sample is relevant.
+
+        If sample ratio >= 10%, remaining sitemaps are also downloaded.
+        """
+        import httpx as _httpx
+
+        sitemap_index_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>https://example.com/sitemap_001.xml</loc></sitemap>
+  <sitemap><loc>https://example.com/sitemap_002.xml</loc></sitemap>
+  <sitemap><loc>https://example.com/sitemap_003.xml</loc></sitemap>
+</sitemapindex>"""
+
+        # These sitemaps DO contain docs/ URLs (above the 10% threshold)
+        relevant_sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/docs/guide</loc></url>
+  <url><loc>https://example.com/docs/api</loc></url>
+</urlset>"""
+
+        robots_txt = "Sitemap: https://example.com/sitemap_index.xml\n"
+
+        async def mock_get(url, **kwargs):
+            if url.endswith('/robots.txt'):
+                return _httpx.Response(200, text=robots_txt,
+                    request=_httpx.Request("GET", url))
+            elif 'sitemap_index' in url:
+                return _httpx.Response(200, text=sitemap_index_xml,
+                    request=_httpx.Request("GET", url))
+            else:
+                return _httpx.Response(200, text=relevant_sitemap_xml,
+                    request=_httpx.Request("GET", url))
+
+        with patch('src.crawler.discovery.httpx.AsyncClient') as MockClient:
+            mock_client = AsyncMock()
+            mock_client.get.side_effect = mock_get
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = mock_client
+
+            result = await try_sitemap(
+                'https://example.com/docs',
+                filter_by_path=True,
+            )
+
+        # All 3 sitemaps should be downloaded (sample passed, rest also fetched)
+        assert 'https://example.com/docs/guide' in result
+        assert 'https://example.com/docs/api' in result
