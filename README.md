@@ -1,6 +1,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/version-v0.8.5-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
+  <a href="https://github.com/plater7/docrawl/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/plater7/docrawl/test.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="tests"></a>
+  <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="license">
   <img src="https://img.shields.io/badge/ai--assisted-✓-purple?style=for-the-badge" alt="ai-assisted">
 </p>
