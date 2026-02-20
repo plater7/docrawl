@@ -1,5 +1,7 @@
 """LLM client supporting multiple providers: Ollama, OpenRouter, OpenCode."""
 
+# 🤖 Generated with AI assistance by DocCrawler 🕷️ (model: qwen3-coder:free) and human review.
+
 import os
 import logging
 from typing import Any
@@ -36,31 +38,8 @@ PROVIDERS = {
 # These are used to filter/populate the model selectors based on provider
 PROVIDER_MODELS = {
     "ollama": [],  # Dynamic - fetched from Ollama API
-    "openrouter": [
-        # Free tier models
-        "openai/gpt-oss-120b:free",
-        "openai/gpt-oss-20b:free",
-        "qwen/qwen3-coder:free",
-        "qwen/qwen3-4b:free",
-        "qwen/qwen3-8b:free",
-        "qwen/qwen3-14b:free",
-        "qwen/qwen3-32b:free",
-        "google/gemma-3-27b:free",
-        "google/gemma-3-12b:free",
-        "meta-llama/llama-3.3-70b:free",
-        "meta-llama/llama-3.1-8b:free",
-        "deepseek/deepseek-r1:free",
-        "deepseek/deepseek-r1-67b:free",
-        "nvidia/llama-3.1-nemotron-70b:free",
-        "anthropic/claude-3.5-sonnet:free",
-        "anthropic/claude-3-haiku:free",
-        "moonshotai/kimi-k2.5:free",
-        "stepfun/step-3.5-flash:free",
-        "z-ai/glm-4.5-air:free",
-        "minimax/minimax-text-01:free",
-    ],
+    "openrouter": [],  # Dynamic - fetched from OpenRouter API
     "opencode": [
-        # OpenCode models
         "opencode/claude-sonnet-4-5",
         "opencode/claude-haiku-4-5",
         "opencode/gpt-5-nano",
@@ -111,11 +90,42 @@ def _is_free_model(model_name: str, provider: str) -> bool:
 
 
 def _get_openrouter_models() -> list[dict[str, Any]]:
-    """Get list of OpenRouter models (from known free tier)."""
-    return [
-        {"name": m, "size": None, "provider": "openrouter", "is_free": _is_free_model(m, "openrouter")}
-        for m in PROVIDER_MODELS["openrouter"]
-    ]
+    """Get list of OpenRouter models from API."""
+    import httpx
+    
+    try:
+        response = httpx.get(
+            "https://openrouter.ai/api/v1/models",
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+        models = []
+        for m in data.get("data", []):
+            model_id = m.get("id", "")
+            pricing = m.get("pricing", {})
+            name = m.get("name", "") or ""
+            description = m.get("description", "") or ""
+            
+            prompt_price = float(pricing.get("prompt", "0") or 0)
+            
+            is_free = (
+                prompt_price == 0 or
+                ":free" in model_id or
+                "free" in name.lower() or
+                "free" in description.lower()
+            )
+            
+            models.append({
+                "name": model_id,
+                "size": None,
+                "provider": "openrouter",
+                "is_free": is_free,
+            })
+        return models
+    except Exception as e:
+        logger.error(f"Failed to get OpenRouter models: {e}")
+        return []
 
 
 def _get_opencode_models() -> list[dict[str, Any]]:

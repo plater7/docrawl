@@ -14,14 +14,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN groupadd -r docrawl && useradd -r -g docrawl docrawl
+RUN groupadd -r docrawl && useradd -r -g docrawl -m -d /home/docrawl docrawl
 
 # Copy requirements first for better caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright browsers
-RUN playwright install chromium
+# Install Playwright system dependencies
 RUN playwright install-deps chromium
 
 # Copy application code
@@ -32,6 +31,9 @@ RUN mkdir -p /data && chown -R docrawl:docrawl /data
 
 # Switch to non-root user
 USER docrawl
+
+# Install Playwright browsers as docrawl user (installs to ~/.cache/ms-playwright)
+RUN playwright install chromium
 
 EXPOSE 8002
 

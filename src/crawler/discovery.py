@@ -289,7 +289,7 @@ async def try_nav_parse(base_url: str) -> list[str]:
     return result
 
 
-async def try_sitemap(base_url: str) -> list[str]:
+async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
     """
     Try to parse sitemap.xml and robots.txt.
 
@@ -300,6 +300,7 @@ async def try_sitemap(base_url: str) -> list[str]:
 
     Args:
         base_url: Base URL of the site
+        filter_by_path: If True, filter URLs to only include those under the base URL's path
 
     Returns:
         List of URLs found in sitemaps
@@ -313,6 +314,9 @@ async def try_sitemap(base_url: str) -> list[str]:
     """
     discovered_urls = set()
     base_domain = urlparse(base_url).netloc
+    base_path = urlparse(base_url).path.rstrip('/') if urlparse(base_url).path else ""
+    if base_path == "":
+        base_path = "/"
 
     msg = f"Trying sitemap on {base_url}"
     logger.info(msg)
@@ -373,6 +377,12 @@ async def try_sitemap(base_url: str) -> list[str]:
                     parsed = urlparse(url_text)
                     # Filter same domain
                     if parsed.netloc == base_domain:
+                        # Filter by base path if enabled
+                        url_path = parsed.path.rstrip('/') if parsed.path else "/"
+                        if filter_by_path and base_path != "/":
+                            if not url_path.startswith(base_path):
+                                logger.debug(f"Skipping URL not under base path {base_path}: {url_text}")
+                                continue
                         urls.add(normalize_url(url_text))
 
         except httpx.TimeoutException:
@@ -426,12 +436,17 @@ async def try_sitemap(base_url: str) -> list[str]:
     return result
 
 
-async def discover_urls(base_url: str, max_depth: int = 5) -> list[str]:
+async def discover_urls(base_url: str, max_depth: int = 5, filter_by_path: bool = True) -> list[str]:
     """
     Discover URLs using cascade strategy — stops at first success:
     1. Try sitemap (fast, authoritative)
     2. Try nav parsing (only if sitemap failed)
     3. Try recursive crawl (only if both above failed)
+
+    Args:
+        base_url: Base URL to discover
+        max_depth: Maximum depth for recursive crawl
+        filter_by_path: If True, filter sitemap URLs to only include those under base URL's path
 
     Returns deduplicated, normalized URLs. Never returns empty list.
     """
@@ -447,7 +462,7 @@ async def discover_urls(base_url: str, max_depth: int = 5) -> list[str]:
     print(f"[DISCOVERY] {msg}", flush=True)
 
     try:
-        sitemap_urls = await try_sitemap(base_url)
+        sitemap_urls = await try_sitemap(base_url, filter_by_path)
         if sitemap_urls:
             all_urls.update(sitemap_urls)
             msg = f"✓ Sitemap success: {len(sitemap_urls)} URLs found"

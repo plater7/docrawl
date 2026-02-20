@@ -18,6 +18,7 @@ class JobRequest(BaseModel):
     use_markdown_proxy: bool = False
     markdown_proxy_url: str = "https://markdown.new"
     language: str = "en"
+    filter_sitemap_by_path: bool = True
 
 
 class JobStatus(BaseModel):
