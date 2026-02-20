@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- 🤖 Generated with AI assistance by DocCrawler 🕷️ (model: qwen3-coder:free) and human review. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -75,6 +76,7 @@
             max-width: 900px; 
             margin: 0 auto; 
             position: relative;
+            z-index: 1001;
         }
 
         h1 {
@@ -646,9 +648,121 @@
             .buttons { flex-direction: column; }
             button { width: 100%; }
         }
+
+        /* Theme Selector */
+        .theme-selector {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1002;
+        }
+        .theme-selector select {
+            width: auto;
+            padding: 0.4rem 0.75rem;
+            background: var(--bg-input);
+            border: 1px solid #2a2a4a;
+            border-radius: 2px;
+            color: var(--accent-cyan);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        body.theme-basic .theme-selector select {
+            background: #1e293b;
+            border-color: #334155;
+            color: #e2e8f0;
+            font-family: system-ui, -apple-system, sans-serif;
+            border-radius: 0.5rem;
+        }
+
+        /* Basic Theme */
+        body.theme-basic {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 2rem;
+        }
+        body.theme-basic::before, body.theme-basic::after { display: none; }
+        body.theme-basic .container { max-width: 800px; }
+        body.theme-basic h1 {
+            font-family: system-ui, -apple-system, sans-serif;
+            font-weight: 700;
+            font-size: 1.75rem;
+            background: none;
+            -webkit-text-fill-color: #f8fafc;
+            text-shadow: none;
+            margin-bottom: 1.5rem;
+        }
+        body.theme-basic h1::before, body.theme-basic h1::after { display: none; }
+        body.theme-basic .status-bar {
+            background: #1e293b;
+            border-color: #334155;
+            margin-bottom: 1.5rem;
+        }
+        body.theme-basic .status-item {
+            background: #0f172a;
+            border-color: #334155;
+        }
+        body.theme-basic .status-dot { background: #64748b; }
+        body.theme-basic .status-dot.ok { background: #22c55e; animation: none; }
+        body.theme-basic .status-dot.warning { background: #f59e0b; animation: none; }
+        body.theme-basic .status-dot.error { background: #ef4444; animation: none; }
+        body.theme-basic .status-dot.loading { background: #3b82f6; animation: pulse-basic 1s infinite; }
+        body.theme-basic .status-label { color: #94a3b8; }
+        body.theme-basic .status-value { color: #e2e8f0; }
+        body.theme-basic label { color: #94a3b8; font-size: 0.875rem; }
+        body.theme-basic input, body.theme-basic select {
+            background: #1e293b;
+            border-color: #334155;
+            color: #e2e8f0;
+            border-radius: 0.5rem;
+            box-shadow: none;
+        }
+        body.theme-basic input:focus, body.theme-basic select:focus {
+            border-color: #3b82f6;
+            box-shadow: none;
+        }
+        body.theme-basic .models-section {
+            background: #1a2332;
+            border-color: #334155;
+            border-radius: 0.5rem;
+        }
+        body.theme-basic .section-label { color: #e2e8f0; font-weight: 600; }
+        body.theme-basic .model-hint { color: #64748b; }
+        body.theme-basic .checkbox-group input[type="checkbox"] {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        body.theme-basic .checkbox-group input[type="checkbox"]:checked { background: #3b82f6; border-color: #3b82f6; }
+        body.theme-basic .btn-primary {
+            background: #3b82f6;
+            box-shadow: none;
+        }
+        body.theme-basic .btn-primary:hover { background: #2563eb; }
+        body.theme-basic .btn-danger { background: #ef4444; }
+        body.theme-basic .phase-banner { background: #1e293b; border-color: #334155; }
+        body.theme-basic .phase-dot { background: #3b82f6; animation: pulse-basic 1.5s infinite; }
+        body.theme-basic .log {
+            background: #1e293b;
+            border-color: #334155;
+            font-family: monospace;
+            border-radius: 0.5rem;
+        }
+        body.theme-basic .log::before { display: none; }
+        body.theme-basic .log-entry { border-color: #334155; }
+        body.theme-basic .summary { background: #1e293b; border-radius: 0.5rem; }
+        @keyframes pulse-basic { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
     </style>
 </head>
 <body>
+    <!-- Theme Selector -->
+    <div class="theme-selector">
+        <select id="themeSelect">
+            <option value="synthwave">SYNTHWAVE</option>
+            <option value="basic">BASIC</option>
+        </select>
+    </div>
+
     <div class="container">
         <h1>Docrawl</h1>
 
@@ -812,6 +926,16 @@
     </div>
 
     <script>
+        // Theme management
+        const themeSelect = document.getElementById('themeSelect');
+        const savedTheme = localStorage.getItem('docrawl-theme') || 'synthwave';
+        document.body.className = `theme-${savedTheme}`;
+        themeSelect.value = savedTheme;
+        themeSelect.addEventListener('change', () => {
+            document.body.className = `theme-${themeSelect.value}`;
+            localStorage.setItem('docrawl-theme', themeSelect.value);
+        });
+
         const form = document.getElementById('crawlForm');
         const startBtn = document.getElementById('startBtn');
         const cancelBtn = document.getElementById('cancelBtn');

@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
-RUN groupadd -r docrawl && useradd -r -g docrawl docrawl
+RUN groupadd -r docrawl && useradd -r -g docrawl -m -d /home/docrawl docrawl
 
 # Copy requirements first for better caching
 COPY requirements.txt .
