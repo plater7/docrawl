@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.8.5] - 2026-02-20
+
+### Added
+- **UI Theme Selector** - Selector de tema con persistencia `localStorage`
+  - 🌈 **SYNTHWAVE** (default) — neon magenta/cyan, Orbitron + VT323
+  - 💚 **TERMINAL** — fósforo verde CRT, IBM Plex Mono, scanlines, viñeta
+  - ⚪ **BASIC** — dark UI limpia y minimalista
+- **Smart Sitemap Sampling** — sub-sitemaps genéricos se muestrean (5 primeros) antes de descargar todos; se saltan si <10% de URLs son relevantes
+- **Regional Language Variants** — filtrado de idioma expandido con variantes regionales (`es-mx`, `en-au`, `fr-ca`, `de-at`, `zh-hk`, `pt-pt`, etc.)
+- **Cloudflare Setup Docs** — `docs/SETUP.md` con instrucciones completas de Tunnel + Workers VPC
+- **Global Sitemap Timeout** — descubrimiento limitado a 360s para evitar timeouts en sitemaps masivos
+- **Language-aware URL filtering** — si la URL base tiene prefijo de idioma, excluye URLs sin prefijo (evita falsos positivos)
+
+### Fixed
+- **Path Prefix False Positive** — filtro `startswith` ahora requiere separador `/` para evitar matches parciales (p.ej. `/intune` no es prefijo de `/intune-for-education`)
+
+---
+
 ## [v0.7.0-alpha] - 2026-02-19
 
 ### Added

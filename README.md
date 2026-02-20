@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.7.0--alpha-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/version-v0.8.5-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="license">
   <img src="https://img.shields.io/badge/ai--assisted-✓-purple?style=for-the-badge" alt="ai-assisted">
@@ -27,6 +27,7 @@
 | ⚡ **Native Markdown** | `Accept: text/markdown` cuando el server lo soporta |
 | 🌐 **Multi-Provider** | Ollama (local), OpenRouter, OpenCode APIs |
 | 🌍 **Language Filter** | Filtra por idioma (default: English only) |
+| 🎨 **UI Themes** | Synthwave, Terminal y Basic — selector persistido por localStorage |
 | 📊 **Real-time UI** | SSE con phases, modelos y progreso en vivo |
 | 🐳 **Docker-ready** | Un comando: `docker compose up` |
 
@@ -158,6 +159,16 @@ GET  /api/jobs/{id}/status      # Estado actual
 | `respect_robots_txt` | `true` | Respetar robots.txt |
 | `use_native_markdown` | `true` | Intentar `Accept: text/markdown` |
 | `use_markdown_proxy` | `false` | Usar proxy como fallback |
+
+## 🎨 UI Themes
+
+El selector de tema persiste en `localStorage`. Tres opciones disponibles:
+
+| Tema | Descripción |
+|------|-------------|
+| **SYNTHWAVE** (default) | Neon magenta/cyan, fuente Orbitron + VT323, estética retro-futurista |
+| **TERMINAL** | Fósforo verde CRT, IBM Plex Mono, scanlines y viñeta retro |
+| **BASIC** | Dark UI limpia y minimalista |
 
 ## 🌐 Exponer a Internet
 
