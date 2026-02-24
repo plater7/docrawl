@@ -1,7 +1,7 @@
 """robots.txt parser."""
 
 import logging
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 
 import httpx
 

@@ -18,7 +18,9 @@ async def fetch_markdown_native(url: str) -> tuple[str | None, int | None]:
             "User-Agent": "Docrawl/1.0 (AI documentation crawler)",
         }
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, headers=headers, timeout=15.0, follow_redirects=True)
+            resp = await client.get(
+                url, headers=headers, timeout=15.0, follow_redirects=True
+            )
             content_type = resp.headers.get("content-type", "")
             if "text/markdown" in content_type:
                 token_count_str = resp.headers.get("x-markdown-tokens")
@@ -29,7 +31,9 @@ async def fetch_markdown_native(url: str) -> tuple[str | None, int | None]:
     return None, None
 
 
-async def fetch_markdown_proxy(url: str, proxy_url: str = "https://markdown.new") -> tuple[str | None, None]:
+async def fetch_markdown_proxy(
+    url: str, proxy_url: str = "https://markdown.new"
+) -> tuple[str | None, None]:
     """Fetch markdown via a proxy service (markdown.new, r.jina.ai, etc).
 
     Returns (markdown_content, None) or (None, None) if unavailable.
@@ -38,27 +42,46 @@ async def fetch_markdown_proxy(url: str, proxy_url: str = "https://markdown.new"
         proxy_target = f"{proxy_url.rstrip('/')}/{url}"
         headers = {"User-Agent": "Docrawl/1.0 (AI documentation crawler)"}
         async with httpx.AsyncClient() as client:
-            resp = await client.get(proxy_target, headers=headers, timeout=30.0, follow_redirects=True)
+            resp = await client.get(
+                proxy_target, headers=headers, timeout=30.0, follow_redirects=True
+            )
             if resp.status_code == 200 and len(resp.text) > 100:
                 return resp.text, None
     except Exception:
         pass
     return None, None
 
+
 # Selectors for noise elements to remove before extraction
 NOISE_SELECTORS = [
-    "script", "style", "noscript", "iframe",
-    "nav", "footer", "header",
-    "[role='navigation']", "[role='banner']", "[role='contentinfo']",
-    ".sidebar", "#sidebar",
-    ".navbar", "#navbar",
-    ".table-of-contents", "#table-of-contents",
-    ".breadcrumb", ".footer", ".header",
+    "script",
+    "style",
+    "noscript",
+    "iframe",
+    "nav",
+    "footer",
+    "header",
+    "[role='navigation']",
+    "[role='banner']",
+    "[role='contentinfo']",
+    ".sidebar",
+    "#sidebar",
+    ".navbar",
+    "#navbar",
+    ".table-of-contents",
+    "#table-of-contents",
+    ".breadcrumb",
+    ".footer",
+    ".header",
     ".cookie-banner",
     "[id*='mintlify']",
-    ".prev-next-links", ".pagination-nav",
-    ".edit-this-page", ".last-updated",
-    ".theme-toggle", ".search-bar", "[data-search]",
+    ".prev-next-links",
+    ".pagination-nav",
+    ".edit-this-page",
+    ".last-updated",
+    ".theme-toggle",
+    ".search-bar",
+    "[data-search]",
 ]
 
 # Selectors to try for main content extraction (in priority order)
@@ -116,7 +139,9 @@ class PageScraper:
                 if el:
                     html = await el.inner_html()
                     if len(html) >= MIN_CONTENT_LENGTH:
-                        logger.debug(f"Extracted content via '{selector}' ({len(html)} chars)")
+                        logger.debug(
+                            f"Extracted content via '{selector}' ({len(html)} chars)"
+                        )
                         return html
             except Exception:
                 continue

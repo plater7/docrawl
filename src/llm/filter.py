@@ -43,7 +43,9 @@ async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
     prompt = FILTER_PROMPT_TEMPLATE.format(urls="\n".join(urls))
 
     try:
-        response = await generate(model, prompt, system=FILTER_SYSTEM_PROMPT, options=FILTER_OPTIONS)
+        response = await generate(
+            model, prompt, system=FILTER_SYSTEM_PROMPT, options=FILTER_OPTIONS
+        )
 
         # Try to parse JSON from response
         # Handle potential markdown code blocks

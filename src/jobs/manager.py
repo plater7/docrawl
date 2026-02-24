@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Job:
     """Represents a crawl job."""
+
     id: str
     request: JobRequest
     status: str = "pending"
@@ -50,12 +51,20 @@ class Job:
                 except asyncio.TimeoutError:
                     # Check if runner task died without terminal event
                     if self._task and self._task.done():
-                        exc = self._task.exception() if not self._task.cancelled() else None
-                        error_msg = str(exc) if exc else "Runner task ended unexpectedly"
+                        exc = (
+                            self._task.exception()
+                            if not self._task.cancelled()
+                            else None
+                        )
+                        error_msg = (
+                            str(exc) if exc else "Runner task ended unexpectedly"
+                        )
                         logger.error(f"Job {self.id}: runner died: {error_msg}")
                         yield {
                             "event": "job_done",
-                            "data": json.dumps({"status": "failed", "error": error_msg}),
+                            "data": json.dumps(
+                                {"status": "failed", "error": error_msg}
+                            ),
                         }
                         break
                     # Send keepalive comment
@@ -81,6 +90,7 @@ class JobManager:
 
         # Start job in background, keep task reference
         from src.jobs.runner import run_job
+
         job._task = asyncio.create_task(run_job(job))
 
         logger.info(f"Created job {job_id} for {request.url}")
@@ -95,10 +105,13 @@ class JobManager:
         job = self._jobs.get(job_id)
         if job:
             job.cancel()
-            await job.emit_event("job_cancelled", {
-                "pages_completed": job.pages_completed,
-                "pages_total": job.pages_total,
-                "output_path": str(job.request.output_path),
-            })
+            await job.emit_event(
+                "job_cancelled",
+                {
+                    "pages_completed": job.pages_completed,
+                    "pages_total": job.pages_total,
+                    "output_path": str(job.request.output_path),
+                },
+            )
             logger.info(f"Cancelled job {job_id}")
         return job

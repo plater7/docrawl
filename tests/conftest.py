@@ -19,11 +19,11 @@ def event_loop() -> Generator:
 def sample_urls():
     """Sample URLs for testing."""
     return [
-        'https://example.com/',
-        'https://example.com/page1',
-        'https://example.com/page2',
-        'https://example.com/guide/install',
-        'https://example.com/api/reference',
+        "https://example.com/",
+        "https://example.com/page1",
+        "https://example.com/page2",
+        "https://example.com/guide/install",
+        "https://example.com/api/reference",
     ]
 
 

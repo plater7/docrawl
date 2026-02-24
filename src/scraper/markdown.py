@@ -13,11 +13,11 @@ CHUNK_OVERLAP = 200
 
 # Regex patterns for noise in markdown (compiled for performance)
 NOISE_PATTERNS = [
-    re.compile(r"self\.__next_[a-zA-Z_]*", re.IGNORECASE),      # Next.js hydration
-    re.compile(r"document\.querySelectorAll\([^)]*\)"),           # JS DOM manipulation
+    re.compile(r"self\.__next_[a-zA-Z_]*", re.IGNORECASE),  # Next.js hydration
+    re.compile(r"document\.querySelectorAll\([^)]*\)"),  # JS DOM manipulation
     re.compile(r"document\.getElementById\([^)]*\)"),
     re.compile(r"window\.addEventListener\([^)]*\)"),
-    re.compile(r"data-page-mode\s*="),                            # Framework attributes
+    re.compile(r"data-page-mode\s*="),  # Framework attributes
     re.compile(r"suppressHydrationWarning"),
 ]
 
@@ -76,7 +76,11 @@ def html_to_markdown(html: str) -> str:
     return md(html, heading_style="ATX", strip=["script", "style", "nav", "footer"])
 
 
-def chunk_markdown(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE, native_token_count: int | None = None) -> list[str]:
+def chunk_markdown(
+    text: str,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    native_token_count: int | None = None,
+) -> list[str]:
     """Split markdown into chunks for LLM processing.
 
     Pre-cleans markdown, tries heading boundaries first, then paragraphs.

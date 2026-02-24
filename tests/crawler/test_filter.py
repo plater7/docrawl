@@ -7,20 +7,15 @@ This code was created through AI-assisted development and reviewed by a human de
 Tests cover:
 - URL domain filtering
 - Extension filtering
-- Pattern filtering  
+- Pattern filtering
 - Language detection and filtering
 - Deduplication
 - Edge cases
 """
 
-import pytest
-
 from src.crawler.filter import (
     filter_urls,
     _matches_language,
-    EXCLUDED_EXTENSIONS,
-    EXCLUDED_PATTERNS,
-    LANGUAGE_PATTERNS,
 )
 
 

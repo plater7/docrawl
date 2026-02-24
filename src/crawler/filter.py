@@ -6,16 +6,42 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 EXCLUDED_EXTENSIONS = {
-    ".pdf", ".zip", ".tar", ".gz", ".rar",
-    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
-    ".mp4", ".mp3", ".wav", ".avi", ".mov",
-    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".exe", ".dmg", ".deb", ".rpm",
+    ".pdf",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".rar",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".svg",
+    ".ico",
+    ".webp",
+    ".mp4",
+    ".mp3",
+    ".wav",
+    ".avi",
+    ".mov",
+    ".doc",
+    ".docx",
+    ".xls",
+    ".xlsx",
+    ".ppt",
+    ".pptx",
+    ".exe",
+    ".dmg",
+    ".deb",
+    ".rpm",
 }
 
 EXCLUDED_PATTERNS = {
-    "/blog/", "/changelog/", "/api-reference/",
-    "/releases/", "/download/", "/assets/",
+    "/blog/",
+    "/changelog/",
+    "/api-reference/",
+    "/releases/",
+    "/download/",
+    "/assets/",
 }
 
 LANGUAGE_PATTERNS = {
@@ -69,37 +95,39 @@ def filter_urls(urls: list[str], base_url: str, language: str = "en") -> list[st
         normalized = f"{parsed.scheme}://{parsed.netloc}{path}"
         filtered.add(normalized)
 
-    logger.info(f"Filtered {len(urls)} URLs down to {len(filtered)} (language: {language})")
+    logger.info(
+        f"Filtered {len(urls)} URLs down to {len(filtered)} (language: {language})"
+    )
     return sorted(filtered)
 
 
 def _matches_language(path: str, language: str, base_url: str = "") -> bool:
     """
     Check if URL path matches the target language.
-    
+
     Strategy:
     1. If path contains target language → include
-    2. If path contains OTHER language → exclude  
+    2. If path contains OTHER language → exclude
     3. If path has NO language prefix → use base_url to determine fallback
     """
     if language == "all":
         return True
-    
+
     path_lower = path.lower()
-    
+
     # Check for target language
     lang_patterns = LANGUAGE_PATTERNS.get(language, [f"/{language}/"])
     for pattern in lang_patterns:
         if pattern in path_lower:
             return True
-    
+
     # Check for other languages
     other_langs = set(LANGUAGE_PATTERNS.keys()) - {language}
     for other_lang in other_langs:
         for pattern in LANGUAGE_PATTERNS[other_lang]:
             if pattern in path_lower:
                 return False
-    
+
     # No language pattern found in URL
     # If base_url has a language, assume URLs without prefix are same as base → include
     # If base_url has no language and URL has no language → include (be permissive)
@@ -107,15 +135,15 @@ def _matches_language(path: str, language: str, base_url: str = "") -> bool:
     if base_url:
         base_parsed = urlparse(base_url)
         base_path = base_parsed.path.lower()
-        
+
         base_has_language = any(
-            pattern in base_path 
-            for patterns in LANGUAGE_PATTERNS.values() 
+            pattern in base_path
+            for patterns in LANGUAGE_PATTERNS.values()
             for pattern in patterns
         )
-        
+
         # If base has language but this URL doesn't → exclude
         if base_has_language:
             return False
-    
+
     return True

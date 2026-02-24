@@ -22,16 +22,25 @@ MAX_RETRIES = 2
 RETRY_BACKOFF = [1, 3]  # seconds
 
 # Dynamic timeout constants
-BASE_TIMEOUT = 45       # seconds for small chunks
-TIMEOUT_PER_KB = 10     # extra seconds per KB of content
-MAX_TIMEOUT = 90        # cap
+BASE_TIMEOUT = 45  # seconds for small chunks
+TIMEOUT_PER_KB = 10  # extra seconds per KB of content
+MAX_TIMEOUT = 90  # cap
 
 # Noise indicators for needs_llm_cleanup()
 _NOISE_INDICATORS = [
-    "cookie", "privacy policy", "terms of service", "subscribe",
-    "toggle dark", "toggle light", "dark mode", "light mode",
-    "skip to content", "table of contents", "on this page",
-    "all rights reserved", "powered by",
+    "cookie",
+    "privacy policy",
+    "terms of service",
+    "subscribe",
+    "toggle dark",
+    "toggle light",
+    "dark mode",
+    "light mode",
+    "skip to content",
+    "table of contents",
+    "on this page",
+    "all rights reserved",
+    "powered by",
 ]
 
 _CODE_BLOCK_RE = re.compile(r"```[\s\S]*?```")
@@ -68,7 +77,9 @@ def _cleanup_options(markdown: str) -> dict[str, Any]:
     estimated_tokens = len(markdown) // 4
     return {
         "num_ctx": 8192,
-        "num_predict": min(estimated_tokens + 512, 4096),  # output ≤ input + margin, capped
+        "num_predict": min(
+            estimated_tokens + 512, 4096
+        ),  # output ≤ input + margin, capped
         "temperature": 0.1,
         "num_batch": 1024,
     }
@@ -93,11 +104,19 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
 
     for attempt in range(MAX_RETRIES):
         try:
-            cleaned = await generate(model, prompt, system=CLEANUP_SYSTEM_PROMPT, timeout=timeout, options=options)
+            cleaned = await generate(
+                model,
+                prompt,
+                system=CLEANUP_SYSTEM_PROMPT,
+                timeout=timeout,
+                options=options,
+            )
             if cleaned.strip():
                 return cleaned.strip()
         except Exception as e:
-            logger.warning(f"Cleanup attempt {attempt + 1} failed ({timeout}s timeout): {e}")
+            logger.warning(
+                f"Cleanup attempt {attempt + 1} failed ({timeout}s timeout): {e}"
+            )
             if attempt < MAX_RETRIES - 1:
                 await asyncio.sleep(RETRY_BACKOFF[attempt])
 

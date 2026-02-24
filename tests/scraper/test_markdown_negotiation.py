@@ -48,7 +48,9 @@ async def test_fetch_markdown_native_returns_content_for_markdown():
         client_instance.__aexit__ = AsyncMock(return_value=False)
         MockClient.return_value = client_instance
 
-        content, token_count = await fetch_markdown_native("https://docs.cloudflare.com/test")
+        content, token_count = await fetch_markdown_native(
+            "https://docs.cloudflare.com/test"
+        )
         assert content == "# Hello World\n\nThis is markdown content."
         assert token_count == 150
 
@@ -83,7 +85,9 @@ async def test_fetch_markdown_proxy_returns_content():
         client_instance.__aexit__ = AsyncMock(return_value=False)
         MockClient.return_value = client_instance
 
-        content, _ = await fetch_markdown_proxy("https://example.com", "https://markdown.new")
+        content, _ = await fetch_markdown_proxy(
+            "https://example.com", "https://markdown.new"
+        )
         assert content is not None
         assert "Proxied Content" in content
 

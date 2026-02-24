@@ -5,7 +5,7 @@ import gzip
 import logging
 import xml.etree.ElementTree as ET
 from collections import deque
-from io import BytesIO
+from typing import cast
 from urllib.parse import urljoin, urlparse, urlunparse
 
 import httpx
@@ -46,22 +46,24 @@ def normalize_url(url: str) -> str:
         parsed = urlparse(url)
 
         # Validate scheme
-        if parsed.scheme not in ['http', 'https', '']:
+        if parsed.scheme not in ["http", "https", ""]:
             logger.debug(f"Skipping non-HTTP URL: {url}")
             return url  # Return as-is for caller to filter
 
         # Normalize path: remove trailing slash except for root
-        path = parsed.path.rstrip('/') if parsed.path != '/' else '/'
+        path = parsed.path.rstrip("/") if parsed.path != "/" else "/"
 
         # Lowercase scheme and domain, preserve path case
-        return urlunparse((
-            parsed.scheme.lower(),
-            parsed.netloc.lower(),
-            path,
-            parsed.params,
-            parsed.query,
-            ''  # Remove fragment
-        ))
+        return urlunparse(
+            (
+                parsed.scheme.lower(),
+                parsed.netloc.lower(),
+                path,
+                parsed.params,
+                parsed.query,
+                "",  # Remove fragment
+            )
+        )
     except Exception as e:
         logger.warning(f"Failed to normalize URL: {url} - {e}")
         return url  # Return as-is, let caller handle
@@ -94,7 +96,7 @@ async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
 
     visited = set()
     to_visit = deque([(base_url, 0)])  # (url, depth)
-    discovered_urls = []
+    discovered_urls: list[str] = []
     base_domain = urlparse(base_url).netloc
 
     MAX_URLS = 1000  # Safety cap
@@ -104,7 +106,7 @@ async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
     async with httpx.AsyncClient(
         timeout=10.0,
         follow_redirects=True,
-        headers={"User-Agent": "DocRawl/1.0 (Documentation Crawler)"}
+        headers={"User-Agent": "DocRawl/1.0 (Documentation Crawler)"},
     ) as client:
         while to_visit and len(discovered_urls) < MAX_URLS:
             current_url, depth = to_visit.popleft()
@@ -138,32 +140,38 @@ async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
                     logger.debug(f"Skipping 404: {current_url}")
                     continue
                 elif response.status_code != 200:
-                    logger.warning(f"Non-200 status {response.status_code} for {current_url}")
+                    logger.warning(
+                        f"Non-200 status {response.status_code} for {current_url}"
+                    )
                     continue
 
                 # Only parse HTML content
-                content_type = response.headers.get('content-type', '')
-                if 'text/html' not in content_type:
+                content_type = response.headers.get("content-type", "")
+                if "text/html" not in content_type:
                     logger.debug(f"Skipping non-HTML content: {content_type}")
                     continue
 
-                soup = BeautifulSoup(response.text, 'html.parser')
+                soup = BeautifulSoup(response.text, "html.parser")
 
                 # Extract all links
-                for link in soup.find_all('a', href=True):
-                    href = link['href']
+                for link in soup.find_all("a", href=True):
+                    href = cast(str, link["href"])
 
                     # Skip common non-content links
-                    if any(skip in href.lower() for skip in ['#', 'javascript:', 'mailto:', 'tel:']):
+                    if any(
+                        skip in href.lower()
+                        for skip in ["#", "javascript:", "mailto:", "tel:"]
+                    ):
                         continue
 
                     absolute_url = urljoin(current_url, href)
                     parsed = urlparse(absolute_url)
 
                     # Filter: same domain, http/https only
-                    if (parsed.netloc == base_domain and
-                        parsed.scheme in ['http', 'https']):
-
+                    if parsed.netloc == base_domain and parsed.scheme in [
+                        "http",
+                        "https",
+                    ]:
                         # Remove fragment, keep query params
                         clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
                         if parsed.query:
@@ -206,19 +214,19 @@ async def try_nav_parse(base_url: str) -> list[str]:
     - Timeout (10s page load, reduced from 15s)
     - Max 100 URLs cap
     """
-    discovered_urls = set()
+    discovered_urls: set[str] = set()
     base_domain = urlparse(base_url).netloc
     MAX_NAV_URLS = 100
 
     # Common navigation selectors
     NAV_SELECTORS = [
-        'nav a',
-        'aside a',
-        '.sidebar a',
-        '.navigation a',
+        "nav a",
+        "aside a",
+        ".sidebar a",
+        ".navigation a",
         '[role="navigation"] a',
-        '.toc a',  # Table of contents
-        '.menu a',
+        ".toc a",  # Table of contents
+        ".menu a",
     ]
 
     msg = f"Trying nav parsing on {base_url}"
@@ -231,7 +239,7 @@ async def try_nav_parse(base_url: str) -> list[str]:
             page = await browser.new_page()
 
             logger.debug("Loading page for nav parsing...")
-            await page.goto(base_url, wait_until='domcontentloaded', timeout=10000)
+            await page.goto(base_url, wait_until="domcontentloaded", timeout=10000)
 
             # Try each selector with limit
             for selector in NAV_SELECTORS:
@@ -247,20 +255,25 @@ async def try_nav_parse(base_url: str) -> list[str]:
                         if len(discovered_urls) >= MAX_NAV_URLS:
                             break
 
-                        href = await link.get_attribute('href')
+                        href = await link.get_attribute("href")
                         if not href:
                             continue
 
                         # Skip anchors and non-http links
-                        if href.startswith('#') or href.startswith('javascript:'):
+                        if href.startswith("#") or href.startswith("javascript:"):
                             continue
 
                         absolute_url = urljoin(base_url, href)
                         parsed = urlparse(absolute_url)
 
                         # Same domain only
-                        if parsed.netloc == base_domain and parsed.scheme in ['http', 'https']:
-                            clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                        if parsed.netloc == base_domain and parsed.scheme in [
+                            "http",
+                            "https",
+                        ]:
+                            clean_url = (
+                                f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                            )
                             if parsed.query:
                                 clean_url += f"?{parsed.query}"
                             discovered_urls.add(normalize_url(clean_url))
@@ -314,7 +327,7 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
     """
     discovered_urls = set()
     base_domain = urlparse(base_url).netloc
-    base_path = urlparse(base_url).path.rstrip('/') if urlparse(base_url).path else ""
+    base_path = urlparse(base_url).path.rstrip("/") if urlparse(base_url).path else ""
     if base_path == "":
         base_path = "/"
 
@@ -324,7 +337,7 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
 
     async def parse_sitemap_xml(url: str, client: httpx.AsyncClient) -> set[str]:
         """Parse a sitemap XML file with robust error handling."""
-        urls = set()
+        urls: set[str] = set()
 
         try:
             response = await client.get(url, timeout=10.0)
@@ -334,17 +347,21 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
                 logger.debug(f"Sitemap not found (404): {url}")
                 return urls
             elif response.status_code != 200:
-                logger.debug(f"Non-200 status {response.status_code} for sitemap: {url}")
+                logger.debug(
+                    f"Non-200 status {response.status_code} for sitemap: {url}"
+                )
                 return urls
 
             content = response.content
 
             # Handle gzipped sitemaps
-            if url.endswith('.gz'):
+            if url.endswith(".gz"):
                 try:
                     content = gzip.decompress(content)
                 except Exception as e:
-                    logger.warning(f"✗ Failed to decompress gzipped sitemap: {url} - {e}")
+                    logger.warning(
+                        f"✗ Failed to decompress gzipped sitemap: {url} - {e}"
+                    )
                     return urls
 
             # Parse XML with defensive error handling
@@ -356,10 +373,10 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
                 return urls
 
             # Handle sitemap index (nested sitemaps)
-            namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
+            namespace = {"ns": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
             # Check if this is a sitemap index
-            for sitemap_elem in root.findall('.//ns:sitemap/ns:loc', namespace):
+            for sitemap_elem in root.findall(".//ns:sitemap/ns:loc", namespace):
                 nested_url = sitemap_elem.text
                 if nested_url:
                     # Recursively parse nested sitemaps (failures don't stop entire discovery)
@@ -367,21 +384,25 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
                         nested_urls = await parse_sitemap_xml(nested_url, client)
                         urls.update(nested_urls)
                     except Exception as e:
-                        logger.debug(f"Failed to parse nested sitemap {nested_url}: {e}")
+                        logger.debug(
+                            f"Failed to parse nested sitemap {nested_url}: {e}"
+                        )
                         continue
 
             # Extract URLs from regular sitemap
-            for url_elem in root.findall('.//ns:url/ns:loc', namespace):
+            for url_elem in root.findall(".//ns:url/ns:loc", namespace):
                 url_text = url_elem.text
                 if url_text:
                     parsed = urlparse(url_text)
                     # Filter same domain
                     if parsed.netloc == base_domain:
                         # Filter by base path if enabled
-                        url_path = parsed.path.rstrip('/') if parsed.path else "/"
+                        url_path = parsed.path.rstrip("/") if parsed.path else "/"
                         if filter_by_path and base_path != "/":
                             if not url_path.startswith(base_path):
-                                logger.debug(f"Skipping URL not under base path {base_path}: {url_text}")
+                                logger.debug(
+                                    f"Skipping URL not under base path {base_path}: {url_text}"
+                                )
                                 continue
                         urls.add(normalize_url(url_text))
 
@@ -395,23 +416,22 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
     async with httpx.AsyncClient(
         timeout=10.0,
         follow_redirects=True,
-        headers={"User-Agent": "DocRawl/1.0 (Documentation Crawler)"}
+        headers={"User-Agent": "DocRawl/1.0 (Documentation Crawler)"},
     ) as client:
-
         # Try standard sitemap locations
         sitemap_urls = [
-            urljoin(base_url, '/sitemap.xml'),
-            urljoin(base_url, '/sitemap_index.xml'),
+            urljoin(base_url, "/sitemap.xml"),
+            urljoin(base_url, "/sitemap_index.xml"),
         ]
 
         # Try to get sitemap URLs from robots.txt
         try:
-            robots_url = urljoin(base_url, '/robots.txt')
+            robots_url = urljoin(base_url, "/robots.txt")
             response = await client.get(robots_url, timeout=5.0)
             if response.status_code == 200:
-                for line in response.text.split('\n'):
-                    if line.lower().startswith('sitemap:'):
-                        sitemap_url = line.split(':', 1)[1].strip()
+                for line in response.text.split("\n"):
+                    if line.lower().startswith("sitemap:"):
+                        sitemap_url = line.split(":", 1)[1].strip()
                         sitemap_urls.append(sitemap_url)
         except Exception:
             pass  # robots.txt is optional
@@ -436,7 +456,9 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
     return result
 
 
-async def discover_urls(base_url: str, max_depth: int = 5, filter_by_path: bool = True) -> list[str]:
+async def discover_urls(
+    base_url: str, max_depth: int = 5, filter_by_path: bool = True
+) -> list[str]:
     """
     Discover URLs using cascade strategy — stops at first success:
     1. Try sitemap (fast, authoritative)
@@ -482,7 +504,7 @@ async def discover_urls(base_url: str, max_depth: int = 5, filter_by_path: bool 
         msg = f"Strategy 2/3: Skipping nav parsing (sitemap found {len(all_urls)} URLs)"
         logger.info(msg)
         print(f"[DISCOVERY] {msg}", flush=True)
-        msg = f"Strategy 3/3: Skipping recursive crawl (sitemap succeeded)"
+        msg = "Strategy 3/3: Skipping recursive crawl (sitemap succeeded)"
         logger.info(msg)
         print(f"[DISCOVERY] {msg}", flush=True)
     else:

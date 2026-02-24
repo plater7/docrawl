@@ -5,6 +5,7 @@ from pydantic import BaseModel, HttpUrl
 
 class JobRequest(BaseModel):
     """Request to create a new crawl job."""
+
     url: HttpUrl
     crawl_model: str
     pipeline_model: str
@@ -23,6 +24,7 @@ class JobRequest(BaseModel):
 
 class JobStatus(BaseModel):
     """Current status of a job."""
+
     id: str
     status: str
     pages_completed: int = 0
@@ -32,6 +34,7 @@ class JobStatus(BaseModel):
 
 class OllamaModel(BaseModel):
     """LLM model info."""
+
     name: str
     size: int | None = None
     provider: str = "ollama"

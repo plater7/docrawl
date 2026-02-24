@@ -70,7 +70,12 @@ async def _get_ollama_models() -> list[dict[str, Any]]:
             response.raise_for_status()
             data = response.json()
             return [
-                {"name": m["name"], "size": m.get("size"), "provider": "ollama", "is_free": True}
+                {
+                    "name": m["name"],
+                    "size": m.get("size"),
+                    "provider": "ollama",
+                    "is_free": True,
+                }
                 for m in data.get("models", [])
             ]
     except Exception as e:
@@ -92,7 +97,7 @@ def _is_free_model(model_name: str, provider: str) -> bool:
 def _get_openrouter_models() -> list[dict[str, Any]]:
     """Get list of OpenRouter models from API."""
     import httpx
-    
+
     try:
         response = httpx.get(
             "https://openrouter.ai/api/v1/models",
@@ -106,22 +111,24 @@ def _get_openrouter_models() -> list[dict[str, Any]]:
             pricing = m.get("pricing", {})
             name = m.get("name", "") or ""
             description = m.get("description", "") or ""
-            
+
             prompt_price = float(pricing.get("prompt", "0") or 0)
-            
+
             is_free = (
-                prompt_price == 0 or
-                ":free" in model_id or
-                "free" in name.lower() or
-                "free" in description.lower()
+                prompt_price == 0
+                or ":free" in model_id
+                or "free" in name.lower()
+                or "free" in description.lower()
             )
-            
-            models.append({
-                "name": model_id,
-                "size": None,
-                "provider": "openrouter",
-                "is_free": is_free,
-            })
+
+            models.append(
+                {
+                    "name": model_id,
+                    "size": None,
+                    "provider": "openrouter",
+                    "is_free": is_free,
+                }
+            )
         return models
     except Exception as e:
         logger.error(f"Failed to get OpenRouter models: {e}")
@@ -131,7 +138,12 @@ def _get_openrouter_models() -> list[dict[str, Any]]:
 def _get_opencode_models() -> list[dict[str, Any]]:
     """Get list of OpenCode models."""
     return [
-        {"name": m, "size": None, "provider": "opencode", "is_free": _is_free_model(m, "opencode")}
+        {
+            "name": m,
+            "size": None,
+            "provider": "opencode",
+            "is_free": _is_free_model(m, "opencode"),
+        }
         for m in PROVIDER_MODELS["opencode"]
     ]
 
@@ -156,7 +168,7 @@ async def generate(
 ) -> str:
     """Generate text using the appropriate provider."""
     provider = get_provider_for_model(model)
-    
+
     if provider == "ollama":
         return await _generate_ollama(model, prompt, system, timeout, options)
     elif provider == "openrouter":
@@ -213,7 +225,7 @@ async def _generate_openrouter(
     """Generate text using OpenRouter."""
     if not OPENROUTER_API_KEY:
         raise ValueError("OPENROUTER_API_KEY not configured")
-    
+
     payload: dict[str, Any] = {
         "model": model,
         "messages": [],
@@ -253,7 +265,7 @@ async def _generate_opencode(
     """Generate text using OpenCode."""
     if not OPENCODE_API_KEY:
         raise ValueError("OPENCODE_API_KEY not configured")
-    
+
     payload: dict[str, Any] = {
         "model": model,
         "messages": [],
