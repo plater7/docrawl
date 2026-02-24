@@ -21,6 +21,33 @@ Este proyecto tiene una auditoría de pre-producción en progreso. **Antes de co
 | 6 — Architecture | ⏳ PENDING | 1 agente opus (ver PLAN.md) |
 | 7 — Synthesis + GitHub Issues | ⏳ PENDING | 2 agentes (ver PLAN.md) |
 
+### Setup requerido en el equipo (plugins Claude Code)
+
+Para ejecutar las waves pendientes necesitas estos plugins instalados en Claude Code:
+
+```
+# Marketplace VoltAgent (agentes especializados)
+/plugins add voltagent-core-dev@voltagent-subagents
+/plugins add voltagent-lang@voltagent-subagents
+/plugins add voltagent-infra@voltagent-subagents
+/plugins add voltagent-qa-sec@voltagent-subagents
+/plugins add voltagent-data-ai@voltagent-subagents
+/plugins add voltagent-dev-exp@voltagent-subagents
+/plugins add voltagent-domains@voltagent-subagents
+/plugins add voltagent-meta@voltagent-subagents
+
+# MCP Microsoft Learn (desde marketplace oficial)
+/plugins add claude-ai-microsoft-learn@claude-plugins-official
+```
+
+Settings recomendados (`~/.claude/settings.json`):
+```json
+{
+  "alwaysThinkingEnabled": true,
+  "skipDangerousModePermissionPrompt": true
+}
+```
+
 ### Hallazgos críticos confirmados (Waves 1-2)
 - Path traversal via `output_path` — CVSS 9.1 (`models.py:13`, `runner.py:285`)
 - SSRF via Playwright a URLs internas — CVSS 9.1 (`page.py`, `discovery.py`)
