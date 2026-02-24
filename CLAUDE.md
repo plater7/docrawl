@@ -1,6 +1,37 @@
 # CLAUDE.md — Docrawl
 
+## Auditoría Multi-Agente (en curso)
 
+Este proyecto tiene una auditoría de pre-producción en progreso. **Antes de continuar la auditoría o hacer cambios significativos, lee estos archivos en orden:**
+
+1. `audit-reports/PLAN.md` — Plan completo: qué agentes, qué archivos, qué buscar en cada wave
+2. `audit-reports/wave1-summary.md` — Wave 1: Core Code Review (174 findings, 15 critical)
+3. `audit-reports/wave2-summary.md` — Wave 2: Infra & DevOps (70 findings, 4 critical)
+
+### Estado de waves
+
+| Wave | Estado | Descripción |
+|------|--------|-------------|
+| 0 — GitHub Infra | ✅ DONE | Labels, milestones, templates, workflows, dependabot |
+| 1 — Core Code Review | ✅ DONE | 5 agentes sonnet, 174 findings |
+| 2 — Infra & DevOps | ✅ DONE | 4 agentes, 70 findings |
+| 3 — AI/ML Engineering | ⏳ PENDING | 3 agentes (ver PLAN.md) |
+| 4 — Quality & Security | ⏳ PENDING | 5 agentes (ver PLAN.md) |
+| 5 — Docs & DX | ⏳ PENDING | 3 agentes (ver PLAN.md) |
+| 6 — Architecture | ⏳ PENDING | 1 agente opus (ver PLAN.md) |
+| 7 — Synthesis + GitHub Issues | ⏳ PENDING | 2 agentes (ver PLAN.md) |
+
+### Hallazgos críticos confirmados (Waves 1-2)
+- Path traversal via `output_path` — CVSS 9.1 (`models.py:13`, `runner.py:285`)
+- SSRF via Playwright a URLs internas — CVSS 9.1 (`page.py`, `discovery.py`)
+- Sin autenticación en ningún endpoint — CVSS 9.8
+- Worker Cloudflare sin auth — CVSS 9.8 (`worker/src/index.js`)
+- XSS via `innerHTML` con datos SSE — (`index.html:1274,1332`)
+- Sin rate limiting ni job concurrency cap
+- Puerto 8002 expuesto en 0.0.0.0 (bypassa perimeter)
+- Prompt injection via contenido scrapeado
+
+---
 
 ## Que es Docrawl
 
