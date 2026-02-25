@@ -88,10 +88,24 @@ class JobManager:
         job = Job(id=job_id, request=request)
         self._jobs[job_id] = job
 
-        # Start job in background, keep task reference
         from src.jobs.runner import run_job
 
-        job._task = asyncio.create_task(run_job(job))
+        task = asyncio.create_task(run_job(job))
+        job._task = task
+
+        # done_callback logs unhandled exceptions and prevents silent failures
+        # — closes CONS-014 / issue #60
+        def _on_done(t: asyncio.Task) -> None:
+            if t.cancelled():
+                logger.info(f"Job {job_id}: task was cancelled")
+                return
+            exc = t.exception()
+            if exc:
+                logger.error(f"Job {job_id}: unhandled exception in runner: {exc}", exc_info=exc)
+                if job.status == "running":
+                    job.status = "failed"
+
+        task.add_done_callback(_on_done)
 
         logger.info(f"Created job {job_id} for {request.url}")
         return job
@@ -99,6 +113,27 @@ class JobManager:
     def get_job(self, job_id: str) -> Job | None:
         """Get a job by ID."""
         return self._jobs.get(job_id)
+
+    def active_job_count(self) -> int:
+        """Return the number of jobs currently running or pending."""
+        return sum(
+            1 for job in self._jobs.values()
+            if job.status in ("pending", "running")
+        )
+
+    async def shutdown(self) -> None:
+        """Cancel all running tasks on server shutdown — closes CONS-014 / issue #60."""
+        running = [
+            job for job in self._jobs.values()
+            if job._task and not job._task.done()
+        ]
+        if not running:
+            return
+        logger.info(f"Shutdown: cancelling {len(running)} active job(s)")
+        for job in running:
+            job._task.cancel()
+        await asyncio.gather(*[job._task for job in running], return_exceptions=True)
+        logger.info("Shutdown: all job tasks cancelled")
 
     async def cancel_job(self, job_id: str) -> Job | None:
         """Cancel a running job."""
