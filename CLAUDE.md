@@ -15,8 +15,8 @@ Este proyecto tiene una auditoría de pre-producción en progreso. **Antes de co
 | 0 — GitHub Infra | ✅ DONE | Labels, milestones, templates, workflows, dependabot |
 | 1 — Core Code Review | ✅ DONE | 5 agentes sonnet, 174 findings |
 | 2 — Infra & DevOps | ✅ DONE | 4 agentes, 70 findings |
-| 3 — AI/ML Engineering | ⏳ PENDING | 3 agentes (ver PLAN.md) |
-| 4 — Quality & Security | ⏳ PENDING | 5 agentes (ver PLAN.md) |
+| 3 — AI/ML Engineering | ✅ DONE | 3 agentes, 48 findings, 7 critical |
+| 4 — Quality & Security | ✅ DONE | 5 agentes, 90 findings, 13 critical |
 | 5 — Docs & DX | ⏳ PENDING | 3 agentes (ver PLAN.md) |
 | 6 — Architecture | ⏳ PENDING | 1 agente opus (ver PLAN.md) |
 | 7 — Synthesis + GitHub Issues | ⏳ PENDING | 2 agentes (ver PLAN.md) |
