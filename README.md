@@ -209,6 +209,98 @@ pytest tests/ -v
 
 Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
+## 🗺️ Roadmap de Mejoras
+
+### Estado del Proyecto (Feb 2026)
+
+| Métrica | Cantidad |
+|---------|----------|
+| **Issues** | 80 (total) |
+| **PRs** | 36 (total) / 7 (abiertos) |
+| **Branches** | 17 |
+
+### Auditoría Multi-Agente — Progreso
+
+| Wave | Estado | Hallazgos |
+|------|--------|-----------|
+| 0 — GitHub Infra | ✅ DONE | — |
+| 1 — Core Code Review | ✅ DONE | 174 (15 critical) |
+| 2 — Infra & DevOps | ✅ DONE | 70 (5 critical) |
+| 3 — AI/ML Engineering | ✅ DONE | 48 (7 critical) |
+| 4 — Quality & Security | ✅ DONE | 90 (13 critical) |
+| 5 — Docs & DX | ✅ DONE | 50 (6 critical) |
+| 6 — Architecture | ✅ DONE | 12 (5 critical), Score: 6/10 |
+| 7 — Synthesis | ✅ DONE | 444→62 findings |
+
+---
+
+### 🎯 Roadmap Priorizado
+
+#### P0 — Bloqueantes de Producción (14 issues)
+
+| # | Hallazgo | Severidad | Archivo(s) |
+|---|----------|-----------|------------|
+| 1 | Path Traversal via `output_path` | Critical | `models.py:13`, `runner.py:285` |
+| 2 | SSRF via Playwright a URLs internas | Critical | `page.py`, `discovery.py` |
+| 3 | Sin autenticación en endpoints | Critical | toda la API |
+| 4 | Worker Cloudflare sin auth | Critical | `worker/src/index.js` |
+| 5 | XSS via `innerHTML` con datos SSE | Critical | `index.html:1274,1332` |
+| 6 | Prompt injection via contenido scrapeado | Critical | `cleanup.py`, `filter.py` |
+| 7 | Sin rate limiting ni job concurrency cap | Critical | `routes.py`, `manager.py` |
+| 8 | Puerto 8002 expuesto en 0.0.0.0 | Critical | `docker-compose.yml:11` |
+| 9 | Blocking sync HTTP en async context | Major | `client.py:97` |
+| 10 | `max_concurrent` nunca implementado | Major | `runner.py:295` |
+| 11 | `_generate_index` links rotos | Major | `runner.py:579` |
+| 12 | Chunk overlap → contenido duplicado | Major | `markdown.py:126` |
+| 13 | Estado in-memory sin eviction | Major | `manager.py` |
+| 14 | Playwright resource leaks | Major | `page.py`, `discovery.py` |
+
+#### P1 — Alta Prioridad (21 issues)
+
+- No `.dockerignore` — build context inflado
+- Test deps en imagen runtime
+- Security CI gates deshabilitados
+- `cloudflared:latest` unpinned
+- Sin backup strategy para `/data`
+- `num_ctx: 8192` insuficiente para 16KB chunks
+- Sync file writes en async context
+- Health check no funcional
+- No CORS configuración
+- No API versioning
+- Browser no almacenado/inicializado correctamente
+- print() mixed with logging
+
+#### P2 — Media Prioridad
+
+- Dead code (`generate_legacy`, etc.)
+- 3 funciones `_generate_*` duplicadas
+- Sin connection pooling
+- No caching de model lists
+- Prompts sin few-shot examples
+- Case-sensitive path handling (robots.txt)
+
+#### P3 — Baja Prioridad / Nice to Have
+
+- UI refactoring (index.html ~1500 líneas)
+- runner.py monolítico (~465 líneas)
+- ADRs para decisiones arquitectónicas
+- Conventional commits
+- Branch protection rules
+- Pre-commit hooks
+
+---
+
+### Progreso de Fixes
+
+Los issues P0-P1 están siendo abordados progresivamente. Progreso actual: **~15%** de issues P0 resueltos.
+
+### Cómo Contribuir
+
+1. Fork → Branch → PR
+2. Sign commits: `git commit -s`
+3. AI-assisted code welcome with human review
+4. Revisa los [issues P0](https://github.com/plater7/docrawl/labels/P0) primero
+
 ## 🤝 Contributing
 
 1. Fork → Branch → PR
