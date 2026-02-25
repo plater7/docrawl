@@ -4,6 +4,8 @@ import logging
 import httpx
 from playwright.async_api import async_playwright, Browser, Page
 
+from src.utils.security import validate_url_not_ssrf
+
 logger = logging.getLogger(__name__)
 
 
@@ -155,6 +157,9 @@ class PageScraper:
         """Navigate to URL, clean DOM, and extract content HTML."""
         if not self._browser:
             raise RuntimeError("Browser not started")
+
+        # SSRF validation before Playwright navigates — closes CONS-002 / issue #51
+        validate_url_not_ssrf(url)
 
         page = await self._browser.new_page()
         try:

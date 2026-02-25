@@ -100,6 +100,13 @@ class JobManager:
         """Get a job by ID."""
         return self._jobs.get(job_id)
 
+    def active_job_count(self) -> int:
+        """Return the number of jobs currently running or pending."""
+        return sum(
+            1 for job in self._jobs.values()
+            if job.status in ("pending", "running")
+        )
+
     async def cancel_job(self, job_id: str) -> Job | None:
         """Cancel a running job."""
         job = self._jobs.get(job_id)
