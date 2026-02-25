@@ -17,9 +17,9 @@ Este proyecto tiene una auditoría de pre-producción en progreso. **Antes de co
 | 2 — Infra & DevOps | ✅ DONE | 4 agentes, 70 findings |
 | 3 — AI/ML Engineering | ✅ DONE | 3 agentes, 48 findings, 7 critical |
 | 4 — Quality & Security | ✅ DONE | 5 agentes, 90 findings, 13 critical |
-| 5 — Docs & DX | ⏳ PENDING | 3 agentes (ver PLAN.md) |
-| 6 — Architecture | ⏳ PENDING | 1 agente opus (ver PLAN.md) |
-| 7 — Synthesis + GitHub Issues | ⏳ PENDING | 2 agentes (ver PLAN.md) |
+| 5 — Docs & DX | ✅ DONE | 3 agentes, 50 findings, 6 critical |
+| 6 — Architecture | ✅ DONE | 1 agente opus, 12 findings, 5 critical, score 6/10 |
+| 7 — Synthesis + GitHub Issues | ✅ DONE | 2 agentes, 444→62 findings, script de issues listo |
 
 ### Setup requerido en el equipo (plugins Claude Code)
 
