@@ -26,14 +26,14 @@ jobs:
           pip install -r requirements.txt
 
       - name: Bandit security scan
-        run: bandit -r src/ -f json -o bandit-report.json || true
+        run: bandit -r src/ -f json -o bandit-report.json -ll
 
       - name: Bandit summary
         if: always()
-        run: bandit -r src/ -f screen || true
+        run: bandit -r src/ -f screen -ll
 
       - name: pip-audit dependency check
-        run: pip-audit --strict || true
+        run: pip-audit --strict
 
       - name: Upload Bandit report
         if: always()

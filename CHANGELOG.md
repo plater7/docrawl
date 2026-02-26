@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.4] - 2026-02-26
+
+### Added
+- **Suite de tests unitarios** ([#55](https://github.com/plater7/docrawl/issues/55)) — 200 tests nuevos (295 total), cobertura del código unit-testable de ~20% a 57%
+  - `tests/api/test_models.py` (29) — validación de `JobRequest`, `OllamaModel`, `JobStatus`
+  - `tests/api/test_routes.py` (19) — endpoints FastAPI vía TestClient
+  - `tests/jobs/test_manager.py` (21) — ciclo de vida de `Job`, CRUD de `JobManager`
+  - `tests/crawler/test_url_filter.py` (38) — `filter_urls()`, `_matches_language()` todos los branches
+  - `tests/llm/test_client.py` (26) — routing de providers, fetching de modelos, `generate()`
+  - `tests/llm/test_filter.py` (13) — `filter_urls_with_llm()` incluyendo fallbacks
+  - `tests/llm/test_cleanup.py` (25) — `needs_llm_cleanup()`, `cleanup_markdown()` con reintentos
+  - `tests/scraper/test_markdown.py` (29) — `html_to_markdown()`, `chunk_markdown()`
+- **`.coveragerc`** — excluye `runner.py` y `page.py` (requieren Playwright, pertenecen a tests de integración)
+
+---
+
+## [v0.9.2] - 2026-02-26
+
+### Fixed
+- **Security CI gates habilitados** ([#54](https://github.com/plater7/docrawl/issues/54)) — eliminado `|| true` de bandit y pip-audit en `security.yml`; bandit corre con `-ll` (solo HIGH severity), fallos ahora bloquean el build
+- **`.dockerignore` añadido** ([#77](https://github.com/plater7/docrawl/issues/77)) — excluye `.git/`, `data/`, `tests/`, `worker/node_modules`, `audit-reports/`, `.env.*`; reduce build context y previene leakage accidental de secretos
+- **Test deps separados de imagen de producción** ([#78](https://github.com/plater7/docrawl/issues/78)) — `requirements.txt` solo contiene deps runtime; creado `requirements-dev.txt` con `-r requirements.txt` + pytest stack; workflows actualizados
+- **`cloudflared` pinneado a versión específica** ([#79](https://github.com/plater7/docrawl/issues/79)) — `cloudflare/cloudflared:latest` → `cloudflare/cloudflared:2024.12.2`
+- **Coverage threshold añadido** ([#81](https://github.com/plater7/docrawl/issues/81)) — `--cov-fail-under=50` en `pytest.ini`; tests fallan si coverage cae por debajo del 50%
+
+### Changed
+- Workflows `lint.yml` y `test.yml` usan `requirements-dev.txt` para cache key y dependencias
+
+---
+
+## [v0.9.1] - 2026-02-26
+
+### Fixed
+- **`max_concurrent` ahora funciona** — semaphore-based concurrency con `asyncio.Semaphore` + `asyncio.Lock` para contadores compartidos; el parámetro ya no se ignora silenciosamente (#56)
+- **Truncamiento silencioso del LLM eliminado** — `num_ctx` ahora se calcula dinámicamente (`max(2048, tokens_estimados + 1024)`) en vez del valor hardcodeado `8192`; chunk size reducido de 16KB a 6KB (#57)
+- **Blocking sync HTTP en async context** — `_get_openrouter_models()` convertido a `async def` con `httpx.AsyncClient`; ya no bloquea el event loop (#59)
+- **`asyncio.create_task` fire-and-forget** — añadido `done_callback` para loguear errores/cancelaciones; `JobManager.shutdown()` cancela y awaita todas las tareas activas vía FastAPI lifespan (#60)
+
+### Changed
+- `DEFAULT_CHUNK_SIZE` reducido de 16000 a 6000 caracteres para evitar context overflow en modelos pequeños
+- Versión de la app: `0.1.0` → `0.9.1`
+
+---
+
 ## [v0.9.0] - 2026-02-26
 
 ### Security (15 vulnerabilities fixed)

@@ -55,7 +55,7 @@ async def get_available_models(provider: str = "ollama") -> list[dict[str, Any]]
     if provider == "ollama":
         return await _get_ollama_models()
     elif provider == "openrouter":
-        return _get_openrouter_models()
+        return await _get_openrouter_models()
     elif provider == "opencode":
         return _get_opencode_models()
     else:
@@ -94,42 +94,41 @@ def _is_free_model(model_name: str, provider: str) -> bool:
     return False
 
 
-def _get_openrouter_models() -> list[dict[str, Any]]:
-    """Get list of OpenRouter models from API."""
-    import httpx
-
+async def _get_openrouter_models() -> list[dict[str, Any]]:
+    """Get list of OpenRouter models from API — async to avoid blocking event loop (closes CONS-013 / issue #59)."""
     try:
-        response = httpx.get(
-            "https://openrouter.ai/api/v1/models",
-            timeout=10,
-        )
-        response.raise_for_status()
-        data = response.json()
-        models = []
-        for m in data.get("data", []):
-            model_id = m.get("id", "")
-            pricing = m.get("pricing", {})
-            name = m.get("name", "") or ""
-            description = m.get("description", "") or ""
-
-            prompt_price = float(pricing.get("prompt", "0") or 0)
-
-            is_free = (
-                prompt_price == 0
-                or ":free" in model_id
-                or "free" in name.lower()
-                or "free" in description.lower()
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://openrouter.ai/api/v1/models",
+                timeout=10,
             )
+            response.raise_for_status()
+            data = response.json()
+            models = []
+            for m in data.get("data", []):
+                model_id = m.get("id", "")
+                pricing = m.get("pricing", {})
+                name = m.get("name", "") or ""
+                description = m.get("description", "") or ""
 
-            models.append(
-                {
-                    "name": model_id,
-                    "size": None,
-                    "provider": "openrouter",
-                    "is_free": is_free,
-                }
-            )
-        return models
+                prompt_price = float(pricing.get("prompt", "0") or 0)
+
+                is_free = (
+                    prompt_price == 0
+                    or ":free" in model_id
+                    or "free" in name.lower()
+                    or "free" in description.lower()
+                )
+
+                models.append(
+                    {
+                        "name": model_id,
+                        "size": None,
+                        "provider": "openrouter",
+                        "is_free": is_free,
+                    }
+                )
+            return models
     except Exception as e:
         logger.error(f"Failed to get OpenRouter models: {e}")
         return []

@@ -23,12 +23,20 @@ Return a JSON array of filtered URLs, ordered by suggested reading order (basics
 Only return the JSON array, no other text."""
 
 
-FILTER_OPTIONS: dict[str, Any] = {
-    "num_ctx": 4096,
-    "num_predict": 2048,
-    "temperature": 0.0,
-    "num_batch": 1024,
-}
+def _filter_options(urls: list[str]) -> dict[str, Any]:
+    """Build Ollama options scaled to the actual URL list size.
+
+    Avoids silent truncation when sites have 100+ URLs — closes CONS-011 / issue #57.
+    """
+    # Each URL averages ~60 chars ≈ 15 tokens; add prompt overhead (~300 tokens)
+    estimated_input_tokens = sum(len(u) for u in urls) // 4 + 300
+    num_ctx = max(4096, estimated_input_tokens + 1024)
+    return {
+        "num_ctx": num_ctx,
+        "num_predict": min(len(urls) * 20 + 256, 4096),  # output ≤ input URLs reprinted
+        "temperature": 0.0,
+        "num_batch": 1024,
+    }
 
 
 async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
@@ -46,7 +54,7 @@ async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
 
     try:
         response = await generate(
-            model, prompt, system=FILTER_SYSTEM_PROMPT, options=FILTER_OPTIONS
+            model, prompt, system=FILTER_SYSTEM_PROMPT, options=_filter_options(urls)
         )
 
         # Try to parse JSON from response

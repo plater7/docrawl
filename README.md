@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.9.0-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/version-v0.9.4-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
   <a href="https://github.com/plater7/docrawl/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/plater7/docrawl/test.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="tests"></a>
   <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
@@ -208,6 +208,105 @@ pytest tests/ -v
 ## 📜 Changelog
 
 Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
+
+## 🗺️ Roadmap de Mejoras
+
+### Estado del Proyecto (Feb 2026)
+
+| Métrica | Cantidad |
+|---------|----------|
+| **Issues** | 80 (total) |
+| **PRs** | 36 (total) / 7 (abiertos) |
+| **Branches** | 17 |
+
+### Auditoría Multi-Agente — Progreso
+
+| Wave | Estado | Hallazgos |
+|------|--------|-----------|
+| 0 — GitHub Infra | ✅ DONE | — |
+| 1 — Core Code Review | ✅ DONE | 174 (15 critical) |
+| 2 — Infra & DevOps | ✅ DONE | 70 (5 critical) |
+| 3 — AI/ML Engineering | ✅ DONE | 48 (7 critical) |
+| 4 — Quality & Security | ✅ DONE | 90 (13 critical) |
+| 5 — Docs & DX | ✅ DONE | 50 (6 critical) |
+| 6 — Architecture | ✅ DONE | 12 (5 critical), Score: 6/10 |
+| 7 — Synthesis | ✅ DONE | 444→62 findings |
+
+---
+
+### 🎯 Roadmap Priorizado
+
+#### P0 — Bloqueantes de Producción (14 issues)
+
+| # | Hallazgo | Severidad | Archivo(s) |
+|---|----------|-----------|------------|
+| 1 | Path Traversal via `output_path` | Critical | `models.py:13`, `runner.py:285` |
+| 2 | SSRF via Playwright a URLs internas | Critical | `page.py`, `discovery.py` |
+| 3 | Sin autenticación en endpoints | Critical | toda la API |
+| 4 | Worker Cloudflare sin auth | Critical | `worker/src/index.js` |
+| 5 | XSS via `innerHTML` con datos SSE | Critical | `index.html:1274,1332` |
+| 6 | Prompt injection via contenido scrapeado | Critical | `cleanup.py`, `filter.py` |
+| 7 | Sin rate limiting ni job concurrency cap | Critical | `routes.py`, `manager.py` |
+| 8 | Puerto 8002 expuesto en 0.0.0.0 | Critical | `docker-compose.yml:11` |
+| 9 | Blocking sync HTTP en async context | Major | `client.py:97` |
+| 10 | `max_concurrent` nunca implementado | Major | `runner.py:295` |
+| 11 | `_generate_index` links rotos | Major | `runner.py:579` |
+| 12 | Chunk overlap → contenido duplicado | Major | `markdown.py:126` |
+| 13 | Estado in-memory sin eviction | Major | `manager.py` |
+| 14 | Playwright resource leaks | Major | `page.py`, `discovery.py` |
+
+#### P1 — Alta Prioridad (21 issues)
+
+- No `.dockerignore` — build context inflado
+- Test deps en imagen runtime
+- Security CI gates deshabilitados
+- `cloudflared:latest` unpinned
+- Sin backup strategy para `/data`
+- `num_ctx: 8192` insuficiente para 16KB chunks
+- Sync file writes en async context
+- Health check no funcional
+- No CORS configuración
+- No API versioning
+- Browser no almacenado/inicializado correctamente
+- print() mixed with logging
+
+#### P2 — Media Prioridad
+
+- Dead code (`generate_legacy`, etc.)
+- 3 funciones `_generate_*` duplicadas
+- Sin connection pooling
+- No caching de model lists
+- Prompts sin few-shot examples
+- Case-sensitive path handling (robots.txt)
+
+#### P3 — Baja Prioridad / Nice to Have
+
+- UI refactoring (index.html ~1500 líneas)
+- runner.py monolítico (~465 líneas)
+- ADRs para decisiones arquitectónicas
+- Conventional commits
+- Branch protection rules
+- Pre-commit hooks
+
+---
+
+### Progreso de Fixes
+
+| PR | Milestone | Issues | Estado |
+|----|-----------|--------|--------|
+| [#82](https://github.com/plater7/docrawl/pull/82) | v0.9.0 Security Hardening | 14 (P0/P1 security) | 🔄 Open — request changes |
+| [#83](https://github.com/plater7/docrawl/pull/83) | v0.9.1 Code Quality | 4 (async, concurrency, context) | ✅ Merged |
+| [#84](https://github.com/plater7/docrawl/pull/84) | v0.9.2 Infrastructure | 5 (dockerignore, CI, cloudflared, coverage) | ✅ Merged |
+| [#85](https://github.com/plater7/docrawl/pull/85) | v0.9.4 Testing | 1 (coverage >80%) | ✅ Merged |
+
+**Cobertura actual de P0 (14 issues):** PRs #83 + #84 ✅ resuelven 2/14 directos · PR #82 pendiente cubre 10/14 → 2 resueltos, 10 en revisión. Tests: 295 passing, 57% coverage (unit-testable code).
+
+### Cómo Contribuir
+
+1. Fork → Branch → PR
+2. Sign commits: `git commit -s`
+3. AI-assisted code welcome with human review
+4. Revisa los [issues P0](https://github.com/plater7/docrawl/labels/P0) primero
 
 ## 🤝 Contributing
 

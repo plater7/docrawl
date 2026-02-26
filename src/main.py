@@ -2,6 +2,7 @@
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -9,7 +10,7 @@ from pathlib import Path
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.api.routes import router, limiter
+from src.api.routes import router, limiter, job_manager
 
 # Configure logging with timestamps
 logging.basicConfig(
@@ -20,7 +21,15 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Docrawl", version="0.9.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Cancel running jobs on shutdown — closes CONS-014 / issue #60."""
+    yield
+    await job_manager.shutdown()
+
+
+app = FastAPI(title="Docrawl", version="0.9.0", lifespan=lifespan)
 
 # ── Rate limiter state + error handler ───────────────────────────────────────
 app.state.limiter = limiter
