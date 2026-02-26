@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.5] - 2026-02-26
+
+### Fixed
+- **Model list cache with TTL (#92)** — `get_available_models()` now caches results per provider for 60s, preventing repeated HTTP calls to Ollama/OpenRouter on every job start
+- **Retry with exponential backoff in LLM filtering (#94)** — `filter_urls_with_llm()` retries up to 3 times (1s → 2s → 4s backoff) before falling back to the original URL list
+- **Atomic file writes (#99)** — scraped pages are now written to a `.tmp` file and renamed atomically, preventing corrupt output files on crash or cancellation
+- **Remove print statements from discovery.py (#89)** — all `print(f"[DISCOVERY] ...")` replaced with `logger.info()`, enabling proper log level control
+- **Exponential backoff in LLM cleanup (#100)** — retry delays changed from fixed `[1, 3]s` to exponential `2**attempt` (1s, 2s, 4s); `MAX_RETRIES` increased from 2 to 3
+
+---
+
 ## [v0.8.5] - 2026-02-20
 
 ### Added
