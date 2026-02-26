@@ -1,0 +1,43 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD & GitHub
+.github
+
+# Dev environment
+.env
+.env.*
+!.env.example
+.venv
+venv
+__pycache__
+*.py[cod]
+*.pyo
+.mypy_cache
+.ruff_cache
+.pytest_cache
+htmlcov
+.coverage
+coverage.xml
+
+# Tests
+tests/
+
+# Docs & audit
+*.md
+audit-reports/
+
+# Node / Worker
+worker/node_modules
+worker/.wrangler
+
+# Data output (can be large)
+data/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
