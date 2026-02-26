@@ -1,11 +1,12 @@
 """FastAPI application entry point."""
 
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from pathlib import Path
 
-from src.api.routes import router
+from src.api.routes import router, job_manager
 
 # Configure logging with timestamps
 logging.basicConfig(
@@ -14,7 +15,15 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-app = FastAPI(title="Docrawl", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Cancel running jobs on shutdown — closes CONS-014 / issue #60."""
+    yield
+    await job_manager.shutdown()
+
+
+app = FastAPI(title="Docrawl", version="0.9.1", lifespan=lifespan)
 
 app.include_router(router, prefix="/api")
 

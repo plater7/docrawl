@@ -72,14 +72,18 @@ def needs_llm_cleanup(markdown: str) -> bool:
 
 
 def _cleanup_options(markdown: str) -> dict[str, Any]:
-    """Calculate Ollama options optimized for cleanup tasks."""
+    """Calculate Ollama options optimized for cleanup tasks.
+
+    num_ctx is sized to the actual content so Ollama never silently truncates
+    the input — closes CONS-011 / issue #57.
+    """
     # Rough estimate: 1 token ≈ 4 chars for English/markdown
-    estimated_tokens = len(markdown) // 4
+    estimated_input_tokens = len(markdown) // 4
+    # Reserve ~512 tokens for system prompt + cleanup prompt overhead
+    num_ctx = max(2048, estimated_input_tokens + 1024)
     return {
-        "num_ctx": 8192,
-        "num_predict": min(
-            estimated_tokens + 512, 4096
-        ),  # output ≤ input + margin, capped
+        "num_ctx": num_ctx,
+        "num_predict": min(estimated_input_tokens + 512, 4096),
         "temperature": 0.1,
         "num_batch": 1024,
     }

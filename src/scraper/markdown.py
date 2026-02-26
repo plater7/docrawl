@@ -6,9 +6,11 @@ from markdownify import markdownify as md
 
 logger = logging.getLogger(__name__)
 
-# Chunk size for LLM processing (in characters)
-# 16000 chars is safe for qwen3:14b context window after pre-cleaning
-DEFAULT_CHUNK_SIZE = 16000
+# Chunk size for LLM processing (in characters).
+# 6000 chars ≈ 1500 tokens — fits safely in an 8192-token context window
+# together with the system prompt and cleanup prompt overhead (~500 tokens).
+# Fixes CONS-011 / issue #57: previous 16000-char chunks silently overflowed num_ctx.
+DEFAULT_CHUNK_SIZE = 6000
 CHUNK_OVERLAP = 200
 
 # Regex patterns for noise in markdown (compiled for performance)

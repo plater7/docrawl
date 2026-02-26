@@ -292,202 +292,219 @@ async def run_job(job: Job) -> None:
         pages_proxy_md = 0
         pages_playwright = 0
 
-        for i, url in enumerate(urls):
-            if job.is_cancelled:
-                break
+        # Semaphore enforces max_concurrent — closes CONS-010 / issue #56
+        sem = asyncio.Semaphore(request.max_concurrent)
+        # Lock to protect shared counters and job.pages_completed
+        _counter_lock = asyncio.Lock()
 
-            job.current_url = url
-            page_start = time.monotonic()
+        async def _process_page(i: int, url: str) -> None:
+            nonlocal pages_ok, pages_partial, pages_failed
+            nonlocal pages_native_md, pages_proxy_md, pages_playwright
 
-            # Scraping sub-phase
-            await _log(
-                job,
-                "phase_change",
-                {
-                    "phase": "scraping",
-                    "message": "Loading page...",
-                    "progress": f"{i + 1}/{len(urls)}",
-                    "url": url,
-                },
-            )
+            async with sem:
+                if job.is_cancelled:
+                    return
 
-            try:
-                markdown = None
-                native_token_count = None
-                fetch_method = "playwright"
-                load_time = 0.0
+                job.current_url = url
+                page_start = time.monotonic()
 
-                # Try native markdown via content negotiation
-                if request.use_native_markdown:
-                    md_content, token_count = await fetch_markdown_native(url)
-                    if md_content:
-                        markdown = md_content
-                        native_token_count = token_count
-                        fetch_method = "native"
-                        pages_native_md += 1
-                        load_time = time.monotonic() - page_start
-                        token_info = f", {token_count} tokens" if token_count else ""
-                        await _log(
-                            job,
-                            "log",
-                            {
-                                "phase": "scraping",
-                                "message": f"[{i + 1}/{len(urls)}] [native-md] Skipped Playwright for {url} ({load_time:.1f}s{token_info})",
-                            },
-                        )
-
-                # Try markdown proxy as fallback
-                if markdown is None and request.use_markdown_proxy:
-                    md_content, _ = await fetch_markdown_proxy(
-                        url, request.markdown_proxy_url
-                    )
-                    if md_content:
-                        markdown = md_content
-                        fetch_method = "proxy"
-                        pages_proxy_md += 1
-                        load_time = time.monotonic() - page_start
-                        await _log(
-                            job,
-                            "log",
-                            {
-                                "phase": "scraping",
-                                "message": f"[{i + 1}/{len(urls)}] [proxy-md] Fetched via proxy for {url} ({load_time:.1f}s)",
-                            },
-                        )
-
-                # Fall back to Playwright
-                if markdown is None:
-                    html = await scraper.get_html(url)
-                    load_time = time.monotonic() - page_start
-                    markdown = html_to_markdown(html)
-                    pages_playwright += 1
-
-                chunks = chunk_markdown(markdown, native_token_count=native_token_count)
-
-                await _log(
-                    job,
-                    "log",
-                    {
-                        "phase": "scraping",
-                        "message": f"[{i + 1}/{len(urls)}] Loaded {url} ({load_time:.1f}s, {len(chunks)} chunks, {fetch_method})",
-                    },
-                )
-
-                # Cleanup sub-phase
-                cleaned_chunks: list[str] = []
-                chunks_failed = 0
-                _cleanup_start = time.monotonic()
-
+                # Scraping sub-phase
                 await _log(
                     job,
                     "phase_change",
                     {
-                        "phase": "cleanup",
-                        "active_model": request.pipeline_model,
-                        "message": f"Cleaning {len(chunks)} chunks...",
+                        "phase": "scraping",
+                        "message": "Loading page...",
                         "progress": f"{i + 1}/{len(urls)}",
                         "url": url,
                     },
                 )
 
-                for ci, chunk in enumerate(chunks):
-                    if job.is_cancelled:
-                        break
+                try:
+                    markdown = None
+                    native_token_count = None
+                    fetch_method = "playwright"
+                    load_time = 0.0
 
-                    # Skip LLM cleanup for already-clean chunks
-                    if not needs_llm_cleanup(chunk):
-                        cleaned_chunks.append(chunk)
-                        if len(chunks) > 1:
+                    # Try native markdown via content negotiation
+                    if request.use_native_markdown:
+                        md_content, token_count = await fetch_markdown_native(url)
+                        if md_content:
+                            markdown = md_content
+                            native_token_count = token_count
+                            fetch_method = "native"
+                            async with _counter_lock:
+                                pages_native_md += 1
+                            load_time = time.monotonic() - page_start
+                            token_info = f", {token_count} tokens" if token_count else ""
                             await _log(
                                 job,
                                 "log",
                                 {
-                                    "phase": "cleanup",
-                                    "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ⚡ skip (clean)",
+                                    "phase": "scraping",
+                                    "message": f"[{i + 1}/{len(urls)}] [native-md] Skipped Playwright for {url} ({load_time:.1f}s{token_info})",
                                 },
                             )
-                        continue
 
-                    try:
-                        chunk_start = time.monotonic()
-                        cleaned = await cleanup_markdown(chunk, request.pipeline_model)
-                        chunk_time = time.monotonic() - chunk_start
-                        cleaned_chunks.append(cleaned)
+                    # Try markdown proxy as fallback
+                    if markdown is None and request.use_markdown_proxy:
+                        md_content, _ = await fetch_markdown_proxy(
+                            url, request.markdown_proxy_url
+                        )
+                        if md_content:
+                            markdown = md_content
+                            fetch_method = "proxy"
+                            async with _counter_lock:
+                                pages_proxy_md += 1
+                            load_time = time.monotonic() - page_start
+                            await _log(
+                                job,
+                                "log",
+                                {
+                                    "phase": "scraping",
+                                    "message": f"[{i + 1}/{len(urls)}] [proxy-md] Fetched via proxy for {url} ({load_time:.1f}s)",
+                                },
+                            )
 
-                        # Only log individual chunks if more than 1
-                        if len(chunks) > 1:
+                    # Fall back to Playwright
+                    if markdown is None:
+                        html = await scraper.get_html(url)
+                        load_time = time.monotonic() - page_start
+                        markdown = html_to_markdown(html)
+                        async with _counter_lock:
+                            pages_playwright += 1
+
+                    chunks = chunk_markdown(markdown, native_token_count=native_token_count)
+
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] Loaded {url} ({load_time:.1f}s, {len(chunks)} chunks, {fetch_method})",
+                        },
+                    )
+
+                    # Cleanup sub-phase
+                    cleaned_chunks: list[str] = []
+                    chunks_failed = 0
+
+                    await _log(
+                        job,
+                        "phase_change",
+                        {
+                            "phase": "cleanup",
+                            "active_model": request.pipeline_model,
+                            "message": f"Cleaning {len(chunks)} chunks...",
+                            "progress": f"{i + 1}/{len(urls)}",
+                            "url": url,
+                        },
+                    )
+
+                    for ci, chunk in enumerate(chunks):
+                        if job.is_cancelled:
+                            break
+
+                        # Skip LLM cleanup for already-clean chunks
+                        if not needs_llm_cleanup(chunk):
+                            cleaned_chunks.append(chunk)
+                            if len(chunks) > 1:
+                                await _log(
+                                    job,
+                                    "log",
+                                    {
+                                        "phase": "cleanup",
+                                        "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ⚡ skip (clean)",
+                                    },
+                                )
+                            continue
+
+                        try:
+                            chunk_start = time.monotonic()
+                            cleaned = await cleanup_markdown(chunk, request.pipeline_model)
+                            chunk_time = time.monotonic() - chunk_start
+                            cleaned_chunks.append(cleaned)
+
+                            if len(chunks) > 1:
+                                await _log(
+                                    job,
+                                    "log",
+                                    {
+                                        "phase": "cleanup",
+                                        "active_model": request.pipeline_model,
+                                        "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✓ ({chunk_time:.1f}s)",
+                                    },
+                                )
+                        except Exception:
+                            chunks_failed += 1
+                            cleaned_chunks.append(chunk)
                             await _log(
                                 job,
                                 "log",
                                 {
                                     "phase": "cleanup",
                                     "active_model": request.pipeline_model,
-                                    "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✓ ({chunk_time:.1f}s)",
+                                    "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✗ failed, using raw",
+                                    "level": "warning",
                                 },
                             )
-                    except Exception:
-                        chunks_failed += 1
-                        cleaned_chunks.append(chunk)
-                        await _log(
-                            job,
-                            "log",
-                            {
-                                "phase": "cleanup",
-                                "active_model": request.pipeline_model,
-                                "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✗ failed, using raw",
-                                "level": "warning",
-                            },
-                        )
 
-                # Save sub-phase
-                final_md = "\n\n".join(cleaned_chunks)
-                file_path = _url_to_filepath(url, base_url, output_path)
-                file_path.parent.mkdir(parents=True, exist_ok=True)
-                file_path.write_text(final_md, encoding="utf-8")
-                file_size = file_path.stat().st_size
+                    # Save sub-phase
+                    final_md = "\n\n".join(cleaned_chunks)
+                    file_path = _url_to_filepath(url, base_url, output_path)
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    file_path.write_text(final_md, encoding="utf-8")
+                    file_size = file_path.stat().st_size
 
-                if chunks_failed == 0:
-                    pages_ok += 1
-                else:
-                    pages_partial += 1
+                    async with _counter_lock:
+                        if chunks_failed == 0:
+                            pages_ok += 1
+                        else:
+                            pages_partial += 1
 
-                size_str = (
-                    f"{file_size / 1024:.1f} KB"
-                    if file_size >= 1024
-                    else f"{file_size} B"
-                )
-                rel_path = str(file_path.relative_to(output_path))
+                    size_str = (
+                        f"{file_size / 1024:.1f} KB"
+                        if file_size >= 1024
+                        else f"{file_size} B"
+                    )
+                    rel_path = str(file_path.relative_to(output_path))
 
-                await _log(
-                    job,
-                    "log",
-                    {
-                        "phase": "save",
-                        "message": f"[{i + 1}/{len(urls)}] → {rel_path} ({size_str})"
-                        + (
-                            f" ⚠ {chunks_failed} chunks failed"
-                            if chunks_failed > 0
-                            else " ✓"
-                        ),
-                    },
-                )
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "save",
+                            "message": f"[{i + 1}/{len(urls)}] → {rel_path} ({size_str})"
+                            + (
+                                f" ⚠ {chunks_failed} chunks failed"
+                                if chunks_failed > 0
+                                else " ✓"
+                            ),
+                        },
+                    )
 
-            except Exception as e:
-                pages_failed += 1
-                page_time = time.monotonic() - page_start
-                logger.error(f"Failed to process {url}: {e}")
-                await _log(
-                    job,
-                    "log",
-                    {
-                        "phase": "scraping",
-                        "message": f"[{i + 1}/{len(urls)}] ✗ {url}: {e} ({page_time:.1f}s)",
-                        "level": "error",
-                    },
-                )
+                except Exception as e:
+                    async with _counter_lock:
+                        pages_failed += 1
+                    page_time = time.monotonic() - page_start
+                    logger.error(f"Failed to process {url}: {e}")
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] ✗ {url}: {e} ({page_time:.1f}s)",
+                            "level": "error",
+                        },
+                    )
 
-            job.pages_completed = i + 1
-            await asyncio.sleep(delay_s)
+                async with _counter_lock:
+                    job.pages_completed += 1
+
+                await asyncio.sleep(delay_s)
+
+        # Launch all pages concurrently, semaphore controls actual parallelism
+        await asyncio.gather(*[_process_page(i, url) for i, url in enumerate(urls)])
 
         if not job.is_cancelled:
             _generate_index(urls, output_path)
