@@ -4,6 +4,8 @@ import logging
 import httpx
 from playwright.async_api import async_playwright, Browser, Page
 
+from src.utils.security import validate_url_not_ssrf
+
 logger = logging.getLogger(__name__)
 
 
@@ -12,6 +14,7 @@ async def fetch_markdown_native(url: str) -> tuple[str | None, int | None]:
 
     Returns (markdown_content, token_count) or (None, None) if not available.
     """
+    validate_url_not_ssrf(url)
     try:
         headers = {
             "Accept": "text/markdown, text/html;q=0.9, */*;q=0.8",
@@ -38,6 +41,7 @@ async def fetch_markdown_proxy(
 
     Returns (markdown_content, None) or (None, None) if unavailable.
     """
+    validate_url_not_ssrf(url)
     try:
         proxy_target = f"{proxy_url.rstrip('/')}/{url}"
         headers = {"User-Agent": "Docrawl/1.0 (AI documentation crawler)"}
@@ -155,6 +159,9 @@ class PageScraper:
         """Navigate to URL, clean DOM, and extract content HTML."""
         if not self._browser:
             raise RuntimeError("Browser not started")
+
+        # SSRF validation before Playwright navigates — closes CONS-002 / issue #51
+        validate_url_not_ssrf(url)
 
         page = await self._browser.new_page()
         try:

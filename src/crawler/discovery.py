@@ -3,7 +3,7 @@
 import asyncio
 import gzip
 import logging
-import defusedxml.ElementTree as ET
+import defusedxml.ElementTree as ET  # XXE-safe replacement — closes CONS-010 / issue #64
 from xml.etree.ElementTree import ParseError as XMLParseError
 from collections import deque
 from typing import cast
@@ -12,6 +12,8 @@ from urllib.parse import urljoin, urlparse, urlunparse
 import httpx
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+
+from src.utils.security import validate_url_not_ssrf
 
 logger = logging.getLogger(__name__)
 
@@ -233,6 +235,12 @@ async def try_nav_parse(base_url: str) -> list[str]:
     msg = f"Trying nav parsing on {base_url}"
     logger.info(msg)
     print(f"[DISCOVERY] {msg}", flush=True)
+
+    try:
+        validate_url_not_ssrf(base_url)  # SSRF check — closes CONS-002 / issue #51
+    except ValueError as e:
+        logger.warning(f"Nav parsing blocked: {e}")
+        return []
 
     try:
         async with async_playwright() as p:
@@ -474,6 +482,9 @@ async def discover_urls(
     Returns deduplicated, normalized URLs. Never returns empty list.
     """
     all_urls = set()
+
+    # SSRF validation before any network activity — closes CONS-002 / issue #51
+    validate_url_not_ssrf(base_url)
 
     msg = f"=== Starting URL discovery for {base_url} (max_depth={max_depth}) ==="
     logger.info(msg)

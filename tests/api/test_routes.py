@@ -1,20 +1,8 @@
-"""
-Integration tests for src/api/routes.py using FastAPI TestClient.
-
-Tests cover:
-- GET /api/health/ready → 200
-- GET /api/models with mocked get_available_models → 200 + list
-- POST /api/jobs with valid payload and mocked job_manager.create_job → 201
-- POST /api/jobs with invalid URL → 422
-- GET /api/jobs/{id}/status for existing job → 200
-- GET /api/jobs/{id}/status for unknown job → 404
-- POST /api/jobs/{id}/cancel for existing job → 200
-- POST /api/jobs/{id}/cancel for unknown job → 404
-"""
+"""Tests for API routes in src/api/routes.py."""
 
 import httpx
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -62,6 +50,24 @@ VALID_JOB_PAYLOAD = {
     "reasoning_model": "deepseek-r1:32b",
 }
 
+_JOB_BODY = {
+    "url": "https://example.com",
+    "crawl_model": "m",
+    "pipeline_model": "m",
+    "reasoning_model": "m",
+}
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def client() -> TestClient:
+    """Return a synchronous TestClient for the FastAPI app."""
+    return TestClient(app, raise_server_exceptions=False)
+
 
 # ---------------------------------------------------------------------------
 # Health endpoint
@@ -73,7 +79,6 @@ class TestHealthReady:
 
     def test_health_ready_returns_200(self):
         """Health check always returns HTTP 200."""
-        # httpx is imported locally inside health_ready, so patch at the httpx module level
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"models": []}
@@ -88,6 +93,12 @@ class TestHealthReady:
                 response = client.get("/api/health/ready")
 
         assert response.status_code == 200
+
+    def test_health_ready_response_has_ready_key(self, client: TestClient):
+        """Response body must contain a 'ready' boolean key."""
+        response = client.get("/api/health/ready")
+        data = response.json()
+        assert "ready" in data
 
     def test_health_ready_returns_json_with_ready_key(self):
         """Response body contains a 'ready' boolean key."""
@@ -184,6 +195,51 @@ class TestListModels:
 
 
 # ---------------------------------------------------------------------------
+# Concurrent job limit (429)
+# ---------------------------------------------------------------------------
+
+
+class TestCreateJobConcurrencyLimit:
+    """Tests for the MAX_CONCURRENT_JOBS guard in POST /api/jobs."""
+
+    def test_returns_429_when_job_limit_reached(self, client: TestClient):
+        """POST /api/jobs returns 429 when active_job_count >= MAX_CONCURRENT_JOBS."""
+        with patch("src.api.routes.job_manager.active_job_count", return_value=999):
+            response = client.post("/api/jobs", json=_JOB_BODY)
+        assert response.status_code == 429
+
+    def test_429_response_has_detail(self, client: TestClient):
+        """429 response includes a descriptive 'detail' field."""
+        with patch("src.api.routes.job_manager.active_job_count", return_value=999):
+            response = client.post("/api/jobs", json=_JOB_BODY)
+        data = response.json()
+        assert "detail" in data
+
+    def test_job_creation_proceeds_when_under_limit(self, client: TestClient):
+        """POST /api/jobs proceeds past the concurrency check when under the limit."""
+        mock_job_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
+        async def _fake_create_job(request):
+            from src.jobs.manager import Job
+
+            return Job(id=mock_job_id, request=request, status="pending")
+
+        with (
+            patch("src.api.routes.job_manager.active_job_count", return_value=0),
+            patch(
+                "src.api.routes.job_manager.create_job",
+                side_effect=_fake_create_job,
+            ),
+        ):
+            response = client.post("/api/jobs", json=_JOB_BODY)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == mock_job_id
+        assert data["status"] == "pending"
+
+
+# ---------------------------------------------------------------------------
 # Create job endpoint
 # ---------------------------------------------------------------------------
 
@@ -192,7 +248,7 @@ class TestCreateJob:
     """POST /api/jobs"""
 
     def test_create_job_valid_payload_returns_200(self):
-        """Valid job payload returns HTTP 200 (FastAPI default for POST returning a model)."""
+        """Valid job payload returns HTTP 200."""
         fake_job = _make_job(job_id="new-uuid-123", status="pending")
 
         async def fake_create_job(request):

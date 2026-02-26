@@ -314,6 +314,26 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 2. Sign commits: `git commit -s`
 3. AI-assisted code welcome with human review
 
+## 🔒 Security (v0.9.0)
+
+v0.9.0 fixes 15 security vulnerabilities identified in a pre-production audit:
+
+| # | Issue | Fix |
+|---|-------|-----|
+| CONS-001 | Path traversal via `output_path` | `Path.resolve()` boundary check |
+| CONS-002 | No authentication | `X-Api-Key` middleware |
+| CONS-005 | SSRF via Playwright | `validate_url_not_ssrf()` on all fetch paths |
+| CONS-006 | XSS via `innerHTML` | Replaced with safe DOM API |
+| CONS-007 | No rate limiting | `slowapi` 10 req/min + job concurrency cap |
+| CONS-018 | XXE in sitemap parser | `defusedxml` replacing stdlib |
+| CONS-019 | SSRF via markdown proxy | Proxy URL validator (HTTPS + private IP block) |
+| CONS-022 | No security headers | `SecurityHeadersMiddleware` (CSP, X-Frame, etc.) |
+| CONS-034 | No CORS | `CORSMiddleware` with `CORS_ORIGINS` env var |
+
+See [`SECURITY.md`](SECURITY.md) for the full disclosure and [`CHANGELOG.md`](CHANGELOG.md) for all fixes.
+
+---
+
 ## 📄 License
 
 MIT

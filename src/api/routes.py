@@ -4,11 +4,14 @@
 """
 
 import logging
+import os
 import shutil
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sse_starlette.sse import EventSourceResponse
 
 from src.api.models import JobRequest, JobStatus, OllamaModel
@@ -19,6 +22,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 job_manager = JobManager()
+
+# Rate limiting — closes CONS-005 / issue #53
+limiter = Limiter(key_func=get_remote_address)
+
+MAX_CONCURRENT_JOBS = int(os.environ.get("MAX_CONCURRENT_JOBS", "5"))
 
 
 @router.get("/models")
@@ -75,9 +83,16 @@ async def list_providers():
 
 
 @router.post("/jobs")
-async def create_job(request: JobRequest) -> JobStatus:
+@limiter.limit("10/minute")
+async def create_job(request: Request, job_request: JobRequest) -> JobStatus:
     """Create and start a new crawl job."""
-    job = await job_manager.create_job(request)
+    active_count = job_manager.active_job_count()
+    if active_count >= MAX_CONCURRENT_JOBS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many active jobs ({active_count}/{MAX_CONCURRENT_JOBS}). Try again later.",
+        )
+    job = await job_manager.create_job(job_request)
     return JobStatus(
         id=job.id,
         status=job.status,

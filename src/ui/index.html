@@ -983,6 +983,11 @@
                 </select>
             </div>
 
+            <!-- Data exfiltration warning — closes CONS-021 / issue #67 -->
+            <div id="externalProviderWarning" style="display:none;background:#3a1a1a;border:1px solid #c06060;color:#e08080;padding:8px 12px;margin:8px 0;font-size:0.85em;">
+                &#9888; External provider selected — scraped content will be sent to a third-party API.
+            </div>
+
             <div class="models-section">
                 <label class="section-label">// Neural Network Configuration</label>
 
@@ -1186,7 +1191,13 @@
                 if (priorityList.length > 0) {
                     const suggestions = priorityList.slice(0, topN).join(', ');
                     const badge = isLocal ? '◈ LOCAL' : '◉ FREE';
-                    el.innerHTML = `${fallbackDesc}<br><strong>Suggestions (${badge}):</strong> ${suggestions}`;
+                    el.textContent = '';
+                    el.appendChild(document.createTextNode(fallbackDesc));
+                    el.appendChild(document.createElement('br'));
+                    const strong = document.createElement('strong');
+                    strong.textContent = `Suggestions (${badge}):`;
+                    el.appendChild(strong);
+                    el.appendChild(document.createTextNode(' ' + suggestions));
                 } else {
                     el.textContent = fallbackDesc;
                 }
@@ -1205,7 +1216,13 @@
                 const res = await fetch(`/api/models?provider=${provider}`);
                 const models = await res.json();
                 if (models.length === 0) {
-                    selects.forEach(s => s.innerHTML = `<option value="">No ${provider} models available</option>`);
+                    selects.forEach(s => {
+                        s.innerHTML = '';
+                        const opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = `No ${provider} models available`;
+                        s.appendChild(opt);
+                    });
                     logMessage(`No ${provider} models available. Check API key or Ollama connection.`, 'init', 'warning');
                     return;
                 }
@@ -1219,19 +1236,42 @@
                         if (a.is_free !== b.is_free) return b.is_free ? 1 : -1;
                         return a.name.localeCompare(b.name);
                     });
-                    const optionsHtml = modelsToShow.map(m => {
+                    select.innerHTML = '';
+                    modelsToShow.forEach(m => {
                         const modelBadge = m.is_free ? ` ${badge}` : '';
-                        return `<option value="${m.name}">${m.name}${modelBadge}</option>`;
-                    }).join('');
-                    select.innerHTML = optionsHtml;
+                        const opt = document.createElement('option');
+                        opt.value = m.name;
+                        opt.textContent = m.name + modelBadge;
+                        select.appendChild(opt);
+                    });
                 });
             } catch (e) {
-                selects.forEach(s => s.innerHTML = '<option value="">Error loading models</option>');
+                selects.forEach(s => {
+                    s.innerHTML = '';
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'Error loading models';
+                    s.appendChild(opt);
+                });
                 logMessage(`Failed to load ${provider} models`, 'init', 'error');
             }
         }
 
-        providerSelect.addEventListener('change', loadModels);
+        providerSelect.addEventListener('change', () => {
+            loadModels();
+            checkExternalProvider(providerSelect.value);
+        });
+
+        // Data exfiltration warning — closes CONS-021 / issue #67
+        function checkExternalProvider(provider) {
+            const warning = document.getElementById('externalProviderWarning');
+            if (!warning) return;
+            if (provider !== 'ollama') {
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        }
 
         function updateOutputPath() {
             const urlInput = document.getElementById('url').value.trim();
@@ -1265,13 +1305,29 @@
         }
 
         function logMessage(message, phase, level) {
+            // Build DOM nodes directly — no innerHTML with untrusted data (closes CONS-004 / issue #52)
             const entry = document.createElement('div');
             const levelClass = level === 'error' ? 'error' : level === 'warning' ? 'warning' : level === 'success' ? 'success' : '';
             entry.className = `log-entry ${levelClass}`;
+
             const time = new Date().toLocaleTimeString();
-            const badgeClass = phase ? `badge-${phase}` : '';
-            const badge = phase ? `<span class="log-badge ${badgeClass}">${phase}</span>` : '';
-            entry.innerHTML = `<span style="color:#4a4a6a">[${time}]</span> ${badge}${message}`;
+            const timeSpan = document.createElement('span');
+            timeSpan.style.color = '#4a4a6a';
+            timeSpan.textContent = `[${time}]`;
+            entry.appendChild(timeSpan);
+            entry.appendChild(document.createTextNode(' '));
+
+            if (phase) {
+                const badgeSpan = document.createElement('span');
+                badgeSpan.className = `log-badge badge-${phase}`;
+                badgeSpan.textContent = phase;
+                entry.appendChild(badgeSpan);
+            }
+
+            const msgSpan = document.createElement('span');
+            msgSpan.textContent = message;
+            entry.appendChild(msgSpan);
+
             logDiv.appendChild(entry);
             logDiv.scrollTop = logDiv.scrollHeight;
         }
@@ -1328,8 +1384,10 @@
             });
             eventSource.addEventListener('log', (e) => {
                 const data = JSON.parse(e.data);
-                let msg = data.message;
-                if (data.active_model) msg += ` <span class="log-model">[${data.active_model}]</span>`;
+                // active_model appended as plain text in logMessage — no XSS (closes CONS-004 / issue #52)
+                const msg = data.active_model
+                    ? `${data.message} [${data.active_model}]`
+                    : data.message;
                 logMessage(msg, data.phase, data.level || '');
             });
             eventSource.addEventListener('discovery', (e) => {
@@ -1433,7 +1491,11 @@
                 if (nativeMd > 0) lines.push(`⚡ ${nativeMd} via native markdown`);
                 if (proxyMd > 0) lines.push(`◈ ${proxyMd} via markdown proxy`);
                 if (playwright > 0) lines.push(`◉ ${playwright} via Playwright`);
-                statsDiv.innerHTML = lines.join('<br>');
+                statsDiv.textContent = '';
+                lines.forEach((line, i) => {
+                    statsDiv.appendChild(document.createTextNode(line));
+                    if (i < lines.length - 1) statsDiv.appendChild(document.createElement('br'));
+                });
                 statsDiv.style.display = 'block';
             }
         }

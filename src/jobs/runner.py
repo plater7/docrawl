@@ -350,9 +350,8 @@ async def run_job(job: Job) -> None:
 
                     # Try markdown proxy as fallback
                     if markdown is None and request.use_markdown_proxy:
-                        md_content, _ = await fetch_markdown_proxy(
-                            url, request.markdown_proxy_url
-                        )
+                        proxy_url = request.markdown_proxy_url or "https://markdown.new"
+                        md_content, _ = await fetch_markdown_proxy(url, proxy_url)
                         if md_content:
                             markdown = md_content
                             fetch_method = "proxy"

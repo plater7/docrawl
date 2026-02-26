@@ -1,17 +1,26 @@
+// Docrawl Cloudflare Worker
+//
+// Authentication is handled by Cloudflare Zero Trust (Access) at the network
+// layer via OTP email. This worker only sanitizes headers before forwarding
+// to prevent header injection — closes CONS-004 / issue #50.
+
+const ALLOWED_HEADERS = ['content-type', 'accept', 'x-api-key'];
+
 export default {
   async fetch(request, env) {
-    // Construir la URL destino usando el VPC Service binding
-    // env.VPC_SERVICE es un Fetcher que rutea a través del tunnel
-    const url = new URL(request.url);
-    const targetUrl = new URL(url.pathname + url.search, "http://vpc-service");
+    // Sanitize headers — only forward explicitly allowed headers
+    const safeHeaders = new Headers();
+    for (const [key, value] of request.headers) {
+      if (ALLOWED_HEADERS.includes(key.toLowerCase())) {
+        safeHeaders.set(key, value);
+      }
+    }
 
-    // Proxy de requests HTTP a través del VPC Service binding
-    const response = await env.VPC_SERVICE.fetch(targetUrl.toString(), {
+    const url = new URL(request.url);
+    return env.VPC_SERVICE.fetch(url.pathname + url.search, {
       method: request.method,
-      headers: request.headers,
+      headers: safeHeaders,
       body: request.body,
     });
-
-    return response;
   },
 };

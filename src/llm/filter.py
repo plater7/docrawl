@@ -48,7 +48,9 @@ async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
     if not urls:
         return urls
 
-    prompt = FILTER_PROMPT_TEMPLATE.format(urls="\n".join(urls))
+    # Wrap URLs in XML delimiters to isolate user content from prompt — closes CONS-006 / issue #58
+    urls_block = "<urls>\n" + "\n".join(urls) + "\n</urls>"
+    prompt = FILTER_PROMPT_TEMPLATE.format(urls=urls_block)
 
     try:
         response = await generate(

@@ -102,7 +102,9 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
     Uses dynamic timeout based on chunk size. Retries with backoff.
     Returns original content if all retries fail.
     """
-    prompt = CLEANUP_PROMPT_TEMPLATE.format(markdown=markdown)
+    # Wrap content in XML delimiters to isolate scraped data from prompt — closes CONS-006 / issue #58
+    wrapped = f"<document>\n{markdown}\n</document>"
+    prompt = CLEANUP_PROMPT_TEMPLATE.format(markdown=wrapped)
     timeout = _calculate_timeout(markdown)
     options = _cleanup_options(markdown)
 
