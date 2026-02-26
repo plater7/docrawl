@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.6] - 2026-02-26
+
+### Fixed
+- **Escrituras atómicas en runner.py** ([#99](https://github.com/plater7/docrawl/issues/99)) — `file_path.write_text()` reemplazado por escritura a `.tmp` + `Path.rename()` para prevenir archivos corruptos en caso de crash durante el guardado
+- **`print()` eliminados de discovery.py** ([#89](https://github.com/plater7/docrawl/issues/89)) — ~27 llamadas `print(f"[DISCOVERY] ...", flush=True)` removidas; logging ya existía via `logger.info/warning/error` duplicado
+
+---
+
+## [v0.9.5] - 2026-02-26
+
+### Fixed
+- **Cache de listas de modelos** ([#92](https://github.com/plater7/docrawl/issues/92)) — `get_available_models()` ahora cachea resultados 60s por provider (`_model_cache` + `time.monotonic()`); evita HTTP repetidos a Ollama/OpenRouter en cada job
+- **Retry con backoff exponencial en filter_urls_with_llm** ([#94](https://github.com/plater7/docrawl/issues/94)) — agregado `FILTER_MAX_RETRIES = 3` y `asyncio.sleep(2**attempt)` (1s, 2s, 4s); antes fallaba silenciosamente en el primer error
+- **Backoff exponencial en cleanup_markdown** ([#100](https://github.com/plater7/docrawl/issues/100)) — `MAX_RETRIES` 2→3, lista hardcodeada `[1, 3]` reemplazada por `2**attempt` para consistencia
+
+---
+
 ## [v0.9.4] - 2026-02-26
 
 ### Added

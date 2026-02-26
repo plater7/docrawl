@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.9.4-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/version-v0.9.6-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
   <a href="https://github.com/plater7/docrawl/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/plater7/docrawl/test.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="tests"></a>
   <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
@@ -298,8 +298,10 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | [#83](https://github.com/plater7/docrawl/pull/83) | v0.9.1 Code Quality | 4 (async, concurrency, context) | ✅ Merged |
 | [#84](https://github.com/plater7/docrawl/pull/84) | v0.9.2 Infrastructure | 5 (dockerignore, CI, cloudflared, coverage) | ✅ Merged |
 | [#85](https://github.com/plater7/docrawl/pull/85) | v0.9.4 Testing | 1 (coverage >80%) | ✅ Merged |
+| [#116](https://github.com/plater7/docrawl/pull/116) | v0.9.5 Backlog P2 | 16 (P2 backlog) | ✅ Merged |
+| [#118](https://github.com/plater7/docrawl/pull/118) | v0.9.6 P2 Followup | 5 (#89, #92, #94, #99, #100) | 🔄 Open |
 
-**Cobertura actual de P0 (14 issues):** PRs #83 + #84 ✅ resuelven 2/14 directos · PR #82 pendiente cubre 10/14 → 2 resueltos, 10 en revisión. Tests: 295 passing, 57% coverage (unit-testable code).
+**Cobertura actual de P0 (14 issues):** PRs #83 + #84 ✅ resuelven 2/14 directos · PR #82 pendiente cubre 10/14 → 2 resueltos, 10 en revisión. Tests: 95 passing (CI), 57% coverage (unit-testable code).
 
 ### Cómo Contribuir
 

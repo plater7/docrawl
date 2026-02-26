@@ -454,11 +454,13 @@ async def run_job(job: Job) -> None:
                                 },
                             )
 
-                    # Save sub-phase
+                    # Save sub-phase (atomic write via .tmp + rename — closes issue #99)
                     final_md = "\n\n".join(cleaned_chunks)
                     file_path = _url_to_filepath(url, base_url, output_path)
                     file_path.parent.mkdir(parents=True, exist_ok=True)
-                    file_path.write_text(final_md, encoding="utf-8")
+                    tmp_path = file_path.with_suffix(".tmp")
+                    tmp_path.write_text(final_md, encoding="utf-8")
+                    tmp_path.rename(file_path)
                     file_size = file_path.stat().st_size
 
                     async with _counter_lock:
