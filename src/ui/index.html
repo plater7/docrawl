@@ -1191,7 +1191,13 @@
                 if (priorityList.length > 0) {
                     const suggestions = priorityList.slice(0, topN).join(', ');
                     const badge = isLocal ? '◈ LOCAL' : '◉ FREE';
-                    el.innerHTML = `${fallbackDesc}<br><strong>Suggestions (${badge}):</strong> ${suggestions}`;
+                    el.textContent = '';
+                    el.appendChild(document.createTextNode(fallbackDesc));
+                    el.appendChild(document.createElement('br'));
+                    const strong = document.createElement('strong');
+                    strong.textContent = `Suggestions (${badge}):`;
+                    el.appendChild(strong);
+                    el.appendChild(document.createTextNode(' ' + suggestions));
                 } else {
                     el.textContent = fallbackDesc;
                 }
@@ -1210,7 +1216,13 @@
                 const res = await fetch(`/api/models?provider=${provider}`);
                 const models = await res.json();
                 if (models.length === 0) {
-                    selects.forEach(s => s.innerHTML = `<option value="">No ${provider} models available</option>`);
+                    selects.forEach(s => {
+                        s.innerHTML = '';
+                        const opt = document.createElement('option');
+                        opt.value = '';
+                        opt.textContent = `No ${provider} models available`;
+                        s.appendChild(opt);
+                    });
                     logMessage(`No ${provider} models available. Check API key or Ollama connection.`, 'init', 'warning');
                     return;
                 }
@@ -1224,14 +1236,23 @@
                         if (a.is_free !== b.is_free) return b.is_free ? 1 : -1;
                         return a.name.localeCompare(b.name);
                     });
-                    const optionsHtml = modelsToShow.map(m => {
+                    select.innerHTML = '';
+                    modelsToShow.forEach(m => {
                         const modelBadge = m.is_free ? ` ${badge}` : '';
-                        return `<option value="${m.name}">${m.name}${modelBadge}</option>`;
-                    }).join('');
-                    select.innerHTML = optionsHtml;
+                        const opt = document.createElement('option');
+                        opt.value = m.name;
+                        opt.textContent = m.name + modelBadge;
+                        select.appendChild(opt);
+                    });
                 });
             } catch (e) {
-                selects.forEach(s => s.innerHTML = '<option value="">Error loading models</option>');
+                selects.forEach(s => {
+                    s.innerHTML = '';
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = 'Error loading models';
+                    s.appendChild(opt);
+                });
                 logMessage(`Failed to load ${provider} models`, 'init', 'error');
             }
         }
@@ -1470,7 +1491,11 @@
                 if (nativeMd > 0) lines.push(`⚡ ${nativeMd} via native markdown`);
                 if (proxyMd > 0) lines.push(`◈ ${proxyMd} via markdown proxy`);
                 if (playwright > 0) lines.push(`◉ ${playwright} via Playwright`);
-                statsDiv.innerHTML = lines.join('<br>');
+                statsDiv.textContent = '';
+                lines.forEach((line, i) => {
+                    statsDiv.appendChild(document.createTextNode(line));
+                    if (i < lines.length - 1) statsDiv.appendChild(document.createElement('br'));
+                });
                 statsDiv.style.display = 'block';
             }
         }

@@ -99,3 +99,19 @@ def test_chunk_markdown_uses_native_token_count():
     chunks = chunk_markdown(text, native_token_count=50)
     assert len(chunks) == 1
     assert chunks[0] == text
+
+
+@pytest.mark.asyncio
+async def test_fetch_markdown_native_blocks_private_ip():
+    """fetch_markdown_native raises ValueError for private IP targets (SSRF guard)."""
+    with patch("src.utils.security.socket.gethostbyname", return_value="127.0.0.1"):
+        with pytest.raises(ValueError, match="private/internal"):
+            await fetch_markdown_native("http://127.0.0.1/")
+
+
+@pytest.mark.asyncio
+async def test_fetch_markdown_proxy_blocks_private_ip():
+    """fetch_markdown_proxy raises ValueError for private IP targets (SSRF guard)."""
+    with patch("src.utils.security.socket.gethostbyname", return_value="10.0.0.1"):
+        with pytest.raises(ValueError, match="private/internal"):
+            await fetch_markdown_proxy("http://10.0.0.1/", "https://markdown.new")

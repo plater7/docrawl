@@ -103,8 +103,7 @@ class JobManager:
     def active_job_count(self) -> int:
         """Return the number of jobs currently running or pending."""
         return sum(
-            1 for job in self._jobs.values()
-            if job.status in ("pending", "running")
+            1 for job in self._jobs.values() if job.status in ("pending", "running")
         )
 
     async def cancel_job(self, job_id: str) -> Job | None:

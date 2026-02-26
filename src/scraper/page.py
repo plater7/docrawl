@@ -14,6 +14,7 @@ async def fetch_markdown_native(url: str) -> tuple[str | None, int | None]:
 
     Returns (markdown_content, token_count) or (None, None) if not available.
     """
+    validate_url_not_ssrf(url)
     try:
         headers = {
             "Accept": "text/markdown, text/html;q=0.9, */*;q=0.8",
@@ -40,6 +41,7 @@ async def fetch_markdown_proxy(
 
     Returns (markdown_content, None) or (None, None) if unavailable.
     """
+    validate_url_not_ssrf(url)
     try:
         proxy_target = f"{proxy_url.rstrip('/')}/{url}"
         headers = {"User-Agent": "Docrawl/1.0 (AI documentation crawler)"}

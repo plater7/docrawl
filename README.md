@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.8.5-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/version-v0.9.0-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
   <a href="https://github.com/plater7/docrawl/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/plater7/docrawl/test.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="tests"></a>
   <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
@@ -214,6 +214,26 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 1. Fork → Branch → PR
 2. Sign commits: `git commit -s`
 3. AI-assisted code welcome with human review
+
+## 🔒 Security (v0.9.0)
+
+v0.9.0 fixes 15 security vulnerabilities identified in a pre-production audit:
+
+| # | Issue | Fix |
+|---|-------|-----|
+| CONS-001 | Path traversal via `output_path` | `Path.resolve()` boundary check |
+| CONS-002 | No authentication | `X-Api-Key` middleware |
+| CONS-005 | SSRF via Playwright | `validate_url_not_ssrf()` on all fetch paths |
+| CONS-006 | XSS via `innerHTML` | Replaced with safe DOM API |
+| CONS-007 | No rate limiting | `slowapi` 10 req/min + job concurrency cap |
+| CONS-018 | XXE in sitemap parser | `defusedxml` replacing stdlib |
+| CONS-019 | SSRF via markdown proxy | Proxy URL validator (HTTPS + private IP block) |
+| CONS-022 | No security headers | `SecurityHeadersMiddleware` (CSP, X-Frame, etc.) |
+| CONS-034 | No CORS | `CORSMiddleware` with `CORS_ORIGINS` env var |
+
+See [`SECURITY.md`](SECURITY.md) for the full disclosure and [`CHANGELOG.md`](CHANGELOG.md) for all fixes.
+
+---
 
 ## 📄 License
 
