@@ -9,8 +9,6 @@ Tests cover:
 - JobManager.create_job() creates job with unique UUID id and status="pending"
 """
 
-import asyncio
-import pytest
 from unittest.mock import patch
 
 from src.api.models import JobRequest
@@ -225,7 +223,7 @@ class TestJobManagerCreateJob:
             runner_called.append(job.id)
 
         with patch("src.jobs.manager.asyncio.create_task") as mock_task:
-            job = await manager.create_job(_make_request())
+            await manager.create_job(_make_request())
             # create_task was called once (to schedule the runner)
             mock_task.assert_called_once()
             # But the runner itself was not awaited/run

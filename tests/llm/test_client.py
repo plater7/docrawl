@@ -11,7 +11,6 @@ Tests cover:
 - _generate_openrouter() without API key raises ValueError
 """
 
-import json
 import pytest
 import httpx
 from unittest.mock import AsyncMock, MagicMock, patch

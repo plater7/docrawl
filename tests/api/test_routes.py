@@ -12,7 +12,6 @@ Tests cover:
 - POST /api/jobs/{id}/cancel for unknown job → 404
 """
 
-import pytest
 import httpx
 from unittest.mock import AsyncMock, MagicMock, patch
 

@@ -8,7 +8,6 @@ Tests cover:
   heading boundary splitting
 """
 
-import pytest
 
 from src.scraper.markdown import html_to_markdown, _pre_clean_markdown, chunk_markdown, DEFAULT_CHUNK_SIZE
 

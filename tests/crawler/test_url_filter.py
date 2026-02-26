@@ -15,7 +15,6 @@ Focuses on scenarios from the CONS-009 coverage gap:
 - Sorted output
 """
 
-import pytest
 
 from src.crawler.filter import filter_urls, _matches_language
 

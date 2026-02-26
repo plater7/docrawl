@@ -8,7 +8,6 @@ Tests cover:
 - cleanup_markdown(): success, empty response retries and falls back, all retries fail
 """
 
-import pytest
 from unittest.mock import patch, AsyncMock
 
 from src.llm.cleanup import (

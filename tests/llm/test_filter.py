@@ -10,7 +10,6 @@ Tests cover:
 - LLM returns URLs not in original → only valid (intersection) URLs returned
 """
 
-import pytest
 from unittest.mock import patch, AsyncMock
 
 from src.llm.filter import filter_urls_with_llm
