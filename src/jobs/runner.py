@@ -336,7 +336,9 @@ async def run_job(job: Job) -> None:
                             async with _counter_lock:
                                 pages_native_md += 1
                             load_time = time.monotonic() - page_start
-                            token_info = f", {token_count} tokens" if token_count else ""
+                            token_info = (
+                                f", {token_count} tokens" if token_count else ""
+                            )
                             await _log(
                                 job,
                                 "log",
@@ -374,7 +376,9 @@ async def run_job(job: Job) -> None:
                         async with _counter_lock:
                             pages_playwright += 1
 
-                    chunks = chunk_markdown(markdown, native_token_count=native_token_count)
+                    chunks = chunk_markdown(
+                        markdown, native_token_count=native_token_count
+                    )
 
                     await _log(
                         job,
@@ -421,7 +425,9 @@ async def run_job(job: Job) -> None:
 
                         try:
                             chunk_start = time.monotonic()
-                            cleaned = await cleanup_markdown(chunk, request.pipeline_model)
+                            cleaned = await cleanup_markdown(
+                                chunk, request.pipeline_model
+                            )
                             chunk_time = time.monotonic() - chunk_start
                             cleaned_chunks.append(cleaned)
 
