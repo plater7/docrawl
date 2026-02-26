@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.2] - 2026-02-26
+
+### Fixed
+- **Security CI gates habilitados** ([#54](https://github.com/plater7/docrawl/issues/54)) — eliminado `|| true` de bandit y pip-audit en `security.yml`; bandit corre con `-ll` (solo HIGH severity), fallos ahora bloquean el build
+- **`.dockerignore` añadido** ([#77](https://github.com/plater7/docrawl/issues/77)) — excluye `.git/`, `data/`, `tests/`, `worker/node_modules`, `audit-reports/`, `.env.*`; reduce build context y previene leakage accidental de secretos
+- **Test deps separados de imagen de producción** ([#78](https://github.com/plater7/docrawl/issues/78)) — `requirements.txt` solo contiene deps runtime; creado `requirements-dev.txt` con `-r requirements.txt` + pytest stack; workflows actualizados
+- **`cloudflared` pinneado a versión específica** ([#79](https://github.com/plater7/docrawl/issues/79)) — `cloudflare/cloudflared:latest` → `cloudflare/cloudflared:2024.12.2`
+- **Coverage threshold añadido** ([#81](https://github.com/plater7/docrawl/issues/81)) — `--cov-fail-under=50` en `pytest.ini`; tests fallan si coverage cae por debajo del 50%
+
+### Changed
+- Workflows `lint.yml` y `test.yml` usan `requirements-dev.txt` para cache key y dependencias
+
+---
+
 ## [v0.9.1] - 2026-02-26
 
 ### Fixed
