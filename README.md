@@ -292,7 +292,13 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
 ### Progreso de Fixes
 
-Los issues P0-P1 están siendo abordados progresivamente. Progreso actual: **~15%** de issues P0 resueltos.
+| PR | Milestone | Issues | Estado |
+|----|-----------|--------|--------|
+| [#82](https://github.com/plater7/docrawl/pull/82) | v0.9.0 Security Hardening | 14 (P0/P1 security) | 🔄 Open — ready to merge |
+| [#83](https://github.com/plater7/docrawl/pull/83) | v0.9.1 Code Quality | 4 (async, concurrency, context) | 🔄 Open — ready to merge |
+| [#84](https://github.com/plater7/docrawl/pull/84) | v0.9.2 Infrastructure | 5 (dockerignore, CI, cloudflared, coverage) | 🔄 Open — ready to merge |
+
+**Cobertura actual de P0 (14 issues):** PR #82 cubre 10/14 · PR #83 cubre 2/14 → ~86% de P0 abordados en PRs activos.
 
 ### Cómo Contribuir
 
