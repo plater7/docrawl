@@ -75,10 +75,12 @@ class TestNeedsLlmCleanup:
 class TestCleanupOptions:
     """Test _cleanup_options() calculation."""
 
-    def test_num_ctx_is_8192(self):
-        """num_ctx should always be 8192."""
-        opts = _cleanup_options("any content")
-        assert opts["num_ctx"] == 8192
+    def test_num_ctx_is_dynamic(self):
+        """num_ctx is dynamic: max(2048, estimated_tokens + 1024)."""
+        markdown = "x" * 400  # 400 chars → ~100 tokens → num_ctx = max(2048, 100+1024) = 2048
+        opts = _cleanup_options(markdown)
+        expected = max(2048, len(markdown) // 4 + 1024)
+        assert opts["num_ctx"] == expected
 
     def test_num_predict_formula_small_content(self):
         """num_predict = min(len(md)//4 + 512, 4096) for small content."""

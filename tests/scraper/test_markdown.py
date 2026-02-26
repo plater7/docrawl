@@ -8,8 +8,12 @@ Tests cover:
   heading boundary splitting
 """
 
-
-from src.scraper.markdown import html_to_markdown, _pre_clean_markdown, chunk_markdown, DEFAULT_CHUNK_SIZE
+from src.scraper.markdown import (
+    html_to_markdown,
+    _pre_clean_markdown,
+    chunk_markdown,
+    DEFAULT_CHUNK_SIZE,
+)
 
 
 class TestHtmlToMarkdown:

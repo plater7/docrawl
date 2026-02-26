@@ -183,6 +183,7 @@ class TestJobManagerCreateJob:
     async def test_create_job_returns_job_with_uuid_id(self):
         """create_job should return a Job with a UUID string as id."""
         import uuid
+
         manager = JobManager()
         with patch("src.jobs.manager.asyncio.create_task"):
             job = await manager.create_job(_make_request())

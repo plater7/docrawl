@@ -51,6 +51,7 @@ class TestFilterUrlsWithLlmValidJson:
     async def test_all_urls_returned_if_llm_keeps_all(self):
         """LLM keeping all URLs returns the full list."""
         import json
+
         with patch(
             "src.llm.filter.generate",
             new_callable=AsyncMock,
@@ -78,6 +79,7 @@ class TestFilterUrlsWithLlmMarkdownCodeBlock:
     async def test_json_in_backtick_block_parsed(self):
         """```json ... ``` wrapper is stripped before JSON parsing."""
         import json
+
         markdown_response = "```json\n" + json.dumps(SAMPLE_URLS[:2]) + "\n```"
         with patch(
             "src.llm.filter.generate",
@@ -91,6 +93,7 @@ class TestFilterUrlsWithLlmMarkdownCodeBlock:
     async def test_json_in_plain_backtick_block_parsed(self):
         """``` ... ``` wrapper (no 'json') is stripped before JSON parsing."""
         import json
+
         markdown_response = "```\n" + json.dumps(SAMPLE_URLS[:1]) + "\n```"
         with patch(
             "src.llm.filter.generate",
@@ -156,6 +159,7 @@ class TestFilterUrlsWithLlmException:
     async def test_timeout_exception_falls_back_to_original(self):
         """Timeout from generate() causes fallback."""
         import httpx
+
         with patch(
             "src.llm.filter.generate",
             new_callable=AsyncMock,

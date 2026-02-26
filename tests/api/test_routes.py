@@ -29,6 +29,7 @@ from src.api.models import JobRequest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_job(
     job_id: str = "test-job-id",
     status: str = "pending",
@@ -65,6 +66,7 @@ VALID_JOB_PAYLOAD = {
 # ---------------------------------------------------------------------------
 # Health endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestHealthReady:
     """GET /api/health/ready"""
@@ -125,6 +127,7 @@ class TestHealthReady:
 # Models endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestListModels:
     """GET /api/models"""
 
@@ -137,7 +140,9 @@ class TestListModels:
         async def fake_get_available_models(provider):
             return fake_models
 
-        with patch("src.api.routes.get_available_models", side_effect=fake_get_available_models):
+        with patch(
+            "src.api.routes.get_available_models", side_effect=fake_get_available_models
+        ):
             with TestClient(app) as client:
                 response = client.get("/api/models")
 
@@ -153,7 +158,9 @@ class TestListModels:
         async def fake_get_available_models(provider):
             return fake_models
 
-        with patch("src.api.routes.get_available_models", side_effect=fake_get_available_models):
+        with patch(
+            "src.api.routes.get_available_models", side_effect=fake_get_available_models
+        ):
             with TestClient(app) as client:
                 response = client.get("/api/models")
 
@@ -162,10 +169,13 @@ class TestListModels:
 
     def test_list_models_empty_when_no_models(self):
         """GET /api/models returns empty list when no models available."""
+
         async def fake_get_available_models(provider):
             return []
 
-        with patch("src.api.routes.get_available_models", side_effect=fake_get_available_models):
+        with patch(
+            "src.api.routes.get_available_models", side_effect=fake_get_available_models
+        ):
             with TestClient(app) as client:
                 response = client.get("/api/models")
 
@@ -177,6 +187,7 @@ class TestListModels:
 # Create job endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestCreateJob:
     """POST /api/jobs"""
 
@@ -187,7 +198,9 @@ class TestCreateJob:
         async def fake_create_job(request):
             return fake_job
 
-        with patch("src.api.routes.job_manager.create_job", side_effect=fake_create_job):
+        with patch(
+            "src.api.routes.job_manager.create_job", side_effect=fake_create_job
+        ):
             with TestClient(app) as client:
                 response = client.post("/api/jobs", json=VALID_JOB_PAYLOAD)
 
@@ -200,7 +213,9 @@ class TestCreateJob:
         async def fake_create_job(request):
             return fake_job
 
-        with patch("src.api.routes.job_manager.create_job", side_effect=fake_create_job):
+        with patch(
+            "src.api.routes.job_manager.create_job", side_effect=fake_create_job
+        ):
             with TestClient(app) as client:
                 response = client.post("/api/jobs", json=VALID_JOB_PAYLOAD)
 
@@ -235,6 +250,7 @@ class TestCreateJob:
 # ---------------------------------------------------------------------------
 # Job status endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestGetJobStatus:
     """GET /api/jobs/{id}/status"""
@@ -291,6 +307,7 @@ class TestGetJobStatus:
 # Cancel job endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestCancelJob:
     """POST /api/jobs/{id}/cancel"""
 
@@ -331,6 +348,7 @@ class TestCancelJob:
 
     def test_cancel_unknown_job_returns_404(self):
         """Cancelling a non-existent job returns HTTP 404."""
+
         async def fake_cancel(job_id):
             return None
 
@@ -342,6 +360,7 @@ class TestCancelJob:
 
     def test_cancel_unknown_job_404_error_detail(self):
         """404 response for unknown cancel includes detail message."""
+
         async def fake_cancel(job_id):
             return None
 
