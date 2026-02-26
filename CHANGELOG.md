@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.4] - 2026-02-26
+
+### Added
+- **Suite de tests unitarios** ([#55](https://github.com/plater7/docrawl/issues/55)) — 200 tests nuevos (295 total), cobertura del código unit-testable de ~20% a 57%
+  - `tests/api/test_models.py` (29) — validación de `JobRequest`, `OllamaModel`, `JobStatus`
+  - `tests/api/test_routes.py` (19) — endpoints FastAPI vía TestClient
+  - `tests/jobs/test_manager.py` (21) — ciclo de vida de `Job`, CRUD de `JobManager`
+  - `tests/crawler/test_url_filter.py` (38) — `filter_urls()`, `_matches_language()` todos los branches
+  - `tests/llm/test_client.py` (26) — routing de providers, fetching de modelos, `generate()`
+  - `tests/llm/test_filter.py` (13) — `filter_urls_with_llm()` incluyendo fallbacks
+  - `tests/llm/test_cleanup.py` (25) — `needs_llm_cleanup()`, `cleanup_markdown()` con reintentos
+  - `tests/scraper/test_markdown.py` (29) — `html_to_markdown()`, `chunk_markdown()`
+- **`.coveragerc`** — excluye `runner.py` y `page.py` (requieren Playwright, pertenecen a tests de integración)
+
+---
+
 ## [v0.9.2] - 2026-02-26
 
 ### Fixed
