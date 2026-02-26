@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.1] - 2026-02-26
+
+### Fixed
+- **`max_concurrent` ahora funciona** — semaphore-based concurrency con `asyncio.Semaphore` + `asyncio.Lock` para contadores compartidos; el parámetro ya no se ignora silenciosamente (#56)
+- **Truncamiento silencioso del LLM eliminado** — `num_ctx` ahora se calcula dinámicamente (`max(2048, tokens_estimados + 1024)`) en vez del valor hardcodeado `8192`; chunk size reducido de 16KB a 6KB (#57)
+- **Blocking sync HTTP en async context** — `_get_openrouter_models()` convertido a `async def` con `httpx.AsyncClient`; ya no bloquea el event loop (#59)
+- **`asyncio.create_task` fire-and-forget** — añadido `done_callback` para loguear errores/cancelaciones; `JobManager.shutdown()` cancela y awaita todas las tareas activas vía FastAPI lifespan (#60)
+
+### Changed
+- `DEFAULT_CHUNK_SIZE` reducido de 16000 a 6000 caracteres para evitar context overflow en modelos pequeños
+- Versión de la app: `0.1.0` → `0.9.1`
+
+---
+
 ## [v0.8.5] - 2026-02-20
 
 ### Added

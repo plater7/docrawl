@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.8.5-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/version-v0.9.1-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
   <a href="https://github.com/plater7/docrawl/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/plater7/docrawl/test.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="tests"></a>
   <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
@@ -294,11 +294,12 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
 | PR | Milestone | Issues | Estado |
 |----|-----------|--------|--------|
-| [#82](https://github.com/plater7/docrawl/pull/82) | v0.9.0 Security Hardening | 14 (P0/P1 security) | 🔄 Open — ready to merge |
-| [#83](https://github.com/plater7/docrawl/pull/83) | v0.9.1 Code Quality | 4 (async, concurrency, context) | 🔄 Open — ready to merge |
-| [#84](https://github.com/plater7/docrawl/pull/84) | v0.9.2 Infrastructure | 5 (dockerignore, CI, cloudflared, coverage) | 🔄 Open — ready to merge |
+| [#82](https://github.com/plater7/docrawl/pull/82) | v0.9.0 Security Hardening | 14 (P0/P1 security) | 🔄 Open — request changes |
+| [#83](https://github.com/plater7/docrawl/pull/83) | v0.9.1 Code Quality | 4 (async, concurrency, context) | ✅ Merged |
+| [#84](https://github.com/plater7/docrawl/pull/84) | v0.9.2 Infrastructure | 5 (dockerignore, CI, cloudflared, coverage) | 🔄 Open — approved |
+| [#85](https://github.com/plater7/docrawl/pull/85) | v0.9.4 Testing | 1 (coverage >80%) | 🔄 Open — ready to review |
 
-**Cobertura actual de P0 (14 issues):** PR #82 cubre 10/14 · PR #83 cubre 2/14 → ~86% de P0 abordados en PRs activos.
+**Cobertura actual de P0 (14 issues):** PR #83 ✅ cierra 2/14 · PR #82 pendiente cubre 10/14 → 2 resueltos, 10 en revisión.
 
 ### Cómo Contribuir
 
