@@ -3,7 +3,8 @@
 import asyncio
 import gzip
 import logging
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
+from xml.etree.ElementTree import ParseError as XMLParseError
 from collections import deque
 from typing import cast
 from urllib.parse import urljoin, urlparse, urlunparse
@@ -367,7 +368,7 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
             # Parse XML with defensive error handling
             try:
                 root = ET.fromstring(content)
-            except ET.ParseError as e:
+            except XMLParseError as e:
                 logger.warning(f"✗ Invalid XML in sitemap: {url} - {e}")
                 print(f"[DISCOVERY] ✗ Invalid XML in sitemap: {url}", flush=True)
                 return urls
