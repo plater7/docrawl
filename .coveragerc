@@ -1,0 +1,13 @@
+[run]
+omit =
+    # Requires Playwright browser + full async orchestration — integration tests only
+    src/jobs/runner.py
+    src/scraper/page.py
+
+[report]
+exclude_lines =
+    # Standard exclusions
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if TYPE_CHECKING:
