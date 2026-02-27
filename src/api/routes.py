@@ -242,17 +242,23 @@ async def health_ready() -> dict:
 
     ready = len(issues) == 0 and checks.get("ollama", {}).get("status") == "ok"
 
-    return {"ready": ready, "issues": issues, "checks": checks}
+    if not ready:
+        raise HTTPException(
+            status_code=503,
+            detail={"ready": False, "issues": issues, "checks": checks},
+        )
+
+    return {"ready": True, "checks": checks}
 
 
 @router.get("/info")
 async def app_info() -> dict:
     """App identity metadata: version, repo, author, models used during development."""
-    from src.main import APP_VERSION
+    from src.main import API_VERSION
 
     return {
         "name": "Docrawl",
-        "version": APP_VERSION,
+        "version": API_VERSION,
         "repo": "https://github.com/plater7/docrawl",
         "author": "plater7",
         "models_used": ["qwen3-coder:free", "glm-4.7-free", "claude-sonnet-4-6"],

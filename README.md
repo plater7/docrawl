@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.9.6b-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/version-v0.9.7-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
   <a href="https://github.com/plater7/docrawl/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/plater7/docrawl/test.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="tests"></a>
   <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
@@ -135,6 +135,42 @@ Docrawl usa **3 modelos especializados** por rol:
 | 🦙 **Ollama** | Local (gratis) | Corre en `localhost:11434` |
 | 🌐 **OpenRouter** | API | Set `OPENROUTER_API_KEY` |
 | 💎 **OpenCode** | API | Set `OPENCODE_API_KEY` |
+
+### Configuración de Providers
+
+#### Ollama (local, sin costo)
+
+```bash
+# Instalar Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Descargar modelos recomendados
+ollama pull mistral:7b        # crawl model (rápido)
+ollama pull qwen2.5:14b       # pipeline model (balanceado)
+```
+
+No requiere configuración adicional. La URL por defecto es `http://localhost:11434`.
+En Docker, se accede via `http://host.docker.internal:11434` (configurado automáticamente).
+
+#### OpenRouter (API cloud, modelos gratuitos disponibles)
+
+```bash
+# En .env o variable de entorno:
+export OPENROUTER_API_KEY=sk-or-...
+```
+
+Luego selecciona cualquier modelo en la UI con el prefijo `openrouter/`. Los modelos marcados con 🆓 son gratuitos.
+
+#### OpenCode (API cloud)
+
+```bash
+# En .env o variable de entorno:
+export OPENCODE_API_KEY=...
+```
+
+Modelos disponibles: `opencode/claude-sonnet-4-5`, `opencode/claude-haiku-4-5`, `opencode/gpt-5-nano`, y más.
+
+> 💡 **Tip**: Puedes usar proveedores distintos para cada rol (e.g., Ollama para crawl y OpenRouter para pipeline).
 
 ## 📡 API
 

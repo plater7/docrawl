@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.7] - 2026-02-27
+
+### Added
+- **Structured Logging** — logs emitidos como JSON (`timestamp`, `level`, `logger`, `message` + campos extra) — closes #109
+- **Token Tracking** — cada llamada a Ollama loguea `prompt_tokens` y `completion_tokens` del response — closes #105
+- **API Versioning** — middleware `X-API-Version: 0.9.7` header en todas las respuestas — closes #103
+- **Docker Publish Workflow** — nuevo `.github/workflows/docker-publish.yml` que publica imagen a GHCR al hacer push de un tag `v*` — closes #108
+- **Pre-commit Hooks** — `.pre-commit-config.yaml` con `ruff` (lint + format) — closes #106
+- **Multi-provider docs** — sección en README con instrucciones de configuración para Ollama, OpenRouter y OpenCode — closes #111
+- **Conventional Commits** — documentado en CONTRIBUTING.md con tipos, ejemplos y reglas — closes #107
+
+### Fixed
+- **Health Check** — `/api/health/ready` retorna HTTP 503 cuando el provider LLM no está disponible (antes retornaba 200 con `ready: false`) — closes #104
+- **Error Sanitization** — handler global de excepciones retorna `{"error": "Internal server error"}` sin exponer stack traces — closes #113
+- **CI optimization** — eliminada instalación innecesaria de Playwright en `test.yml` (browsers no requeridos para unit tests) — closes #112
+
+### Changed
+- CONTRIBUTING.md estandarizado en español con sección de Conventional Commits — closes #110
+
+---
+
 ## [v0.9.6b] - 2026-02-26
 
 ### Fixed
