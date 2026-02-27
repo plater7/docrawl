@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.9.6a-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/version-v0.9.6b-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
   <a href="https://github.com/plater7/docrawl/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/plater7/docrawl/test.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="tests"></a>
   <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
@@ -221,7 +221,7 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | **PRs** | 119+ (total) · 2 abiertos |
 | **Branches** | 3 activos |
 | **Tests** | 335 passing · 58.68% coverage |
-| **Releases** | v0.9.1 → v0.9.6a (6 releases) |
+| **Releases** | v0.9.1 → v0.9.6b (7 releases) |
 
 ### Auditoría Multi-Agente — Progreso
 
@@ -311,6 +311,7 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | [#116](https://github.com/plater7/docrawl/pull/116) | v0.9.5 Backlog P2 | 16 (P2 backlog) | ✅ Merged |
 | [#119](https://github.com/plater7/docrawl/pull/119) | v0.9.6 P2 Followup | 5 (#89, #92, #94, #99, #100) | ✅ Merged |
 | [#120](https://github.com/plater7/docrawl/pull/120) | v0.9.6a UI Meta | `/api/info` + UI footer | ✅ Merged |
+| [#121](https://github.com/plater7/docrawl/pull/121) | v0.9.6b Footer Fix | footer `position: fixed` | ✅ Merged |
 
 **Cobertura P0:** 10/14 resueltos (v0.9.0–v0.9.6) · 4 pendientes para v1.0 · Tests: 335 passing, 58.68% coverage.
 

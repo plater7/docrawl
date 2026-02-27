@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.6b] - 2026-02-26
+
+### Fixed
+- **Footer siempre visible** ([#121](https://github.com/plater7/docrawl/pull/121)) — `position: relative` ocultaba el footer bajo el fold (después del `.summary` con `display:none`); cambiado a `position: fixed; bottom: 0` para que sea permanentemente visible en los 3 temas; fondo semi-transparente + `backdrop-filter: blur` para legibilidad; `padding-bottom: 3rem` en `body` para que el contenido no quede tapado
+
+---
+
 ## [v0.9.6a] - 2026-02-26
 
 ### Added
