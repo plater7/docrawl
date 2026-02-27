@@ -240,7 +240,9 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
 ### 🎯 Roadmap Priorizado
 
-#### P0 — Bloqueantes de Producción (14 issues)
+> Estado sincronizado con [GitHub Issues](https://github.com/plater7/docrawl/issues) · 22 issues abiertos (11 P1 + 11 P3)
+
+#### P0 — Bloqueantes de Producción ✅ Todos resueltos
 
 | # | Hallazgo | Severidad | Estado |
 |---|----------|-----------|--------|
@@ -254,14 +256,12 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | 8 | Puerto 8002 expuesto en 0.0.0.0 | Critical | ✅ Fixed v0.9.0 (CORS + middleware) |
 | 9 | Blocking sync HTTP en async context | Major | ✅ Fixed v0.9.1 (#59) |
 | 10 | `max_concurrent` nunca implementado | Major | ✅ Fixed v0.9.1 (#56) |
-| 11 | `_generate_index` links rotos | Major | 🔴 Pendiente |
-| 12 | Chunk overlap → contenido duplicado | Major | 🔴 Pendiente |
-| 13 | Estado in-memory sin eviction | Major | 🔴 Pendiente |
-| 14 | Playwright resource leaks | Major | 🔴 Pendiente |
 
-**P0 resueltos: 10/14** · Pendientes críticos para v1.0: #11, #12, #13, #14
+**P0: 10/10 resueltos** — sin bloqueantes críticos de producción
 
-#### P1 — Alta Prioridad
+#### P1 — Alta Prioridad (11 issues abiertos)
+
+**Resueltos:**
 
 | Item | Estado |
 |------|--------|
@@ -270,33 +270,52 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | Security CI gates deshabilitados | ✅ Fixed v0.9.2 (#54) |
 | `cloudflared:latest` unpinned | ✅ Fixed v0.9.2 (#79) |
 | `num_ctx` insuficiente para chunks | ✅ Fixed v0.9.1 (#57) |
-| Sync file writes en async context | ✅ Fixed v0.9.6 (#99) |
+| Atomic file writes en async context | ✅ Fixed v0.9.6 (#99) |
 | CORS no configurado | ✅ Fixed v0.9.0 (#80) |
 | `print()` mixed with logging | ✅ Fixed v0.9.6 (#89) |
-| Sin backup strategy para `/data` | 🟡 Pendiente |
-| Health check no funcional | 🟡 Pendiente |
-| No API versioning | 🟡 Pendiente |
-| Browser no almacenado correctamente | 🟡 Pendiente |
 
-#### P2 — Media Prioridad
+**Pendientes (GitHub issues abiertos):**
+
+| Issue | Hallazgo | Label |
+|-------|----------|-------|
+| [#61](https://github.com/plater7/docrawl/issues/61) | Memory leak — jobs completados nunca se eliminan del dict | bug |
+| [#62](https://github.com/plater7/docrawl/issues/62) | Race condition en `JobManager._jobs` — dict sin `asyncio.Lock` | bug |
+| [#63](https://github.com/plater7/docrawl/issues/63) | Resource leak Playwright — browsers no cerrados en error | bug |
+| [#69](https://github.com/plater7/docrawl/issues/69) | Sin connection pooling en cliente LLM — 150+ TCP connections por job | performance |
+| [#70](https://github.com/plater7/docrawl/issues/70) | `_generate_index` produce links rotos — separador `_` en vez de `/` | bug |
+| [#71](https://github.com/plater7/docrawl/issues/71) | `reasoning_model` validado pero nunca invocado en runner | bug |
+| [#72](https://github.com/plater7/docrawl/issues/72) | Parser JSON frágil para output del LLM — falla >30% con modelos 7B | bug |
+| [#73](https://github.com/plater7/docrawl/issues/73) | Exception handler de cleanup es dead code — `pages_partial` siempre 0 | bug |
+| [#74](https://github.com/plater7/docrawl/issues/74) | Sin crash recovery — restart pierde todos los jobs activos | bug |
+| [#75](https://github.com/plater7/docrawl/issues/75) | `__import__('os')` inline en `routes.py` — anti-patrón crítico | refactor |
+| [#76](https://github.com/plater7/docrawl/issues/76) | Sync file writes en event loop — bloqueo en Docker volumes | performance |
+
+#### P2 — Media Prioridad ✅ Todos resueltos
 
 | Item | Estado |
 |------|--------|
 | No caching de model lists | ✅ Fixed v0.9.5/v0.9.6 (#92) |
 | Case-sensitive path handling (robots.txt) | ✅ Fixed v0.9.5 |
-| Dead code (`generate_legacy`, etc.) | 🟡 Pendiente |
-| 3 funciones `_generate_*` duplicadas | 🟡 Pendiente |
-| Sin connection pooling | 🟡 Pendiente |
-| Prompts sin few-shot examples | 🟡 Pendiente |
+| Retry backoff fijo → exponencial | ✅ Fixed v0.9.6 (#100) |
+| MAX_RETRIES insuficiente | ✅ Fixed v0.9.6 (#94) |
+| Dead code (`generate_legacy`, etc.) | ✅ Fixed v0.9.5 (#116) |
+| 3 funciones `_generate_*` duplicadas | ✅ Fixed v0.9.5 (#116) |
 
-#### P3 — Baja Prioridad / Nice to Have
+#### P3 — Baja Prioridad / Nice to Have (11 issues abiertos)
 
-- UI refactoring (index.html ~1500 líneas)
-- runner.py monolítico (~465 líneas)
-- ADRs para decisiones arquitectónicas
-- Conventional commits
-- Branch protection rules
-- Pre-commit hooks
+| Issue | Hallazgo |
+|-------|----------|
+| [#103](https://github.com/plater7/docrawl/issues/103) | Sin API versioning |
+| [#104](https://github.com/plater7/docrawl/issues/104) | Health check no funcional |
+| [#105](https://github.com/plater7/docrawl/issues/105) | Sin tracking de tokens |
+| [#106](https://github.com/plater7/docrawl/issues/106) | Sin pre-commit hooks |
+| [#107](https://github.com/plater7/docrawl/issues/107) | Sin conventional commits |
+| [#108](https://github.com/plater7/docrawl/issues/108) | Sin deployment pipeline |
+| [#109](https://github.com/plater7/docrawl/issues/109) | Sin structured logging |
+| [#110](https://github.com/plater7/docrawl/issues/110) | Inconsistencia de idioma en docs |
+| [#111](https://github.com/plater7/docrawl/issues/111) | Multi-provider no documentado |
+| [#112](https://github.com/plater7/docrawl/issues/112) | Playwright innecesario en CI |
+| [#113](https://github.com/plater7/docrawl/issues/113) | Info leakage en errores |
 
 ---
 
@@ -304,7 +323,7 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
 | PR | Milestone | Issues | Estado |
 |----|-----------|--------|--------|
-| [#82](https://github.com/plater7/docrawl/pull/82) | v0.9.0 Security Hardening | 14 (P0/P1 security) | 🔄 Open — request changes |
+| [#82](https://github.com/plater7/docrawl/pull/82) | v0.9.0 Security Hardening | 14 (P0/P1 security) | ✅ Merged |
 | [#83](https://github.com/plater7/docrawl/pull/83) | v0.9.1 Code Quality | 4 (async, concurrency, context) | ✅ Merged |
 | [#84](https://github.com/plater7/docrawl/pull/84) | v0.9.2 Infrastructure | 5 (dockerignore, CI, cloudflared, coverage) | ✅ Merged |
 | [#85](https://github.com/plater7/docrawl/pull/85) | v0.9.4 Testing | 1 (coverage >80%) | ✅ Merged |
@@ -313,7 +332,7 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | [#120](https://github.com/plater7/docrawl/pull/120) | v0.9.6a UI Meta | `/api/info` + UI footer | ✅ Merged |
 | [#121](https://github.com/plater7/docrawl/pull/121) | v0.9.6b Footer Fix | footer `position: fixed` | ✅ Merged |
 
-**Cobertura P0:** 10/14 resueltos (v0.9.0–v0.9.6) · 4 pendientes para v1.0 · Tests: 335 passing, 58.68% coverage.
+**Estado actual:** P0 ✅ · P1 11 open · P2 ✅ · P3 11 open · Tests: 335 passing · Coverage: 58.68%
 
 ### Cómo Contribuir
 
