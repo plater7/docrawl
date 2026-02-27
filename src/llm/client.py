@@ -221,6 +221,14 @@ async def _generate_ollama(
             )
             response.raise_for_status()
             data = response.json()
+            logger.info(
+                "llm_tokens",
+                extra={
+                    "prompt_tokens": data.get("prompt_eval_count"),
+                    "completion_tokens": data.get("eval_count"),
+                    "model": model,
+                },
+            )
             return data.get("response", "")
     except httpx.TimeoutException:
         logger.error(f"Ollama request timed out after {timeout}s")

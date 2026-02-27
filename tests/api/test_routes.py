@@ -77,49 +77,75 @@ def client() -> TestClient:
 class TestHealthReady:
     """GET /api/health/ready"""
 
-    def test_health_ready_returns_200(self):
-        """Health check always returns HTTP 200."""
+    def _make_ollama_ok_client(self):
+        """Return a mock httpx client that simulates a healthy Ollama."""
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"models": []}
-
+        mock_response.json.return_value = {"models": [{"name": "mistral:7b"}]}
+        mock_response.raise_for_status = MagicMock()
         client_instance = AsyncMock()
         client_instance.get.return_value = mock_response
         client_instance.__aenter__ = AsyncMock(return_value=client_instance)
         client_instance.__aexit__ = AsyncMock(return_value=False)
+        return client_instance
 
-        with patch("httpx.AsyncClient", return_value=client_instance):
-            with TestClient(app) as client:
-                response = client.get("/api/health/ready")
+    def _disk_ok_patches(self):
+        """Context manager patches that simulate healthy disk / writable /data."""
+        from collections import namedtuple
+
+        DiskUsage = namedtuple("DiskUsage", ["total", "used", "free"])
+        fake = DiskUsage(total=100 * 1024**3, used=50 * 1024**3, free=50 * 1024**3)
+        return [
+            patch("src.api.routes.shutil.disk_usage", return_value=fake),
+            patch("src.api.routes.Path.exists", return_value=True),
+            patch("src.api.routes.Path.write_text", return_value=None),
+            patch("src.api.routes.Path.unlink", return_value=None),
+        ]
+
+    def test_health_ready_returns_200_when_ollama_up(self):
+        """Health check returns HTTP 200 when Ollama is reachable and /data OK."""
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=self._make_ollama_ok_client()):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
 
         assert response.status_code == 200
+        assert response.json()["ready"] is True
 
     def test_health_ready_response_has_ready_key(self, client: TestClient):
-        """Response body must contain a 'ready' boolean key."""
+        """Response body must contain a 'ready' key at the top level or in detail."""
         response = client.get("/api/health/ready")
         data = response.json()
-        assert "ready" in data
+        if response.status_code == 200:
+            assert "ready" in data
+        else:
+            assert response.status_code == 503
+            assert "ready" in data.get("detail", {})
 
     def test_health_ready_returns_json_with_ready_key(self):
-        """Response body contains a 'ready' boolean key."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"models": []}
+        """Response body contains a 'ready' boolean key when Ollama is up."""
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=self._make_ollama_ok_client()):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
 
-        client_instance = AsyncMock()
-        client_instance.get.return_value = mock_response
-        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
-        client_instance.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("httpx.AsyncClient", return_value=client_instance):
-            with TestClient(app) as client:
-                response = client.get("/api/health/ready")
-
-        data = response.json()
-        assert "ready" in data
+        assert response.status_code == 200
+        assert "ready" in response.json()
 
     def test_health_ready_when_ollama_unreachable(self):
-        """Health check returns 200 even when Ollama is unreachable."""
+        """Health check returns 503 when Ollama is unreachable."""
         client_instance = AsyncMock()
         client_instance.get.side_effect = httpx.ConnectError("refused")
         client_instance.__aenter__ = AsyncMock(return_value=client_instance)
@@ -129,9 +155,9 @@ class TestHealthReady:
             with TestClient(app) as client:
                 response = client.get("/api/health/ready")
 
-        # Should still return 200 (not crash), just with ready=False
-        assert response.status_code == 200
-        assert response.json()["ready"] is False
+        assert response.status_code == 503
+        detail = response.json()["detail"]
+        assert detail["ready"] is False
 
 
 # ---------------------------------------------------------------------------

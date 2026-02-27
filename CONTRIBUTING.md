@@ -1,51 +1,99 @@
-# Contributing to Docrawl
+# Contribuir a Docrawl
 
-Thanks for your interest in contributing to Docrawl!
+¡Gracias por tu interés en contribuir a Docrawl!
 
-## Getting Started
+## Primeros pasos
 
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/<your-user>/docrawl.git`
-3. Create a branch: `git checkout -b feature/your-feature`
-4. Install dependencies: `pip install -r requirements.txt`
-5. Install Playwright browsers: `playwright install chromium`
+1. Haz un fork del repositorio
+2. Clona tu fork: `git clone https://github.com/<tu-usuario>/docrawl.git`
+3. Crea una rama: `git checkout -b feat/mi-feature`
+4. Instala dependencias: `pip install -r requirements.txt`
+5. (Opcional) Instala Playwright para pruebas de integración: `playwright install chromium`
 
-## Development Setup
+## Setup de desarrollo
 
 ```bash
-# Run locally
+# Ejecutar localmente
 uvicorn src.main:app --host 0.0.0.0 --port 8002 --reload
 
-# Run with Docker
+# Ejecutar con Docker
 docker compose up --build
 
-# Run tests
+# Ejecutar tests
 pytest --cov=src --cov-report=term-missing
 ```
 
-## Code Standards
+### Pre-commit hooks
 
-- **Python 3.12** with type hints
-- **async/await** for all I/O operations
-- **Pydantic** for data validation
-- Use `logging` module, never `print()`
-- Keep it simple: no unnecessary abstractions
+El proyecto usa [pre-commit](https://pre-commit.com/) con `ruff` para linting y formato:
 
-## Pull Request Process
+```bash
+pip install pre-commit
+pre-commit install
+# Verificar todos los archivos manualmente:
+pre-commit run --all-files
+```
 
-1. Ensure tests pass: `pytest`
-2. Check linting: `ruff check src/ tests/`
-3. Check formatting: `ruff format --check src/ tests/`
-4. Update documentation if needed
-5. Fill out the PR template completely
-6. Request review from `@plater7`
+## Conventional Commits
 
-## Reporting Issues
+Todos los commits deben seguir la convención [Conventional Commits](https://www.conventionalcommits.org/):
 
-- **Bugs**: Use the Bug Report template
-- **Features**: Use the Feature Request template
-- **Security**: See [SECURITY.md](SECURITY.md) for responsible disclosure
+```
+<tipo>(scope opcional): <descripción corta>
+```
 
-## Code of Conduct
+### Tipos permitidos
 
-Be respectful. Write clear commit messages. Keep PRs focused and small.
+| Tipo | Cuándo usarlo |
+|------|---------------|
+| `feat` | Nueva funcionalidad |
+| `fix` | Corrección de bug |
+| `docs` | Solo cambios de documentación |
+| `chore` | Tareas de mantenimiento, deps, CI |
+| `refactor` | Refactoring sin cambio de comportamiento |
+| `test` | Añadir o corregir tests |
+| `perf` | Mejora de rendimiento |
+
+### Ejemplos
+
+```
+feat(crawler): add sitemap index support
+fix(llm): handle timeout in chunk cleanup
+docs(readme): add multi-provider configuration section
+chore(ci): remove unnecessary Playwright install in test workflow
+test(filter): add tests for language variant filtering
+```
+
+### Reglas
+
+- Descripción en **inglés**, en imperativo, sin punto final
+- Máximo 72 caracteres en la primera línea
+- `BREAKING CHANGE:` en el body si el cambio rompe compatibilidad
+- Referencias a issues: `Closes #123` al final del body
+
+## Estándares de código
+
+- **Python 3.12** con type hints
+- **async/await** para todo I/O
+- **Pydantic** para validación de datos
+- Usar módulo `logging`, nunca `print()`
+- Simplicidad: sin abstracciones innecesarias
+
+## Proceso de Pull Request
+
+1. Asegúrate de que los tests pasan: `pytest`
+2. Verifica linting: `ruff check src/ tests/`
+3. Verifica formato: `ruff format --check src/ tests/`
+4. Actualiza la documentación si es necesario
+5. Completa el template del PR
+6. Solicita revisión a `@plater7`
+
+## Reportar issues
+
+- **Bugs**: Usa el template de Bug Report
+- **Features**: Usa el template de Feature Request
+- **Seguridad**: Ver [SECURITY.md](SECURITY.md) para disclosure responsable
+
+## Código de conducta
+
+Sé respetuoso. Escribe mensajes de commit claros. Mantén los PRs enfocados y pequeños.
