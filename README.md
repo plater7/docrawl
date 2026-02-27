@@ -257,7 +257,7 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | **PRs** | 119+ (total) · 2 abiertos |
 | **Branches** | 3 activos |
 | **Tests** | 335 passing · 58.68% coverage |
-| **Releases** | v0.9.1 → v0.9.6b (7 releases) |
+| **Releases** | v0.9.1 → v0.9.7 (8 releases) |
 
 ### Auditoría Multi-Agente — Progreso
 
@@ -276,7 +276,7 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
 ### 🎯 Roadmap Priorizado
 
-> Estado sincronizado con [GitHub Issues](https://github.com/plater7/docrawl/issues) · 22 issues abiertos (11 P1 + 11 P3)
+> Estado sincronizado con [GitHub Issues](https://github.com/plater7/docrawl/issues) · 11 issues abiertos (P1)
 
 #### P0 — Bloqueantes de Producción ✅ Todos resueltos
 
@@ -337,21 +337,21 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | Dead code (`generate_legacy`, etc.) | ✅ Fixed v0.9.5 (#116) |
 | 3 funciones `_generate_*` duplicadas | ✅ Fixed v0.9.5 (#116) |
 
-#### P3 — Baja Prioridad / Nice to Have (11 issues abiertos)
+#### P3 — Baja Prioridad / Nice to Have ✅ Todos resueltos
 
-| Issue | Hallazgo |
-|-------|----------|
-| [#103](https://github.com/plater7/docrawl/issues/103) | Sin API versioning |
-| [#104](https://github.com/plater7/docrawl/issues/104) | Health check no funcional |
-| [#105](https://github.com/plater7/docrawl/issues/105) | Sin tracking de tokens |
-| [#106](https://github.com/plater7/docrawl/issues/106) | Sin pre-commit hooks |
-| [#107](https://github.com/plater7/docrawl/issues/107) | Sin conventional commits |
-| [#108](https://github.com/plater7/docrawl/issues/108) | Sin deployment pipeline |
-| [#109](https://github.com/plater7/docrawl/issues/109) | Sin structured logging |
-| [#110](https://github.com/plater7/docrawl/issues/110) | Inconsistencia de idioma en docs |
-| [#111](https://github.com/plater7/docrawl/issues/111) | Multi-provider no documentado |
-| [#112](https://github.com/plater7/docrawl/issues/112) | Playwright innecesario en CI |
-| [#113](https://github.com/plater7/docrawl/issues/113) | Info leakage en errores |
+| Issue | Hallazgo | Estado |
+|-------|----------|--------|
+| [#103](https://github.com/plater7/docrawl/issues/103) | Sin API versioning | ✅ Fixed v0.9.7 (#115) |
+| [#104](https://github.com/plater7/docrawl/issues/104) | Health check no funcional | ✅ Fixed v0.9.7 (#115) |
+| [#105](https://github.com/plater7/docrawl/issues/105) | Sin tracking de tokens | ✅ Fixed v0.9.7 (#115) |
+| [#106](https://github.com/plater7/docrawl/issues/106) | Sin pre-commit hooks | ✅ Fixed v0.9.7 (#115) |
+| [#107](https://github.com/plater7/docrawl/issues/107) | Sin conventional commits | ✅ Fixed v0.9.7 (#115) |
+| [#108](https://github.com/plater7/docrawl/issues/108) | Sin deployment pipeline | ✅ Fixed v0.9.7 (#115) |
+| [#109](https://github.com/plater7/docrawl/issues/109) | Sin structured logging | ✅ Fixed v0.9.7 (#115) |
+| [#110](https://github.com/plater7/docrawl/issues/110) | Inconsistencia de idioma en docs | ✅ Fixed v0.9.7 (#115) |
+| [#111](https://github.com/plater7/docrawl/issues/111) | Multi-provider no documentado | ✅ Fixed v0.9.7 (#115) |
+| [#112](https://github.com/plater7/docrawl/issues/112) | Playwright innecesario en CI | ✅ Fixed v0.9.7 (#115) |
+| [#113](https://github.com/plater7/docrawl/issues/113) | Info leakage en errores | ✅ Fixed v0.9.7 (#115) |
 
 ---
 
@@ -367,8 +367,9 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | [#119](https://github.com/plater7/docrawl/pull/119) | v0.9.6 P2 Followup | 5 (#89, #92, #94, #99, #100) | ✅ Merged |
 | [#120](https://github.com/plater7/docrawl/pull/120) | v0.9.6a UI Meta | `/api/info` + UI footer | ✅ Merged |
 | [#121](https://github.com/plater7/docrawl/pull/121) | v0.9.6b Footer Fix | footer `position: fixed` | ✅ Merged |
+| [#115](https://github.com/plater7/docrawl/pull/115) | v0.9.7 Backlog P3 | 11 (P3 issues #103–#113) | ✅ Merged |
 
-**Estado actual:** P0 ✅ · P1 11 open · P2 ✅ · P3 11 open · Tests: 335 passing · Coverage: 58.68%
+**Estado actual:** P0 ✅ · P1 11 open · P2 ✅ · P3 ✅ · Tests: 335 passing · Coverage: 59%
 
 ### Cómo Contribuir
 
