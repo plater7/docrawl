@@ -19,6 +19,7 @@ from src.api.routes import router, limiter, job_manager
 
 # ── Structured JSON logging — closes #109 ────────────────────────────────────
 
+
 class _JsonFormatter(logging.Formatter):
     """Emit log records as single-line JSON objects."""
 
@@ -31,15 +32,34 @@ class _JsonFormatter(logging.Formatter):
         }
         for key, value in record.__dict__.items():
             if key not in (
-                "name", "msg", "args", "levelname", "levelno", "pathname",
-                "filename", "module", "exc_info", "exc_text", "stack_info",
-                "lineno", "funcName", "created", "msecs", "relativeCreated",
-                "thread", "threadName", "processName", "process", "message",
+                "name",
+                "msg",
+                "args",
+                "levelname",
+                "levelno",
+                "pathname",
+                "filename",
+                "module",
+                "exc_info",
+                "exc_text",
+                "stack_info",
+                "lineno",
+                "funcName",
+                "created",
+                "msecs",
+                "relativeCreated",
+                "thread",
+                "threadName",
+                "processName",
+                "process",
+                "message",
                 "taskName",
             ):
                 log[key] = value
         if record.exc_info:
-            log["exc_type"] = record.exc_info[0].__name__ if record.exc_info[0] else None
+            log["exc_type"] = (
+                record.exc_info[0].__name__ if record.exc_info[0] else None
+            )
         return json.dumps(log, default=str)
 
 
@@ -51,6 +71,7 @@ logger = logging.getLogger(__name__)
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
