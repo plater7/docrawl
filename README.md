@@ -310,7 +310,7 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | [#85](https://github.com/plater7/docrawl/pull/85) | v0.9.4 Testing | 1 (coverage >80%) | ✅ Merged |
 | [#116](https://github.com/plater7/docrawl/pull/116) | v0.9.5 Backlog P2 | 16 (P2 backlog) | ✅ Merged |
 | [#119](https://github.com/plater7/docrawl/pull/119) | v0.9.6 P2 Followup | 5 (#89, #92, #94, #99, #100) | ✅ Merged |
-| [#TBD](https://github.com/plater7/docrawl/pulls) | v0.9.6a UI Meta | `/api/info` + UI footer | 🔄 Open |
+| [#120](https://github.com/plater7/docrawl/pull/120) | v0.9.6a UI Meta | `/api/info` + UI footer | ✅ Merged |
 
 **Cobertura P0:** 10/14 resueltos (v0.9.0–v0.9.6) · 4 pendientes para v1.0 · Tests: 335 passing, 58.68% coverage.
 
