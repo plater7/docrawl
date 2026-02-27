@@ -173,8 +173,8 @@ class TestCleanupMarkdown:
 
         # All retries exhausted → returns original
         assert result == original
-        # Should have been called MAX_RETRIES times (2)
-        assert mock_gen.call_count == 2
+        # Should have been called MAX_RETRIES times (3)
+        assert mock_gen.call_count == 3
 
     async def test_exception_retries_and_falls_back(self):
         """Exception on every attempt causes fallback to original markdown."""
@@ -190,7 +190,7 @@ class TestCleanupMarkdown:
                 result = await cleanup_markdown(original, "mistral:7b")
 
         assert result == original
-        assert mock_gen.call_count == 2  # MAX_RETRIES = 2
+        assert mock_gen.call_count == 3  # MAX_RETRIES = 3
 
     async def test_first_attempt_fails_second_succeeds(self):
         """If first attempt fails but second succeeds, returns cleaned text."""
