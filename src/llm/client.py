@@ -3,12 +3,17 @@
 # 🤖 Generated with AI assistance by DocCrawler 🕷️ (model: qwen3-coder:free) and human review.
 
 import os
+import time
 import logging
 from typing import Any
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+# Model list cache: provider -> (models, timestamp)
+_model_cache: dict[str, tuple[list[dict[str, Any]], float]] = {}
+MODEL_CACHE_TTL = 60  # seconds
 
 # Environment variables
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
@@ -51,15 +56,26 @@ PROVIDER_MODELS = {
 
 
 async def get_available_models(provider: str = "ollama") -> list[dict[str, Any]]:
-    """Get list of available models for a provider."""
+    """Get list of available models for a provider. Results cached for MODEL_CACHE_TTL seconds."""
+    now = time.monotonic()
+    cached = _model_cache.get(provider)
+    if cached is not None:
+        models, ts = cached
+        if now - ts < MODEL_CACHE_TTL:
+            logger.debug(f"Model cache hit for provider '{provider}'")
+            return models
+
     if provider == "ollama":
-        return await _get_ollama_models()
+        models = await _get_ollama_models()
     elif provider == "openrouter":
-        return await _get_openrouter_models()
+        models = await _get_openrouter_models()
     elif provider == "opencode":
-        return _get_opencode_models()
+        models = _get_opencode_models()
     else:
         return []
+
+    _model_cache[provider] = (models, now)
+    return models
 
 
 async def _get_ollama_models() -> list[dict[str, Any]]:

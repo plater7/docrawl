@@ -18,8 +18,8 @@ Return only cleaned markdown.
 
 {markdown}"""
 
-MAX_RETRIES = 2
-RETRY_BACKOFF = [1, 3]  # seconds
+MAX_RETRIES = 3
+# Exponential backoff: 1s, 2s, 4s (2**attempt)
 
 # Dynamic timeout constants
 BASE_TIMEOUT = 45  # seconds for small chunks
@@ -124,7 +124,7 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
                 f"Cleanup attempt {attempt + 1} failed ({timeout}s timeout): {e}"
             )
             if attempt < MAX_RETRIES - 1:
-                await asyncio.sleep(RETRY_BACKOFF[attempt])
+                await asyncio.sleep(2**attempt)  # 1s, 2s, 4s
 
     logger.error("All cleanup attempts failed, returning original")
     return markdown

@@ -1,5 +1,6 @@
 """LLM-based URL filtering."""
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -39,11 +40,15 @@ def _filter_options(urls: list[str]) -> dict[str, Any]:
     }
 
 
+FILTER_MAX_RETRIES = 3
+
+
 async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
     """
     Use LLM to filter and order documentation URLs.
 
-    Falls back to original list if LLM fails.
+    Retries up to FILTER_MAX_RETRIES times with exponential backoff.
+    Falls back to original list if all retries fail.
     """
     if not urls:
         return urls
@@ -52,26 +57,39 @@ async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
     urls_block = "<urls>\n" + "\n".join(urls) + "\n</urls>"
     prompt = FILTER_PROMPT_TEMPLATE.format(urls=urls_block)
 
-    try:
-        response = await generate(
-            model, prompt, system=FILTER_SYSTEM_PROMPT, options=_filter_options(urls)
-        )
+    for attempt in range(FILTER_MAX_RETRIES):
+        try:
+            response = await generate(
+                model,
+                prompt,
+                system=FILTER_SYSTEM_PROMPT,
+                options=_filter_options(urls),
+            )
 
-        # Try to parse JSON from response
-        # Handle potential markdown code blocks
-        response = response.strip()
-        if response.startswith("```"):
-            lines = response.split("\n")
-            response = "\n".join(lines[1:-1])
+            # Try to parse JSON from response
+            # Handle potential markdown code blocks
+            response = response.strip()
+            if response.startswith("```"):
+                lines = response.split("\n")
+                response = "\n".join(lines[1:-1])
 
-        filtered = json.loads(response)
-        if isinstance(filtered, list):
-            # Validate all items are from original list
-            valid = [url for url in filtered if url in urls]
-            logger.info(f"LLM filtered {len(urls)} URLs to {len(valid)}")
-            return valid
+            filtered = json.loads(response)
+            if isinstance(filtered, list):
+                # Validate all items are from original list
+                valid = [url for url in filtered if url in urls]
+                logger.info(f"LLM filtered {len(urls)} URLs to {len(valid)}")
+                return valid
 
-    except Exception as e:
-        logger.warning(f"LLM filtering failed, using original list: {e}")
+        except Exception as e:
+            if attempt < FILTER_MAX_RETRIES - 1:
+                wait = 2**attempt  # 1s, 2s, 4s
+                logger.warning(
+                    f"LLM filtering attempt {attempt + 1} failed, retrying in {wait}s: {e}"
+                )
+                await asyncio.sleep(wait)
+            else:
+                logger.warning(
+                    f"LLM filtering failed after {FILTER_MAX_RETRIES} attempts, using original list: {e}"
+                )
 
     return urls
