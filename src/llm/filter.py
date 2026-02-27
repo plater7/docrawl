@@ -60,7 +60,10 @@ async def filter_urls_with_llm(urls: list[str], model: str) -> list[str]:
     for attempt in range(FILTER_MAX_RETRIES):
         try:
             response = await generate(
-                model, prompt, system=FILTER_SYSTEM_PROMPT, options=_filter_options(urls)
+                model,
+                prompt,
+                system=FILTER_SYSTEM_PROMPT,
+                options=_filter_options(urls),
             )
 
             # Try to parse JSON from response
