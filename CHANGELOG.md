@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.6a] - 2026-02-26
+
+### Added
+- **Footer de identidad en UI** ([feat](https://github.com/plater7/docrawl)) — leyenda inferior con nombre del proyecto, versión dinámica (desde `/api/info`), URL del repo, autor, y modelos usados durante el desarrollo; se actualiza automáticamente al cargar la UI
+- **Endpoint `GET /api/info`** — expone metadata del build: `name`, `version`, `repo`, `author`, `models_used`; la UI lo consume para mostrar siempre la versión que está corriendo en el container
+- **`APP_VERSION` constante** en `main.py` — fuente canónica única de versión, usada tanto en FastAPI metadata como en `/api/info`
+
+### Changed
+- `main.py`: `version="0.9.0"` → `version=APP_VERSION` ("0.9.6a") — sincroniza FastAPI OpenAPI con el tag del release
+- `README.md`: roadmap P0/P1/P2 actualizado con estado real de fixes (10/14 P0 resueltos), métricas del repo (113+ issues, 119+ PRs), API docs incluyen nuevo endpoint
+
+---
+
 ## [v0.9.6] - 2026-02-26
 
 ### Fixed

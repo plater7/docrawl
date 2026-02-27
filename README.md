@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.9.6-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/version-v0.9.6a-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
   <a href="https://github.com/plater7/docrawl/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/plater7/docrawl/test.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="tests"></a>
   <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
@@ -140,8 +140,10 @@ Docrawl usa **3 modelos especializados** por rol:
 
 ```
 GET  /                          # UI dashboard
+GET  /api/info                  # App metadata: versión, repo, author, models_used
 GET  /api/providers             # Lista providers y estado
 GET  /api/models?provider=...   # Modelos disponibles
+GET  /api/health/ready          # Readiness check (Ollama, disco, permisos)
 POST /api/jobs                  # Crear job
 GET  /api/jobs/{id}/events      # SSE stream
 POST /api/jobs/{id}/cancel      # Cancelar
@@ -215,9 +217,11 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
 | Métrica | Cantidad |
 |---------|----------|
-| **Issues** | 80 (total) |
-| **PRs** | 36 (total) / 7 (abiertos) |
-| **Branches** | 17 |
+| **Issues** | 113+ (total) · 24 abiertos |
+| **PRs** | 119+ (total) · 2 abiertos |
+| **Branches** | 3 activos |
+| **Tests** | 335 passing · 58.68% coverage |
+| **Releases** | v0.9.1 → v0.9.6a (6 releases) |
 
 ### Auditoría Multi-Agente — Progreso
 
@@ -238,46 +242,52 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
 #### P0 — Bloqueantes de Producción (14 issues)
 
-| # | Hallazgo | Severidad | Archivo(s) |
-|---|----------|-----------|------------|
-| 1 | Path Traversal via `output_path` | Critical | `models.py:13`, `runner.py:285` |
-| 2 | SSRF via Playwright a URLs internas | Critical | `page.py`, `discovery.py` |
-| 3 | Sin autenticación en endpoints | Critical | toda la API |
-| 4 | Worker Cloudflare sin auth | Critical | `worker/src/index.js` |
-| 5 | XSS via `innerHTML` con datos SSE | Critical | `index.html:1274,1332` |
-| 6 | Prompt injection via contenido scrapeado | Critical | `cleanup.py`, `filter.py` |
-| 7 | Sin rate limiting ni job concurrency cap | Critical | `routes.py`, `manager.py` |
-| 8 | Puerto 8002 expuesto en 0.0.0.0 | Critical | `docker-compose.yml:11` |
-| 9 | Blocking sync HTTP en async context | Major | `client.py:97` |
-| 10 | `max_concurrent` nunca implementado | Major | `runner.py:295` |
-| 11 | `_generate_index` links rotos | Major | `runner.py:579` |
-| 12 | Chunk overlap → contenido duplicado | Major | `markdown.py:126` |
-| 13 | Estado in-memory sin eviction | Major | `manager.py` |
-| 14 | Playwright resource leaks | Major | `page.py`, `discovery.py` |
+| # | Hallazgo | Severidad | Estado |
+|---|----------|-----------|--------|
+| 1 | Path Traversal via `output_path` | Critical | ✅ Fixed v0.9.0 (#47) |
+| 2 | SSRF via Playwright a URLs internas | Critical | ✅ Fixed v0.9.0 (#51) |
+| 3 | Sin autenticación en endpoints | Critical | ✅ Fixed v0.9.0 (#48) |
+| 4 | Worker Cloudflare sin auth | Critical | ✅ Fixed v0.9.0 (#50) |
+| 5 | XSS via `innerHTML` con datos SSE | Critical | ✅ Fixed v0.9.0 (#52) |
+| 6 | Prompt injection via contenido scrapeado | Critical | ✅ Fixed v0.9.0 (#58) + v0.9.5 (#94) |
+| 7 | Sin rate limiting ni job concurrency cap | Critical | ✅ Fixed v0.9.0 (#53) |
+| 8 | Puerto 8002 expuesto en 0.0.0.0 | Critical | ✅ Fixed v0.9.0 (CORS + middleware) |
+| 9 | Blocking sync HTTP en async context | Major | ✅ Fixed v0.9.1 (#59) |
+| 10 | `max_concurrent` nunca implementado | Major | ✅ Fixed v0.9.1 (#56) |
+| 11 | `_generate_index` links rotos | Major | 🔴 Pendiente |
+| 12 | Chunk overlap → contenido duplicado | Major | 🔴 Pendiente |
+| 13 | Estado in-memory sin eviction | Major | 🔴 Pendiente |
+| 14 | Playwright resource leaks | Major | 🔴 Pendiente |
 
-#### P1 — Alta Prioridad (21 issues)
+**P0 resueltos: 10/14** · Pendientes críticos para v1.0: #11, #12, #13, #14
 
-- No `.dockerignore` — build context inflado
-- Test deps en imagen runtime
-- Security CI gates deshabilitados
-- `cloudflared:latest` unpinned
-- Sin backup strategy para `/data`
-- `num_ctx: 8192` insuficiente para 16KB chunks
-- Sync file writes en async context
-- Health check no funcional
-- No CORS configuración
-- No API versioning
-- Browser no almacenado/inicializado correctamente
-- print() mixed with logging
+#### P1 — Alta Prioridad
+
+| Item | Estado |
+|------|--------|
+| No `.dockerignore` | ✅ Fixed v0.9.2 (#77) |
+| Test deps en imagen runtime | ✅ Fixed v0.9.2 (#78) |
+| Security CI gates deshabilitados | ✅ Fixed v0.9.2 (#54) |
+| `cloudflared:latest` unpinned | ✅ Fixed v0.9.2 (#79) |
+| `num_ctx` insuficiente para chunks | ✅ Fixed v0.9.1 (#57) |
+| Sync file writes en async context | ✅ Fixed v0.9.6 (#99) |
+| CORS no configurado | ✅ Fixed v0.9.0 (#80) |
+| `print()` mixed with logging | ✅ Fixed v0.9.6 (#89) |
+| Sin backup strategy para `/data` | 🟡 Pendiente |
+| Health check no funcional | 🟡 Pendiente |
+| No API versioning | 🟡 Pendiente |
+| Browser no almacenado correctamente | 🟡 Pendiente |
 
 #### P2 — Media Prioridad
 
-- Dead code (`generate_legacy`, etc.)
-- 3 funciones `_generate_*` duplicadas
-- Sin connection pooling
-- No caching de model lists
-- Prompts sin few-shot examples
-- Case-sensitive path handling (robots.txt)
+| Item | Estado |
+|------|--------|
+| No caching de model lists | ✅ Fixed v0.9.5/v0.9.6 (#92) |
+| Case-sensitive path handling (robots.txt) | ✅ Fixed v0.9.5 |
+| Dead code (`generate_legacy`, etc.) | 🟡 Pendiente |
+| 3 funciones `_generate_*` duplicadas | 🟡 Pendiente |
+| Sin connection pooling | 🟡 Pendiente |
+| Prompts sin few-shot examples | 🟡 Pendiente |
 
 #### P3 — Baja Prioridad / Nice to Have
 
@@ -300,8 +310,9 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | [#85](https://github.com/plater7/docrawl/pull/85) | v0.9.4 Testing | 1 (coverage >80%) | ✅ Merged |
 | [#116](https://github.com/plater7/docrawl/pull/116) | v0.9.5 Backlog P2 | 16 (P2 backlog) | ✅ Merged |
 | [#119](https://github.com/plater7/docrawl/pull/119) | v0.9.6 P2 Followup | 5 (#89, #92, #94, #99, #100) | ✅ Merged |
+| [#TBD](https://github.com/plater7/docrawl/pulls) | v0.9.6a UI Meta | `/api/info` + UI footer | 🔄 Open |
 
-**Cobertura actual de P0 (14 issues):** PRs #83 + #84 ✅ resuelven 2/14 directos · PR #82 pendiente cubre 10/14 → 2 resueltos, 10 en revisión. Tests: 335 passing, 58.68% coverage.
+**Cobertura P0:** 10/14 resueltos (v0.9.0–v0.9.6) · 4 pendientes para v1.0 · Tests: 335 passing, 58.68% coverage.
 
 ### Cómo Contribuir
 

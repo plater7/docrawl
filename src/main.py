@@ -29,7 +29,9 @@ async def lifespan(app: FastAPI):
     await job_manager.shutdown()
 
 
-app = FastAPI(title="Docrawl", version="0.9.0", lifespan=lifespan)
+APP_VERSION = "0.9.6a"
+
+app = FastAPI(title="Docrawl", version=APP_VERSION, lifespan=lifespan)
 
 # ── Rate limiter state + error handler ───────────────────────────────────────
 app.state.limiter = limiter
