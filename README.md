@@ -299,9 +299,9 @@ Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 | [#84](https://github.com/plater7/docrawl/pull/84) | v0.9.2 Infrastructure | 5 (dockerignore, CI, cloudflared, coverage) | ✅ Merged |
 | [#85](https://github.com/plater7/docrawl/pull/85) | v0.9.4 Testing | 1 (coverage >80%) | ✅ Merged |
 | [#116](https://github.com/plater7/docrawl/pull/116) | v0.9.5 Backlog P2 | 16 (P2 backlog) | ✅ Merged |
-| [#119](https://github.com/plater7/docrawl/pull/119) | v0.9.6 P2 Followup | 5 (#89, #92, #94, #99, #100) | 🔄 Open |
+| [#119](https://github.com/plater7/docrawl/pull/119) | v0.9.6 P2 Followup | 5 (#89, #92, #94, #99, #100) | ✅ Merged |
 
-**Cobertura actual de P0 (14 issues):** PRs #83 + #84 ✅ resuelven 2/14 directos · PR #82 pendiente cubre 10/14 → 2 resueltos, 10 en revisión. Tests: 95 passing (CI), 57% coverage (unit-testable code).
+**Cobertura actual de P0 (14 issues):** PRs #83 + #84 ✅ resuelven 2/14 directos · PR #82 pendiente cubre 10/14 → 2 resueltos, 10 en revisión. Tests: 335 passing, 58.68% coverage.
 
 ### Cómo Contribuir
 
