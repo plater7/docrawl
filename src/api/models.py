@@ -26,11 +26,10 @@ class JobRequest(BaseModel):
     markdown_proxy_url: str | None = Field(default=None)
     use_http_fast_path: bool = True  # PR 1.3: try plain HTTP before Playwright
     use_cache: bool = False  # PR 2.4: opt-in disk cache (24h TTL)
+    output_format: Literal["markdown", "json"] = "markdown"  # PR 3.2: structured JSON output opt-in
+    use_pipeline_mode: bool = False  # PR 3.3: opt-in producer/consumer pipeline
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
-    output_format: Literal["markdown", "json"] = (
-        "markdown"  # PR 3.2: structured JSON output opt-in
-    )
 
     @field_validator("output_path")
     @classmethod
@@ -54,6 +53,23 @@ class JobRequest(BaseModel):
         return v
 
 
+class ResumeFromStateRequest(BaseModel):
+    """Request to resume a job from a saved .job_state.json file (PR 3.1)."""
+
+    state_file_path: str = Field(
+        description="Absolute path to the .job_state.json file produced by a paused/completed job."
+    )
+
+    @field_validator("state_file_path")
+    @classmethod
+    def validate_state_path(cls, v: str) -> str:
+        """Prevent path traversal on state file path."""
+        resolved = Path("/data").joinpath(v.lstrip("/")).resolve()
+        if not str(resolved).startswith("/data"):
+            raise ValueError("state_file_path must be under /data")
+        return str(resolved)
+
+
 class JobStatus(BaseModel):
     """Current status of a job."""
 
@@ -71,20 +87,3 @@ class OllamaModel(BaseModel):
     size: int | None = None
     provider: str = "ollama"
     is_free: bool = True
-
-
-class ResumeFromStateRequest(BaseModel):
-    """Request to resume a job from a saved .job_state.json file (PR 3.1)."""
-
-    state_file_path: str = Field(
-        description="Absolute path to the .job_state.json file produced by a paused/completed job."
-    )
-
-    @field_validator("state_file_path")
-    @classmethod
-    def validate_state_path(cls, v: str) -> str:
-        """Prevent path traversal on state file path."""
-        resolved = Path("/data").joinpath(v.lstrip("/")).resolve()
-        if not str(resolved).startswith("/data"):
-            raise ValueError("state_file_path must be under /data")
-        return str(resolved)
