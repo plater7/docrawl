@@ -1,7 +1,10 @@
-"""Page scraping with Playwright — includes DOM noise removal."""
+"""Page scraping with Playwright — includes DOM noise removal and page pool."""
 
+import asyncio
 import logging
 import httpx
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 from playwright.async_api import async_playwright, Browser, Page
 
 from src.utils.security import validate_url_not_ssrf
@@ -155,13 +158,24 @@ class PageScraper:
         logger.debug(f"Fallback to body extraction ({len(html)} chars)")
         return html
 
-    async def get_html(self, url: str, timeout: int = 30000) -> str:
-        """Navigate to URL, clean DOM, and extract content HTML."""
-        if not self._browser:
+    async def get_html(
+        self, url: str, timeout: int = 30000, pool: "PagePool | None" = None
+    ) -> str:
+        """Navigate to URL, clean DOM, and extract content HTML.
+
+        pool: if provided, borrows a page from the pool instead of creating one (PR 1.2).
+        """
+        if not self._browser and pool is None:
             raise RuntimeError("Browser not started")
 
         # SSRF validation before Playwright navigates — closes CONS-002 / issue #51
         validate_url_not_ssrf(url)
+
+        if pool is not None:
+            async with pool.acquire() as page:
+                await page.goto(url, timeout=timeout, wait_until="networkidle")
+                await self._remove_noise(page)
+                return await self._extract_content(page)
 
         page = await self._browser.new_page()
         try:
@@ -171,3 +185,71 @@ class PageScraper:
             return html
         finally:
             await page.close()
+
+
+class PagePool:
+    """Pool of reusable Playwright pages backed by an asyncio.Queue (PR 1.2).
+
+    Avoids the overhead of creating/closing a new page per URL.
+    Pages are reset (about:blank + clear cookies) before re-use.
+    If a page is found to be closed/broken on acquire, it is replaced automatically.
+
+    Usage::
+
+        pool = PagePool(browser, size=5)
+        await pool.initialize()
+        async with pool.acquire() as page:
+            await page.goto(url)
+        await pool.close()
+    """
+
+    def __init__(self, browser: Browser, size: int = 5) -> None:
+        self._browser = browser
+        self._size = size
+        self._queue: asyncio.Queue[Page] = asyncio.Queue(maxsize=size)
+
+    async def initialize(self) -> None:
+        """Pre-create all pages and fill the queue."""
+        for _ in range(self._size):
+            page = await self._browser.new_page()
+            await self._queue.put(page)
+        logger.info(f"PagePool initialized with {self._size} pages")
+
+    @asynccontextmanager
+    async def acquire(self) -> AsyncGenerator[Page, None]:
+        """Context manager: borrow a page, reset it, return it to the pool."""
+        page = await self._queue.get()
+        try:
+            # Reset state between uses
+            try:
+                await page.goto("about:blank", timeout=5000)
+                await page.context.clear_cookies()
+            except Exception:
+                # Page is broken — replace it
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+                page = await self._browser.new_page()
+
+            yield page
+        except Exception:
+            # Page might be in bad state — replace it
+            try:
+                await page.close()
+            except Exception:
+                pass
+            page = await self._browser.new_page()
+            raise
+        finally:
+            await self._queue.put(page)
+
+    async def close(self) -> None:
+        """Close all pages in the pool."""
+        while not self._queue.empty():
+            try:
+                page = self._queue.get_nowait()
+                await page.close()
+            except Exception:
+                pass
+        logger.info("PagePool closed")

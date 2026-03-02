@@ -16,7 +16,7 @@ from src.crawler.robots import RobotsParser
 from src.llm.filter import filter_urls_with_llm
 from src.llm.cleanup import cleanup_markdown, needs_llm_cleanup
 from src.llm.client import get_available_models, get_provider_for_model
-from src.scraper.page import PageScraper, fetch_markdown_native, fetch_markdown_proxy
+from src.scraper.page import PageScraper, PagePool, fetch_markdown_native, fetch_markdown_proxy
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 
 logger = logging.getLogger(__name__)
@@ -89,8 +89,12 @@ async def _log(job: Job, event_type: str, data: dict) -> None:
             logger.info(full_msg)
 
 
-async def run_job(job: Job) -> None:
-    """Execute a crawl job with enriched phase/model SSE events."""
+async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
+    """Execute a crawl job with enriched phase/model SSE events.
+
+    page_pool: optional pre-initialized PagePool from main.py lifespan (PR 1.2).
+               If None, falls back to the legacy per-page create/close path.
+    """
     # TODO: reasoning_model will be used for:
     # - Site structure analysis before crawling
     # - Complex content filtering (language selection, cross-page dedup)
@@ -367,9 +371,9 @@ async def run_job(job: Job) -> None:
                                 },
                             )
 
-                    # Fall back to Playwright
+                    # Fall back to Playwright (pass pool if available — PR 1.2)
                     if markdown is None:
-                        html = await scraper.get_html(url)
+                        html = await scraper.get_html(url, pool=page_pool)
                         load_time = time.monotonic() - page_start
                         markdown = html_to_markdown(html)
                         async with _counter_lock:

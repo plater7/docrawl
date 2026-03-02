@@ -81,6 +81,7 @@ class JobManager:
 
     def __init__(self) -> None:
         self._jobs: dict[str, Job] = {}
+        self.page_pool: "PagePool | None" = None  # PR 1.2: set in main.py lifespan
 
     async def create_job(self, request: JobRequest) -> Job:
         """Create and start a new job."""
@@ -90,7 +91,7 @@ class JobManager:
 
         from src.jobs.runner import run_job
 
-        task = asyncio.create_task(run_job(job))
+        task = asyncio.create_task(run_job(job, page_pool=self.page_pool))
         job._task = task
 
         # done_callback logs unhandled exceptions and prevents silent failures

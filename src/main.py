@@ -15,6 +15,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.api.routes import router, limiter, job_manager
+from src.scraper.page import PagePool
 
 
 # ── Structured JSON logging — closes #109 ────────────────────────────────────
@@ -75,9 +76,34 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Cancel running jobs on shutdown — closes CONS-014 / issue #60."""
+    """Initialize shared resources on startup, clean up on shutdown."""
+    # PR 1.2 — Page Pool: pre-warm a pool of Playwright pages shared across jobs.
+    # PAGE_POOL_SIZE=0 disables the pool (legacy per-page create/close path).
+    pool_size = int(os.environ.get("PAGE_POOL_SIZE", "5"))
+    if pool_size > 0:
+        from playwright.async_api import async_playwright
+
+        playwright = await async_playwright().start()
+        browser = await playwright.chromium.launch(headless=True)
+        pool = PagePool(browser, size=pool_size)
+        await pool.initialize()
+        job_manager.page_pool = pool
+        logger.info(f"PagePool ready (size={pool_size})")
+    else:
+        playwright = None
+        browser = None
+        pool = None
+        logger.info("PagePool disabled (PAGE_POOL_SIZE=0)")
+
     yield
+
     await job_manager.shutdown()
+    if pool is not None:
+        await pool.close()
+    if browser is not None:
+        await browser.close()
+    if playwright is not None:
+        await playwright.stop()
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
