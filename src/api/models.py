@@ -67,3 +67,20 @@ class OllamaModel(BaseModel):
     size: int | None = None
     provider: str = "ollama"
     is_free: bool = True
+
+
+class ResumeFromStateRequest(BaseModel):
+    """Request to resume a job from a saved .job_state.json file (PR 3.1)."""
+
+    state_file_path: str = Field(
+        description="Absolute path to the .job_state.json file produced by a paused/completed job."
+    )
+
+    @field_validator("state_file_path")
+    @classmethod
+    def validate_state_path(cls, v: str) -> str:
+        """Prevent path traversal on state file path."""
+        resolved = Path("/data").joinpath(v.lstrip("/")).resolve()
+        if not str(resolved).startswith("/data"):
+            raise ValueError("state_file_path must be under /data")
+        return str(resolved)
