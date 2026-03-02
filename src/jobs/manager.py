@@ -7,7 +7,10 @@ import uuid
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.scraper.page import PagePool
 
 from src.api.models import JobRequest
 
