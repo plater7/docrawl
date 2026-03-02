@@ -2,9 +2,7 @@
 
 import asyncio
 import logging
-import os as _os
 import time
-from dataclasses import dataclass as _dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -33,6 +31,8 @@ from src.scraper.structured import (
     StructuredPage,
     ContentBlock,
 )
+from src.scraper.converters import get_converter
+from src.scraper.converters.base import MarkdownConverter
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,8 @@ async def run_job(
 
     scraper = PageScraper()
     robots = RobotsParser()
+    # PR 3.4: resolve converter plugin (None → default "markdownify")
+    _converter = get_converter(request.converter)
 
     try:
         # INIT phase
@@ -389,7 +391,7 @@ async def run_job(
                     if page_cache is not None:
                         cached_html = page_cache.get(url)
                         if cached_html is not None:
-                            markdown = html_to_markdown(cached_html)
+                            markdown = _converter.convert(cached_html)  # PR 3.4
                             fetch_method = "cache"
                             load_time = time.monotonic() - page_start
                             await _log(
@@ -465,7 +467,7 @@ async def run_job(
                         html = await scraper.get_html(url, pool=page_pool)
                         raw_html = html  # PR 3.2: keep for structured output
                         load_time = time.monotonic() - page_start
-                        markdown = html_to_markdown(html)
+                        markdown = _converter.convert(html)  # PR 3.4
                         async with _counter_lock:
                             pages_playwright += 1
                         # PR 2.4: cache the raw HTML (only if not blocked — checked below)
@@ -697,6 +699,7 @@ async def run_job(
                 completed_urls=completed_urls,
                 failed_urls=failed_urls,
                 delay_s=delay_s,
+                converter=_converter,
             )
         else:
             # Launch all pages concurrently, semaphore controls actual parallelism
@@ -833,6 +836,9 @@ def _generate_index(urls: list[str], output_path: Path) -> None:
 # PR 3.3: Producer / Consumer pipeline
 # ---------------------------------------------------------------------------
 
+import os as _os
+from dataclasses import dataclass as _dataclass
+
 
 @_dataclass
 class ScrapedPage:
@@ -865,6 +871,7 @@ async def _run_pipeline_mode(
     completed_urls: list[str],
     failed_urls: list[str],
     delay_s: float,
+    converter: "MarkdownConverter",
 ) -> tuple[int, int, int, int, int, int, int]:
     """Producer/Consumer pipeline for page fetching + LLM cleanup (PR 3.3).
 
@@ -905,7 +912,7 @@ async def _run_pipeline_mode(
                     cached_html = page_cache.get(url)
                     if cached_html:
                         raw_html = cached_html
-                        markdown = html_to_markdown(cached_html)
+                        markdown = converter.convert(cached_html)  # PR 3.4
                         fetch_method = "cache"
 
                 # Native markdown (Ollama endpoint)
@@ -941,7 +948,7 @@ async def _run_pipeline_mode(
                 if markdown is None:
                     html = await scraper.get_html(url, pool=page_pool)
                     raw_html = html
-                    markdown = html_to_markdown(html)
+                    markdown = converter.convert(html)  # PR 3.4
                     async with _counter_lock:
                         c["playwright"] += 1
                     if page_cache is not None and not is_blocked_response(markdown):
