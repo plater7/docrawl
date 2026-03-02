@@ -215,6 +215,7 @@ class PageScraper:
                 await self._remove_noise(page)
                 return await self._extract_content(page)
 
+        assert self._browser is not None  # guarded by RuntimeError above
         page = await self._browser.new_page()
         try:
             await page.goto(url, timeout=timeout, wait_until="networkidle")
