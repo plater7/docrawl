@@ -7,7 +7,6 @@ import os
 import random
 import defusedxml.ElementTree as ET  # XXE-safe replacement — closes CONS-010 / issue #64
 from xml.etree.ElementTree import ParseError as XMLParseError
-from collections import deque
 from typing import cast
 from urllib.parse import urljoin, urlparse, urlunparse
 
@@ -203,7 +202,9 @@ async def recursive_crawl(
             # Gather links from all URLs at this depth in parallel
             results = await asyncio.gather(
                 *[
-                    _extract_links(url, base_domain, client, sem, jitter=(concurrency > 1))
+                    _extract_links(
+                        url, base_domain, client, sem, jitter=(concurrency > 1)
+                    )
                     for url in to_fetch
                 ],
                 return_exceptions=False,

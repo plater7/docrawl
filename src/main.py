@@ -97,6 +97,7 @@ async def lifespan(app: FastAPI):
 
     # PR 1.5: start background cleanup loop (removes expired completed jobs)
     import asyncio as _asyncio
+
     cleanup_task = _asyncio.create_task(job_manager.start_cleanup_loop())
 
     yield
