@@ -12,6 +12,44 @@ from src.utils.security import validate_url_not_ssrf
 logger = logging.getLogger(__name__)
 
 
+async def fetch_html_fast(url: str) -> str | None:
+    """Try to fetch and convert a page to markdown without Playwright (HTTP fast-path).
+
+    Uses httpx for a plain HTTP GET, converts the HTML response with markdownify,
+    and returns the markdown only if it meets a minimum quality threshold (≥500 chars).
+    Returns None if the page is JS-rendered, too short, or any error occurs.
+
+    PR 1.3 — inserting before Playwright in the fallback chain saves
+    browser overhead for static or server-rendered documentation sites.
+    """
+    validate_url_not_ssrf(url)
+    try:
+        headers = {
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+            "User-Agent": "DocRawl/0.9.8 (documentation crawler)",
+        }
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code != 200:
+                return None
+            content_type = resp.headers.get("content-type", "")
+            if "text/html" not in content_type:
+                return None
+
+            from markdownify import markdownify as md_convert
+
+            markdown = md_convert(
+                resp.text,
+                heading_style="ATX",
+                strip=["script", "style", "nav", "footer"],
+            )
+            if len(markdown) >= 500:
+                return markdown
+    except Exception:
+        pass
+    return None
+
+
 async def fetch_markdown_native(url: str) -> tuple[str | None, int | None]:
     """Try to get native markdown via Accept: text/markdown content negotiation.
 
