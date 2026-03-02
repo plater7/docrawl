@@ -1122,6 +1122,11 @@
                 <label for="filterSitemapByPath">Filter Sitemap URLs by base path</label>
             </div>
 
+            <div class="checkbox-group">
+                <input type="checkbox" id="usePipelineMode">
+                <label for="usePipelineMode">Pipeline Mode (fetch and cleanup in parallel)</label>
+            </div>
+
             <div class="form-group">
                 <label for="outputFormat">[FORMAT] Output Format</label>
                 <select id="outputFormat">
@@ -1425,6 +1430,7 @@
                 use_page_pool: document.getElementById('usePagePool').checked,
                 use_http_fast_path: document.getElementById('useHttpFastPath').checked,
                 use_cache: document.getElementById('useCache').checked,
+                use_pipeline_mode: document.getElementById('usePipelineMode').checked,
                 output_format: document.getElementById('outputFormat').value,
                 filter_sitemap_by_path: document.getElementById('filterSitemapByPath').checked,
                 use_native_markdown: document.getElementById('useNativeMarkdown').checked,
