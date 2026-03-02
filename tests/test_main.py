@@ -21,15 +21,14 @@ class TestLifespanPoolDisabled:
             assert response.status_code in (200, 503)
 
     async def test_job_manager_has_no_pool_when_disabled(self, monkeypatch):
-        """job_manager.page_pool stays None when PAGE_POOL_SIZE=0."""
+        """job_manager.page_pool is not set by the lifespan when PAGE_POOL_SIZE=0."""
         monkeypatch.setenv("PAGE_POOL_SIZE", "0")
 
         from src.api.routes import job_manager
-        from src.main import app
+        from src.main import lifespan, app
 
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ):
+        job_manager.page_pool = None  # reset shared singleton state
+        async with lifespan(app):
             assert job_manager.page_pool is None
 
 
