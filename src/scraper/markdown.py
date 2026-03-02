@@ -2,7 +2,6 @@
 
 import re
 import logging
-from markdownify import markdownify as md
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +80,7 @@ def html_to_markdown(html: str, converter_name: str | None = None) -> str:
     whose output is identical to the original markdownify call.
     """
     from src.scraper.converters import get_converter
+
     converter = get_converter(converter_name)
     return converter.convert(html)
 
@@ -124,7 +124,11 @@ def _chunk_by_headings(text: str, chunk_size: int) -> list[str] | None:
 
     sections: list[str] = []
     for idx, start in enumerate(heading_positions):
-        end = heading_positions[idx + 1] if idx + 1 < len(heading_positions) else len(text)
+        end = (
+            heading_positions[idx + 1]
+            if idx + 1 < len(heading_positions)
+            else len(text)
+        )
         section = text[start:end].strip()
         if not section or len(section) < 50:
             continue
@@ -137,9 +141,7 @@ def _chunk_by_headings(text: str, chunk_size: int) -> list[str] | None:
     return sections if sections else None
 
 
-def _chunk_by_size(
-    text: str, chunk_size: int = DEFAULT_CHUNK_SIZE
-) -> list[str]:
+def _chunk_by_size(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
     """Split text into chunks of at most chunk_size characters.
 
     Tries paragraph boundaries first, then single newlines, then hard-splits.
@@ -206,7 +208,9 @@ def chunk_markdown(
     # PR 2.1: try semantic heading-based chunking first
     heading_chunks = _chunk_by_headings(text, chunk_size)
     if heading_chunks:
-        logger.info(f"Split markdown into {len(heading_chunks)} semantic chunks (headings)")
+        logger.info(
+            f"Split markdown into {len(heading_chunks)} semantic chunks (headings)"
+        )
         return heading_chunks
 
     # Fallback: size-based chunking
