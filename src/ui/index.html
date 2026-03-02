@@ -1113,6 +1113,11 @@
             </div>
 
             <div class="checkbox-group">
+                <input type="checkbox" id="useCache">
+                <label for="useCache">Page Cache (24h TTL — skip re-fetching unchanged pages)</label>
+            </div>
+
+            <div class="checkbox-group">
                 <input type="checkbox" id="filterSitemapByPath" checked>
                 <label for="filterSitemapByPath">Filter Sitemap URLs by base path</label>
             </div>
@@ -1411,6 +1416,7 @@
                 respect_robots_txt: document.getElementById('respectRobots').checked,
                 use_page_pool: document.getElementById('usePagePool').checked,
                 use_http_fast_path: document.getElementById('useHttpFastPath').checked,
+                use_cache: document.getElementById('useCache').checked,
                 filter_sitemap_by_path: document.getElementById('filterSitemapByPath').checked,
                 use_native_markdown: document.getElementById('useNativeMarkdown').checked,
                 use_markdown_proxy: useMarkdownProxyCheckbox.checked,
