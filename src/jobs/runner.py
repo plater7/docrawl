@@ -16,7 +16,12 @@ from src.crawler.robots import RobotsParser
 from src.llm.filter import filter_urls_with_llm
 from src.llm.cleanup import cleanup_markdown, needs_llm_cleanup
 from src.llm.client import get_available_models, get_provider_for_model
-from src.scraper.page import PageScraper, PagePool, fetch_markdown_native, fetch_markdown_proxy
+from src.scraper.page import (
+    PageScraper,
+    PagePool,
+    fetch_markdown_native,
+    fetch_markdown_proxy,
+)
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 
 logger = logging.getLogger(__name__)
