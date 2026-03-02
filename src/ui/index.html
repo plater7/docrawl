@@ -1102,6 +1102,11 @@
                 <label for="respectRobots">Respect robots.txt Protocol</label>
             </div>
 
+            <div class="checkbox-group">
+                <input type="checkbox" id="usePagePool" checked>
+                <label for="usePagePool">Use Page Pool (reuse browser pages across requests)</label>
+            </div>
+
             <div class="models-section" style="margin-top: 1rem;">
                 <label class="section-label">// Markdown Optimization</label>
                 <div class="checkbox-group" style="margin-bottom: 0.75rem;">
@@ -1394,6 +1399,7 @@
                 max_concurrent: parseInt(document.getElementById('maxConcurrent').value),
                 max_depth: parseInt(document.getElementById('maxDepth').value),
                 respect_robots_txt: document.getElementById('respectRobots').checked,
+                use_page_pool: document.getElementById('usePagePool').checked,
                 use_native_markdown: document.getElementById('useNativeMarkdown').checked,
                 use_markdown_proxy: useMarkdownProxyCheckbox.checked,
                 markdown_proxy_url: document.getElementById('markdownProxyUrl').value,
