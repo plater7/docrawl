@@ -24,9 +24,9 @@ class JobRequest(BaseModel):
     use_markdown_proxy: bool = False
     markdown_proxy_url: str | None = Field(default=None)
     use_http_fast_path: bool = True  # PR 1.3: try plain HTTP before Playwright
+    use_cache: bool = False  # PR 2.4: opt-in disk cache (24h TTL)
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
-    use_page_pool: bool = True  # PR 1.2: opt-out of PagePool
 
     @field_validator("output_path")
     @classmethod
