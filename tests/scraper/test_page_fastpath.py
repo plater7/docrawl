@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-import pytest
 
 from src.scraper.page import fetch_html_fast
 
@@ -103,9 +102,7 @@ class TestFetchHtmlFast:
                         return_value=False
                     )
                     mock_client.get = AsyncMock(
-                        return_value=_make_response(
-                            status_code=status, text=_LONG_HTML
-                        )
+                        return_value=_make_response(status_code=status, text=_LONG_HTML)
                     )
 
                     result = await fetch_html_fast(
