@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from src.llm.client import generate
+from src.llm.cleanup import _estimate_tokens  # PR 2.5: adaptive token estimate
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +29,10 @@ def _filter_options(urls: list[str]) -> dict[str, Any]:
     """Build Ollama options scaled to the actual URL list size.
 
     Avoids silent truncation when sites have 100+ URLs — closes CONS-011 / issue #57.
+    PR 2.5: uses _estimate_tokens() for adaptive ratio instead of flat // 4.
     """
-    # Each URL averages ~60 chars ≈ 15 tokens; add prompt overhead (~300 tokens)
-    estimated_input_tokens = sum(len(u) for u in urls) // 4 + 300
+    urls_text = "\n".join(urls)
+    estimated_input_tokens = _estimate_tokens(urls_text) + 300  # + prompt overhead
     num_ctx = max(4096, estimated_input_tokens + 1024)
     return {
         "num_ctx": num_ctx,
