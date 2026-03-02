@@ -1135,6 +1135,13 @@
                 </select>
             </div>
 
+            <div class="form-group" style="margin-top: 0.75rem;">
+                <label for="converterSelect">[CONV] HTML→Markdown Converter</label>
+                <select id="converterSelect">
+                    <option value="markdownify" selected>markdownify (default)</option>
+                </select>
+            </div>
+
             <div class="models-section" style="margin-top: 1rem;">
                 <label class="section-label">// Markdown Optimization</label>
                 <div class="checkbox-group" style="margin-bottom: 0.75rem;">
@@ -1332,6 +1339,22 @@
             }
         }
 
+        async function loadConverters() {
+            try {
+                const res = await fetch('/api/converters');
+                const data = await res.json();
+                const sel = document.getElementById('converterSelect');
+                sel.innerHTML = '';
+                data.converters.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.name;
+                    opt.textContent = c.name + (c.name === 'markdownify' ? ' (default)' : '');
+                    if (c.name === 'markdownify') opt.selected = true;
+                    sel.appendChild(opt);
+                });
+            } catch (e) { /* keep static default on error */ }
+        }
+
         providerSelect.addEventListener('change', () => {
             loadModels();
             checkExternalProvider(providerSelect.value);
@@ -1432,6 +1455,7 @@
                 use_cache: document.getElementById('useCache').checked,
                 use_pipeline_mode: document.getElementById('usePipelineMode').checked,
                 output_format: document.getElementById('outputFormat').value,
+                converter: document.getElementById('converterSelect').value || null,
                 filter_sitemap_by_path: document.getElementById('filterSitemapByPath').checked,
                 use_native_markdown: document.getElementById('useNativeMarkdown').checked,
                 use_markdown_proxy: useMarkdownProxyCheckbox.checked,
@@ -1591,6 +1615,7 @@
         form.addEventListener('submit', startCrawl);
         cancelBtn.addEventListener('click', cancelJob);
         loadModels();
+        loadConverters();
         checkHealth();
 
         async function checkHealth() {
