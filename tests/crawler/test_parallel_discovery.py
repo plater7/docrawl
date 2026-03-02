@@ -3,7 +3,6 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 from src.crawler.discovery import _extract_links, recursive_crawl
 
@@ -13,7 +12,9 @@ from src.crawler.discovery import _extract_links, recursive_crawl
 # ---------------------------------------------------------------------------
 
 
-def _make_response(html: str = "", status: int = 200, content_type: str = "text/html") -> MagicMock:
+def _make_response(
+    html: str = "", status: int = 200, content_type: str = "text/html"
+) -> MagicMock:
     """Return a mock httpx response."""
     resp = MagicMock()
     resp.status_code = status
@@ -91,7 +92,9 @@ class TestExtractLinks:
 
     async def test_returns_empty_list_on_non_html_content(self):
         """Non-HTML responses (e.g., JSON) should be skipped."""
-        client = _make_client(_make_response(html="{}", content_type="application/json"))
+        client = _make_client(
+            _make_response(html="{}", content_type="application/json")
+        )
         sem = asyncio.Semaphore(10)
 
         links = await _extract_links(
@@ -103,6 +106,7 @@ class TestExtractLinks:
     async def test_returns_empty_list_on_timeout(self):
         """Timeout exceptions should be swallowed and return empty list."""
         import httpx
+
         client = AsyncMock()
         client.get = AsyncMock(side_effect=httpx.TimeoutException("timeout"))
         sem = asyncio.Semaphore(10)
@@ -136,11 +140,10 @@ class TestRecursiveCrawl:
 
     async def test_respects_url_cap_of_1000(self):
         """recursive_crawl() must never return more than 1000 URLs."""
+
         # Generate a response with 200 unique links per fetch
         def _big_html(base: str) -> str:
-            links = "".join(
-                f'<a href="{base}/page{i}">p{i}</a>' for i in range(200)
-            )
+            links = "".join(f'<a href="{base}/page{i}">p{i}</a>' for i in range(200))
             return f"<html><body>{links}</body></html>"
 
         call_count = 0
@@ -157,7 +160,9 @@ class TestRecursiveCrawl:
             mock_instance.__aexit__ = AsyncMock(return_value=False)
             mock_cls.return_value = mock_instance
 
-            urls = await recursive_crawl("https://docs.example.com/", max_depth=5, concurrency=5)
+            urls = await recursive_crawl(
+                "https://docs.example.com/", max_depth=5, concurrency=5
+            )
 
         assert len(urls) <= 1000
 
@@ -174,6 +179,8 @@ class TestRecursiveCrawl:
             mock_instance.__aexit__ = AsyncMock(return_value=False)
             mock_cls.return_value = mock_instance
 
-            urls = await recursive_crawl("https://docs.example.com/", max_depth=1, concurrency=1)
+            urls = await recursive_crawl(
+                "https://docs.example.com/", max_depth=1, concurrency=1
+            )
 
         assert len(urls) == len(set(urls))
