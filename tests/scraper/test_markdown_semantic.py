@@ -3,9 +3,12 @@
 Covers: _mask_code_blocks, _chunk_by_headings.
 """
 
-import pytest
 
-from src.scraper.markdown import DEFAULT_CHUNK_SIZE, _chunk_by_headings, _mask_code_blocks
+from src.scraper.markdown import (
+    DEFAULT_CHUNK_SIZE,
+    _chunk_by_headings,
+    _mask_code_blocks,
+)
 
 
 class TestMaskCodeBlocks:
@@ -87,8 +90,7 @@ class TestChunkByHeadings:
         text = (
             "# Real Heading One\n\n"
             "```bash\n# This is a comment, not a heading\necho hello\n```\n\n"
-            "# Real Heading Two\n\n"
-            + trailing
+            "# Real Heading Two\n\n" + trailing
         )
         result = _chunk_by_headings(text, chunk_size=DEFAULT_CHUNK_SIZE)
         assert result is not None
