@@ -13,17 +13,12 @@ from src.crawler.robots import RobotsParser
 from src.llm.filter import filter_urls_with_llm
 from src.llm.cleanup import cleanup_markdown, needs_llm_cleanup
 from src.llm.client import get_available_models, get_provider_for_model
-from src.scraper.page import (
-    PageScraper,
-    PagePool,
-    fetch_markdown_native,
-    fetch_markdown_proxy,
-    fetch_html_fast,
-)
+from src.scraper.page import PageScraper, PagePool, fetch_markdown_native, fetch_markdown_proxy, fetch_html_fast
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 from src.scraper.detection import is_blocked_response, content_hash
 from src.scraper.cache import PageCache
 from src.jobs.state import save_job_state
+from src.scraper.structured import html_to_structured, save_structured
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +288,7 @@ async def run_job(
             urls = await filter_urls_with_llm(urls, request.crawl_model)
             llm_duration = time.monotonic() - llm_start
 
-            await _log(
+        await _log(
                 job,
                 "log",
                 {
@@ -323,12 +318,6 @@ async def run_job(
         pages_playwright = 0
         pages_http_fast = 0  # PR 1.3
 
-        # PR 2.4: optional page HTML cache
-        page_cache: PageCache | None = None
-        if request.use_cache:
-            cache_dir = output_path / ".cache"
-            page_cache = PageCache(cache_dir)
-
         # PR 2.3: per-job content dedup state
         seen_hashes: set[str] = set()
         _hash_lock = asyncio.Lock()
@@ -337,6 +326,12 @@ async def run_job(
         completed_urls: list[str] = []
         failed_urls: list[str] = []
         _url_track_lock = asyncio.Lock()
+
+        # PR 2.4: optional page HTML cache
+        page_cache: PageCache | None = None
+        if request.use_cache:
+            cache_dir = output_path / ".cache"
+            page_cache = PageCache(cache_dir)
 
         # Semaphore enforces max_concurrent — closes CONS-010 / issue #56
         sem = asyncio.Semaphore(request.max_concurrent)
@@ -372,6 +367,7 @@ async def run_job(
                 try:
                     markdown = None
                     native_token_count = None
+                    raw_html: str | None = None  # PR 3.2: kept for structured output
                     fetch_method = "playwright"
                     load_time = 0.0
 
@@ -453,13 +449,15 @@ async def run_job(
                     # Fall back to Playwright (pass pool if available — PR 1.2)
                     if markdown is None:
                         html = await scraper.get_html(url, pool=page_pool)
+                        raw_html = html  # PR 3.2: keep for structured output
                         load_time = time.monotonic() - page_start
                         markdown = html_to_markdown(html)
                         async with _counter_lock:
                             pages_playwright += 1
                         # PR 2.4: cache the raw HTML (only if not blocked — checked below)
-                        if page_cache is not None and not is_blocked_response(markdown):
-                            page_cache.put(url, html)
+                        if page_cache is not None:
+                            if not is_blocked_response(markdown):
+                                page_cache.put(url, html)
 
                     # PR 2.3: check for blocked response (bot-check pages)
                     if is_blocked_response(markdown):
@@ -512,19 +510,23 @@ async def run_job(
                     cleaned_chunks: list[str] = []
                     chunks_failed = 0
 
-                    await _log(
-                        job,
-                        "phase_change",
-                        {
-                            "phase": "cleanup",
-                            "active_model": request.pipeline_model,
-                            "message": f"Cleaning {len(chunks)} chunks...",
-                            "progress": f"{i + 1}/{len(urls)}",
-                            "url": url,
-                        },
-                    )
+                    if request.output_format == "json":
+                        # PR 3.2: skip LLM cleanup entirely for JSON output
+                        cleaned_chunks = list(chunks)
+                    else:
+                        await _log(
+                            job,
+                            "phase_change",
+                            {
+                                "phase": "cleanup",
+                                "active_model": request.pipeline_model,
+                                "message": f"Cleaning {len(chunks)} chunks...",
+                                "progress": f"{i + 1}/{len(urls)}",
+                                "url": url,
+                            },
+                        )
 
-                    for ci, chunk in enumerate(chunks):
+                    for ci, chunk in (enumerate(chunks) if request.output_format != "json" else []):
                         if job.is_cancelled:
                             break
 
@@ -574,20 +576,42 @@ async def run_job(
                                 },
                             )
 
-                    # Save sub-phase (atomic write via .tmp + rename — closes issue #99)
-                    final_md = "\n\n".join(cleaned_chunks)
-                    file_path = _url_to_filepath(url, base_url, output_path)
-                    file_path.parent.mkdir(parents=True, exist_ok=True)
-                    tmp_path = file_path.with_suffix(".tmp")
-                    tmp_path.write_text(final_md, encoding="utf-8")
-                    tmp_path.rename(file_path)
-                    file_size = file_path.stat().st_size
+                    # Save sub-phase
+                    md_file_path = _url_to_filepath(url, base_url, output_path)
+
+                    if request.output_format == "json":
+                        # PR 3.2: structured JSON output — no LLM cleanup
+                        if raw_html is not None:
+                            structured_page = html_to_structured(url, raw_html)
+                        else:
+                            from src.scraper.structured import StructuredPage, ContentBlock
+                            structured_page = StructuredPage(
+                                url=url,
+                                title=None,
+                                blocks=[ContentBlock(type="paragraph", content=markdown)],
+                            )
+                        json_path = md_file_path.with_suffix(".json")
+                        save_structured(structured_page, json_path)
+                        file_size = json_path.stat().st_size
+                        file_path = json_path
+                        chunks_failed = 0  # JSON output never has chunk failures
+                    else:
+                        # Default markdown output (atomic write via .tmp + rename — closes issue #99)
+                        final_md = "\n\n".join(cleaned_chunks)
+                        md_file_path.parent.mkdir(parents=True, exist_ok=True)
+                        tmp_path = md_file_path.with_suffix(".tmp")
+                        tmp_path.write_text(final_md, encoding="utf-8")
+                        tmp_path.rename(md_file_path)
+                        file_size = md_file_path.stat().st_size
+                        file_path = md_file_path
 
                     async with _counter_lock:
                         if chunks_failed == 0:
                             pages_ok += 1
                         else:
                             pages_partial += 1
+                    async with _url_track_lock:
+                        completed_urls.append(url)  # PR 3.1
 
                     size_str = (
                         f"{file_size / 1024:.1f} KB"
@@ -626,9 +650,6 @@ async def run_job(
                             "level": "error",
                         },
                     )
-                else:
-                    async with _url_track_lock:
-                        completed_urls.append(url)  # PR 3.1
 
                 async with _counter_lock:
                     job.pages_completed += 1
@@ -639,7 +660,7 @@ async def run_job(
         await asyncio.gather(*[_process_page(i, url) for i, url in enumerate(urls)])
 
         # PR 3.1: save final state checkpoint (completed or paused)
-        pending_urls_final = [
+        pending_urls = [
             u for u in urls if u not in completed_urls and u not in failed_urls
         ]
         try:
@@ -651,7 +672,7 @@ async def run_job(
                 request_dict=_json.loads(job.request.model_dump_json()),
                 completed_urls=list(completed_urls),
                 failed_urls=list(failed_urls),
-                pending_urls=pending_urls_final,
+                pending_urls=pending_urls,
             )
         except Exception as state_err:
             logger.warning(f"Failed to save job state: {state_err}")
