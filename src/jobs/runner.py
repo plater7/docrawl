@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
+import os as _os
 import time
+from dataclasses import dataclass as _dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -815,9 +817,6 @@ def _generate_index(urls: list[str], output_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # PR 3.3: Producer / Consumer pipeline
 # ---------------------------------------------------------------------------
-
-import os as _os
-from dataclasses import dataclass as _dataclass
 
 
 @_dataclass
