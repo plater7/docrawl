@@ -21,6 +21,7 @@ from src.scraper.page import (
     PagePool,
     fetch_markdown_native,
     fetch_markdown_proxy,
+    fetch_html_fast,
 )
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 
@@ -300,6 +301,7 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
         pages_native_md = 0
         pages_proxy_md = 0
         pages_playwright = 0
+        pages_http_fast = 0  # PR 1.3
 
         # Semaphore enforces max_concurrent — closes CONS-010 / issue #56
         sem = asyncio.Semaphore(request.max_concurrent)
@@ -308,7 +310,7 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
 
         async def _process_page(i: int, url: str) -> None:
             nonlocal pages_ok, pages_partial, pages_failed
-            nonlocal pages_native_md, pages_proxy_md, pages_playwright
+            nonlocal pages_native_md, pages_proxy_md, pages_playwright, pages_http_fast
 
             async with sem:
                 if job.is_cancelled:
@@ -373,6 +375,24 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                                 {
                                     "phase": "scraping",
                                     "message": f"[{i + 1}/{len(urls)}] [proxy-md] Fetched via proxy for {url} ({load_time:.1f}s)",
+                                },
+                            )
+
+                    # HTTP fast-path: try plain HTTP before Playwright (PR 1.3)
+                    if markdown is None and request.use_http_fast_path:
+                        fast_md = await fetch_html_fast(url)
+                        if fast_md:
+                            markdown = fast_md
+                            fetch_method = "http_fast"
+                            async with _counter_lock:
+                                pages_http_fast += 1
+                            load_time = time.monotonic() - page_start
+                            await _log(
+                                job,
+                                "log",
+                                {
+                                    "phase": "scraping",
+                                    "message": f"[{i + 1}/{len(urls)}] [http-fast] Skipped Playwright for {url} ({load_time:.1f}s)",
                                 },
                             )
 
@@ -545,6 +565,7 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                     "pages_failed": pages_failed,
                     "pages_native_md": pages_native_md,
                     "pages_proxy_md": pages_proxy_md,
+                    "pages_http_fast": pages_http_fast,
                     "pages_playwright": pages_playwright,
                     "output_path": str(output_path),
                     "message": f"Done: {pages_ok} ok, {pages_partial} partial, {pages_failed} failed",

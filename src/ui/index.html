@@ -1107,6 +1107,16 @@
                 <label for="usePagePool">Use Page Pool (reuse browser pages across requests)</label>
             </div>
 
+            <div class="checkbox-group">
+                <input type="checkbox" id="useHttpFastPath" checked>
+                <label for="useHttpFastPath">HTTP Fast-Path (skip Playwright for static pages)</label>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" id="filterSitemapByPath" checked>
+                <label for="filterSitemapByPath">Filter Sitemap URLs by base path</label>
+            </div>
+
             <div class="models-section" style="margin-top: 1rem;">
                 <label class="section-label">// Markdown Optimization</label>
                 <div class="checkbox-group" style="margin-bottom: 0.75rem;">
@@ -1400,6 +1410,8 @@
                 max_depth: parseInt(document.getElementById('maxDepth').value),
                 respect_robots_txt: document.getElementById('respectRobots').checked,
                 use_page_pool: document.getElementById('usePagePool').checked,
+                use_http_fast_path: document.getElementById('useHttpFastPath').checked,
+                filter_sitemap_by_path: document.getElementById('filterSitemapByPath').checked,
                 use_native_markdown: document.getElementById('useNativeMarkdown').checked,
                 use_markdown_proxy: useMarkdownProxyCheckbox.checked,
                 markdown_proxy_url: document.getElementById('markdownProxyUrl').value,
