@@ -319,6 +319,8 @@ async def run_job(
         pages_ok = 0
         pages_partial = 0
         pages_failed = 0
+        pages_skipped = 0  # PR 2.3: dedup skips
+        pages_blocked = 0  # PR 2.3: bot-check pages
         pages_native_md = 0
         pages_proxy_md = 0
         pages_playwright = 0
@@ -343,9 +345,12 @@ async def run_job(
         sem = asyncio.Semaphore(request.max_concurrent)
         # Lock to protect shared counters and job.pages_completed
         _counter_lock = asyncio.Lock()
+        # PR 2.3: per-job content dedup state
+        seen_hashes: set[str] = set()
+        _hash_lock = asyncio.Lock()
 
         async def _process_page(i: int, url: str) -> None:
-            nonlocal pages_ok, pages_partial, pages_failed
+            nonlocal pages_ok, pages_partial, pages_failed, pages_skipped, pages_blocked
             nonlocal pages_native_md, pages_proxy_md, pages_playwright, pages_http_fast
 
             async with sem:
