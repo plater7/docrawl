@@ -10,7 +10,7 @@ Tests cover:
 - JobManager.active_job_count() counts only pending/running jobs
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from src.api.models import JobRequest
 from src.jobs.manager import Job, JobManager
@@ -236,7 +236,7 @@ class TestJobManagerGetJob:
     async def test_get_job_returns_existing_job(self):
         """get_job should return the job after it has been created."""
         manager = JobManager()
-        with patch("src.jobs.manager.asyncio.create_task"):
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()):
             job = await manager.create_job(_make_request())
 
         retrieved = manager.get_job(job.id)
@@ -260,7 +260,7 @@ class TestJobManagerCancelJob:
     async def test_cancel_job_returns_job_when_found(self):
         """cancel_job should return the job when it exists."""
         manager = JobManager()
-        with patch("src.jobs.manager.asyncio.create_task"):
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()):
             job = await manager.create_job(_make_request())
 
         result = await manager.cancel_job(job.id)
@@ -269,7 +269,7 @@ class TestJobManagerCancelJob:
     async def test_cancel_job_sets_cancelled_status(self):
         """cancel_job should mark the job as cancelled."""
         manager = JobManager()
-        with patch("src.jobs.manager.asyncio.create_task"):
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()):
             job = await manager.create_job(_make_request())
 
         await manager.cancel_job(job.id)
@@ -288,7 +288,7 @@ class TestJobManagerCreateJob:
     async def test_create_job_returns_job_with_pending_status(self):
         """create_job should return a Job with status='pending'."""
         manager = JobManager()
-        with patch("src.jobs.manager.asyncio.create_task"):
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()):
             job = await manager.create_job(_make_request())
         assert job.status == "pending"
 
@@ -297,7 +297,7 @@ class TestJobManagerCreateJob:
         import uuid
 
         manager = JobManager()
-        with patch("src.jobs.manager.asyncio.create_task"):
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()):
             job = await manager.create_job(_make_request())
         # Validate it's a valid UUID string
         parsed = uuid.UUID(job.id)
@@ -306,7 +306,7 @@ class TestJobManagerCreateJob:
     async def test_create_job_produces_unique_ids(self):
         """Each create_job call should produce a different job ID."""
         manager = JobManager()
-        with patch("src.jobs.manager.asyncio.create_task"):
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()):
             job1 = await manager.create_job(_make_request())
             job2 = await manager.create_job(_make_request())
         assert job1.id != job2.id
@@ -314,7 +314,7 @@ class TestJobManagerCreateJob:
     async def test_create_job_stores_job_in_manager(self):
         """Created job should be retrievable via get_job."""
         manager = JobManager()
-        with patch("src.jobs.manager.asyncio.create_task"):
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()):
             job = await manager.create_job(_make_request())
 
         assert manager.get_job(job.id) is job
@@ -323,7 +323,7 @@ class TestJobManagerCreateJob:
         """Created job should carry the original request."""
         manager = JobManager()
         request = _make_request(delay_ms=999)
-        with patch("src.jobs.manager.asyncio.create_task"):
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()):
             job = await manager.create_job(request)
         assert job.request.delay_ms == 999
 
@@ -335,7 +335,7 @@ class TestJobManagerCreateJob:
         async def fake_run_job(job):
             runner_called.append(job.id)
 
-        with patch("src.jobs.manager.asyncio.create_task") as mock_task:
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()) as mock_task:
             await manager.create_job(_make_request())
             # create_task was called once (to schedule the runner)
             mock_task.assert_called_once()
@@ -346,7 +346,7 @@ class TestJobManagerCreateJob:
         """Multiple jobs should all be stored and retrievable."""
         manager = JobManager()
         jobs = []
-        with patch("src.jobs.manager.asyncio.create_task"):
+        with patch("src.jobs.manager.asyncio.create_task", side_effect=lambda coro: coro.close() or MagicMock()):
             for _ in range(3):
                 job = await manager.create_job(_make_request())
                 jobs.append(job)
