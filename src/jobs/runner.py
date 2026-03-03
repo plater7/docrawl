@@ -546,6 +546,7 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
             _generate_index(urls, output_path)
 
             job.status = "completed"
+            job.completed_at = time.time()  # PR 1.5
             await _log(
                 job,
                 "phase_change",
@@ -574,6 +575,7 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
     except Exception as e:
         logger.error(f"Job {job.id} failed: {e}")
         job.status = "failed"
+        job.completed_at = time.time()  # PR 1.5
         try:
             await job.emit_event(
                 "phase_change",

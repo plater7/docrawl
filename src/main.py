@@ -95,8 +95,15 @@ async def lifespan(app: FastAPI):
         pool = None
         logger.info("PagePool disabled (PAGE_POOL_SIZE=0)")
 
+    # PR 1.5: start background cleanup loop (removes expired completed jobs)
+    import asyncio as _asyncio
+
+    cleanup_task = _asyncio.create_task(job_manager.start_cleanup_loop())
+
     yield
 
+    # Shutdown: cancel cleanup loop, then cancel jobs, then close pool and browser
+    cleanup_task.cancel()
     await job_manager.shutdown()
     if pool is not None:
         await pool.close()
@@ -108,7 +115,7 @@ async def lifespan(app: FastAPI):
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-API_VERSION = "0.9.7"
+API_VERSION = "0.9.8"
 
 app = FastAPI(title="Docrawl", version=API_VERSION, lifespan=lifespan)
 
