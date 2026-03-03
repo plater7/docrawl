@@ -115,7 +115,7 @@ async def lifespan(app: FastAPI):
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-API_VERSION = "0.9.8"
+API_VERSION = "0.9.9"
 
 app = FastAPI(title="Docrawl", version=API_VERSION, lifespan=lifespan)
 
