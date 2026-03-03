@@ -952,7 +952,7 @@ async def _run_pipeline_mode(
 
             page = item
             url = page.url
-            i = page.index
+            _i = page.index
             markdown = page.markdown
 
             try:
