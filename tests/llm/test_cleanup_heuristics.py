@@ -3,7 +3,6 @@
 Covers: _has_broken_tables, _has_latex, classify_chunk, _estimate_tokens.
 """
 
-import pytest
 
 from src.llm.cleanup import (
     _estimate_tokens,
