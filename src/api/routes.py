@@ -14,7 +14,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sse_starlette.sse import EventSourceResponse
 
-from src.api.models import JobRequest, JobStatus, OllamaModel
+from src.api.models import JobRequest, JobStatus, OllamaModel, ResumeFromStateRequest
 from src.llm.client import get_available_models, PROVIDERS, OLLAMA_URL
 from src.jobs.manager import JobManager
 
@@ -263,3 +263,88 @@ async def app_info() -> dict:
         "author": "plater7",
         "models_used": ["qwen3-coder:free", "glm-4.7-free", "claude-sonnet-4-6"],
     }
+
+
+@router.post("/jobs/{job_id}/pause")
+async def pause_job(job_id: str) -> JobStatus:
+    """Pause a running job after the current page finishes (PR 3.1).
+
+    The job state is checkpointed to {output_path}/.job_state.json.
+    Use POST /jobs/resume-from-state to restart from the checkpoint.
+    """
+    job = job_manager.pause_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status not in ("paused", "running"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Job {job_id} cannot be paused (status: {job.status})",
+        )
+    return JobStatus(
+        id=job.id,
+        status=job.status,
+        pages_completed=job.pages_completed,
+        pages_total=job.pages_total,
+    )
+
+
+@router.post("/jobs/{job_id}/resume")
+async def resume_job(job_id: str) -> JobStatus:
+    """Resume a paused job (PR 3.1)."""
+    job = job_manager.resume_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status not in ("paused", "running"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Job {job_id} cannot be resumed (status: {job.status})",
+        )
+    return JobStatus(
+        id=job.id,
+        status=job.status,
+        pages_completed=job.pages_completed,
+        pages_total=job.pages_total,
+    )
+
+
+@router.post("/jobs/resume-from-state")
+@limiter.limit("10/minute")
+async def resume_from_state(request: Request, body: ResumeFromStateRequest) -> JobStatus:
+    """Create a new job resuming only the pending URLs from a saved state file (PR 3.1).
+
+    Loads {state_file_path}, reconstructs the original JobRequest, and starts
+    a new job processing only the URLs that were pending at the time of the checkpoint.
+    Completed and failed URLs from the original run are skipped.
+    """
+    from src.jobs.state import load_job_state
+
+    state_path = Path(body.state_file_path)
+    if not state_path.exists():
+        raise HTTPException(status_code=404, detail=f"State file not found: {state_path}")
+
+    try:
+        state = load_job_state(state_path)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    if not state.pending_urls:
+        raise HTTPException(status_code=409, detail="No pending URLs in state file — job was complete.")
+
+    try:
+        job_request = JobRequest.model_validate(state.request)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Invalid request in state file: {e}")
+
+    active_count = job_manager.active_job_count()
+    if active_count >= MAX_CONCURRENT_JOBS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many active jobs ({active_count}/{MAX_CONCURRENT_JOBS}). Try again later.",
+        )
+
+    job = await job_manager.create_resume_job(job_request, state.pending_urls)
+    return JobStatus(
+        id=job.id,
+        status=job.status,
+        pages_total=len(state.pending_urls),
+    )

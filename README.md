@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.9.7-blue?style=for-the-badge" alt="version">
+  <img src="https://img.shields.io/badge/version-v0.9.10-blue?style=for-the-badge" alt="version">
   <img src="https://img.shields.io/badge/python-3.12-yellow?style=for-the-badge&logo=python" alt="python">
   <a href="https://github.com/plater7/docrawl/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/plater7/docrawl/test.yml?branch=main&style=for-the-badge&label=tests&logo=github" alt="tests"></a>
   <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
@@ -175,15 +175,19 @@ Modelos disponibles: `opencode/claude-sonnet-4-5`, `opencode/claude-haiku-4-5`, 
 ## 📡 API
 
 ```
-GET  /                          # UI dashboard
-GET  /api/info                  # App metadata: versión, repo, author, models_used
-GET  /api/providers             # Lista providers y estado
-GET  /api/models?provider=...   # Modelos disponibles
-GET  /api/health/ready          # Readiness check (Ollama, disco, permisos)
-POST /api/jobs                  # Crear job
-GET  /api/jobs/{id}/events      # SSE stream
-POST /api/jobs/{id}/cancel      # Cancelar
-GET  /api/jobs/{id}/status      # Estado actual
+GET  /                              # UI dashboard
+GET  /api/info                      # App metadata: versión, repo, author, models_used
+GET  /api/providers                 # Lista providers y estado
+GET  /api/models?provider=...       # Modelos disponibles
+GET  /api/health/ready              # Readiness check (Ollama, disco, permisos)
+POST /api/jobs                      # Crear job
+GET  /api/jobs/{id}/events          # SSE stream
+POST /api/jobs/{id}/cancel          # Cancelar
+GET  /api/jobs/{id}/status          # Estado actual
+POST /api/jobs/{id}/pause           # Pausar job (PR 3.1)
+POST /api/jobs/{id}/resume          # Reanudar job pausado (PR 3.1)
+POST /api/jobs/resume-from-state    # Nuevo job desde checkpoint .job_state.json (PR 3.1)
+GET  /api/converters                # Listar convertidores HTML→MD registrados (PR 3.4)
 ```
 
 ## 🔧 Configuración
@@ -199,6 +203,13 @@ GET  /api/jobs/{id}/status      # Estado actual
 | `respect_robots_txt` | `true` | Respetar robots.txt |
 | `use_native_markdown` | `true` | Intentar `Accept: text/markdown` |
 | `use_markdown_proxy` | `false` | Usar proxy como fallback |
+| `use_page_pool` | `true` | Reusar páginas Playwright entre requests — PR 1.2 |
+| `use_http_fast_path` | `true` | Intentar HTTP plano antes de Playwright — PR 1.3 |
+| `filter_sitemap_by_path` | `true` | Filtrar URLs del sitemap al subpath base — PR 1.3 |
+| `use_cache` | `false` | Caché de páginas en disco con TTL 24h — PR 2.4 |
+| `output_format` | `"markdown"` | Formato de salida: `markdown` o `json` — PR 3.2 |
+| `use_pipeline_mode` | `false` | Pipeline productor/consumidor async — PR 3.3 |
+| `converter` | `"markdownify"` | Convertidor HTML→Markdown — PR 3.4 |
 
 ## 🎨 UI Themes
 

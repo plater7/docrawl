@@ -26,7 +26,7 @@ from src.scraper.page import (
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 from src.scraper.detection import is_blocked_response, content_hash
 from src.scraper.cache import PageCache
-
+from src.jobs.state import save_job_state
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +98,16 @@ async def _log(job: Job, event_type: str, data: dict) -> None:
             logger.info(full_msg)
 
 
-async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
+async def run_job(
+    job: Job,
+    page_pool: PagePool | None = None,
+    resume_urls: list[str] | None = None,
+) -> None:
     """Execute a crawl job with enriched phase/model SSE events.
 
     page_pool: optional pre-initialized PagePool from main.py lifespan (PR 1.2).
                If None, falls back to the legacy per-page create/close path.
+    resume_urls: if provided, skip discovery/filtering and process only these URLs (PR 3.1).
     """
     # TODO: reasoning_model will be used for:
     # - Site structure analysis before crawling
@@ -196,98 +201,111 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
         else:
             delay_s = request.delay_ms / 1000
 
-        # DISCOVERY phase
-        phase_start = time.monotonic()
-        await _log(
-            job,
-            "phase_change",
-            {
-                "phase": "discovery",
-                "message": "Crawling site structure...",
-            },
-        )
+        # PR 3.1: skip discovery/filtering when resuming from saved state
+        if resume_urls is not None:
+            urls = resume_urls
+            await _log(
+                job,
+                "phase_change",
+                {
+                    "phase": "discovery",
+                    "message": f"Resuming from state: {len(urls)} pending URLs (skipping discovery/filtering)",
+                },
+            )
+        else:
+            # DISCOVERY phase
+            phase_start = time.monotonic()
+            await _log(
+                job,
+                "phase_change",
+                {
+                    "phase": "discovery",
+                    "message": "Crawling site structure...",
+                },
+            )
 
-        urls = await discover_urls(
-            base_url, request.max_depth, request.filter_sitemap_by_path
-        )
+            urls = await discover_urls(
+                base_url, request.max_depth, request.filter_sitemap_by_path
+            )
 
-        discovery_time = time.monotonic() - phase_start
-        await _log(
-            job,
-            "log",
-            {
-                "phase": "discovery",
-                "message": f"Found {len(urls)} URLs ({discovery_time:.1f}s)",
-            },
-        )
+            discovery_time = time.monotonic() - phase_start
+            await _log(
+                job,
+                "log",
+                {
+                    "phase": "discovery",
+                    "message": f"Found {len(urls)} URLs ({discovery_time:.1f}s)",
+                },
+            )
 
-        if job.is_cancelled:
-            return
+            if job.is_cancelled:
+                return
 
-        # FILTERING phase — basic
-        phase_start = time.monotonic()
-        total_before = len(urls)
-        await _log(
-            job,
-            "phase_change",
-            {
-                "phase": "filtering",
-                "message": "Applying basic filters...",
-            },
-        )
+            # FILTERING phase — basic
+            phase_start = time.monotonic()
+            total_before = len(urls)
+            await _log(
+                job,
+                "phase_change",
+                {
+                    "phase": "filtering",
+                    "message": "Applying basic filters...",
+                },
+            )
 
-        urls = filter_urls(urls, base_url, request.language)
-        after_basic = len(urls)
-        removed_basic = total_before - after_basic
-        await _log(
-            job,
-            "log",
-            {
-                "phase": "filtering",
-                "message": f"Basic filtering: {total_before} → {after_basic} URLs (removed {removed_basic} non-doc)",
-            },
-        )
+            urls = filter_urls(urls, base_url, request.language)
+            after_basic = len(urls)
+            removed_basic = total_before - after_basic
+            await _log(
+                job,
+                "log",
+                {
+                    "phase": "filtering",
+                    "message": f"Basic filtering: {total_before} → {after_basic} URLs (removed {removed_basic} non-doc)",
+                },
+            )
 
-        # Robots.txt filtering
-        if request.respect_robots_txt:
-            before_robots = len(urls)
-            urls = [u for u in urls if robots.is_allowed(u)]
-            removed_robots = before_robots - len(urls)
-            if removed_robots > 0:
-                await _log(
-                    job,
-                    "log",
-                    {
-                        "phase": "filtering",
-                        "message": f"robots.txt: {before_robots} → {len(urls)} URLs (blocked {removed_robots})",
-                    },
-                )
+            # Robots.txt filtering
+            if request.respect_robots_txt:
+                before_robots = len(urls)
+                urls = [u for u in urls if robots.is_allowed(u)]
+                removed_robots = before_robots - len(urls)
+                if removed_robots > 0:
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "filtering",
+                            "message": f"robots.txt: {before_robots} → {len(urls)} URLs (blocked {removed_robots})",
+                        },
+                    )
 
-        # FILTERING phase — LLM
-        before_llm = len(urls)
-        await _log(
-            job,
-            "phase_change",
-            {
-                "phase": "filtering",
-                "active_model": request.crawl_model,
-                "message": f"LLM filtering with {request.crawl_model}...",
-            },
-        )
+            # FILTERING phase — LLM
+            before_llm = len(urls)
+            await _log(
+                job,
+                "phase_change",
+                {
+                    "phase": "filtering",
+                    "active_model": request.crawl_model,
+                    "message": f"LLM filtering with {request.crawl_model}...",
+                },
+            )
 
-        llm_start = time.monotonic()
-        urls = await filter_urls_with_llm(urls, request.crawl_model)
-        llm_duration = time.monotonic() - llm_start
+            llm_start = time.monotonic()
+            urls = await filter_urls_with_llm(urls, request.crawl_model)
+            llm_duration = time.monotonic() - llm_start
 
-        await _log(
-            job,
-            "log",
-            {
-                "phase": "filtering",
-                "active_model": request.crawl_model,
-                "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
-            },
-        )
+            await _log(
+                job,
+                "log",
+                {
+                    "phase": "filtering",
+                    "active_model": request.crawl_model,
+                    "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
+                },
+            )
+        # end else (full discovery/filtering)
 
         job.pages_total = len(urls)
 
@@ -314,6 +332,15 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
             cache_dir = output_path / ".cache"
             page_cache = PageCache(cache_dir)
 
+        # PR 2.3: per-job content dedup state
+        seen_hashes: set[str] = set()
+        _hash_lock = asyncio.Lock()
+
+        # PR 3.1: track completed/failed URLs for pause/resume checkpoint
+        completed_urls: list[str] = []
+        failed_urls: list[str] = []
+        _url_track_lock = asyncio.Lock()
+
         # Semaphore enforces max_concurrent — closes CONS-010 / issue #56
         sem = asyncio.Semaphore(request.max_concurrent)
         # Lock to protect shared counters and job.pages_completed
@@ -327,6 +354,9 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
             nonlocal pages_native_md, pages_proxy_md, pages_playwright, pages_http_fast
 
             async with sem:
+                # PR 3.1: suspend until job is resumed (no-op if running)
+                await job.wait_if_paused()
+
                 if job.is_cancelled:
                     return
 
@@ -471,42 +501,6 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                             return
                         seen_hashes.add(h)
 
-                    # PR 2.3: check for blocked response (bot-check pages)
-                    if is_blocked_response(markdown):
-                        async with _counter_lock:
-                            pages_blocked += 1
-                            job.pages_blocked += 1
-                            job.pages_completed += 1
-                        await _log(
-                            job,
-                            "log",
-                            {
-                                "phase": "scraping",
-                                "message": f"[{i + 1}/{len(urls)}] ⚠ blocked response detected, skipping {url}",
-                                "level": "warning",
-                            },
-                        )
-                        return
-
-                    # PR 2.3: content dedup — skip near-identical pages
-                    h = content_hash(markdown)
-                    async with _hash_lock:
-                        if h in seen_hashes:
-                            async with _counter_lock:
-                                pages_skipped += 1
-                                job.pages_skipped += 1
-                                job.pages_completed += 1
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] ⚡ duplicate content, skipping {url}",
-                                },
-                            )
-                            return
-                        seen_hashes.add(h)
-
                     chunks = chunk_markdown(
                         markdown, native_token_count=native_token_count
                     )
@@ -625,6 +619,8 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                 except Exception as e:
                     async with _counter_lock:
                         pages_failed += 1
+                    async with _url_track_lock:
+                        failed_urls.append(url)  # PR 3.1
                     page_time = time.monotonic() - page_start
                     logger.error(f"Failed to process {url}: {e}")
                     await _log(
@@ -636,6 +632,9 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                             "level": "error",
                         },
                     )
+                else:
+                    async with _url_track_lock:
+                        completed_urls.append(url)  # PR 3.1
 
                 async with _counter_lock:
                     job.pages_completed += 1
@@ -644,6 +643,23 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
 
         # Launch all pages concurrently, semaphore controls actual parallelism
         await asyncio.gather(*[_process_page(i, url) for i, url in enumerate(urls)])
+
+        # PR 3.1: save final state checkpoint (completed or paused)
+        pending_urls_final = [
+            u for u in urls if u not in completed_urls and u not in failed_urls
+        ]
+        try:
+            import json as _json
+            save_job_state(
+                output_path,
+                job_id=job.id,
+                request_dict=_json.loads(job.request.model_dump_json()),
+                completed_urls=list(completed_urls),
+                failed_urls=list(failed_urls),
+                pending_urls=pending_urls_final,
+            )
+        except Exception as state_err:
+            logger.warning(f"Failed to save job state: {state_err}")
 
         if not job.is_cancelled:
             _generate_index(urls, output_path)
