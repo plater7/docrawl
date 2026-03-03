@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.10] - 2026-03-03
+
+### Added
+- **Pause/Resume** — `POST /jobs/{id}/pause` pausa el job después de la página actual; `POST /jobs/{id}/resume` lo reanuda en el mismo proceso; `asyncio.Event` interno (set=running, clear=paused) — PR 3.1
+- **State Checkpoint** — al pausar se escribe `{output_path}/.job_state.json` (atomic write) con URLs completadas/fallidas/pendientes + `JobRequest` serializado — PR 3.1
+- **Resume from State** — `POST /api/jobs/resume-from-state` crea un nuevo job procesando solo las URLs pendientes del checkpoint; protección path traversal (solo bajo `/data`) — PR 3.1
+- **Structured Output** — `output_format: "json"` devuelve `StructuredPage` con 7 tipos de `ContentBlock` (heading, paragraph, code, table, list, blockquote, image) — PR 3.2
+- **Pipeline Mode** — `use_pipeline_mode: true` activa arquitectura productor/consumidor con `asyncio.Queue(maxsize=20)` para overlap scraping+cleanup — PR 3.3
+- **Converter Plugins** — sistema de plugins `MarkdownConverter` (Protocol `@runtime_checkable`) + registry estático; `GET /api/converters` lista los registrados; campo `converter` en `JobRequest` — PR 3.4
+- **MarkdownifyConverter** — implementación por defecto del protocol, configurable vía `converter: "markdownify"` — PR 3.4
+
+---
+
+## [v0.9.9] - 2026-03-03
+
+### Added
+- **Semantic Chunking** — `chunk_markdown()` divide por headings H1-H3 con `_mask_code_blocks()` para no partir bloques de código — PR 2.1
+- **Cleanup Heuristics** — `classify_chunk()` introduce `CleanupLevel` (skip/cleanup/heavy); detecta tablas rotas y LaTeX — PR 2.2
+- **Dedup + Block Detection** — `content_hash()` para deduplicar páginas repetidas; `is_blocked_response()` detecta bot-checks (Cloudflare, CAPTCHA); contadores `pages_skipped` y `pages_blocked` — PR 2.3
+- **Page Cache** — `PageCache` con TTL 24h y escritura atómica; opt-in via `use_cache: false`; campo `cache_dir` configurable — PR 2.4
+- **Token Estimation** — `_estimate_tokens()` con ratios distintos para código (3.0), tablas (3.5) y prosa (4.0) — PR 2.5
+- **API Version** — `X-API-Version: 0.9.9` — PR 2.5
+
+---
+
+## [v0.9.8] - 2026-03-03
+
+### Added
+- **Docker Hardening** — imagen base `python:3.12.9-slim-bookworm` fijada; sin curl en runtime; healthcheck via `python -c urllib.request` — PR 1.1
+- **PagePool** — pool de páginas Playwright reutilizables (`asyncio.Queue`); env var `PAGE_POOL_SIZE`; opt-out via `use_page_pool: false`; inicializado en el lifespan de FastAPI — PR 1.2
+- **HTTP Fast-Path** — `fetch_html_fast()` intenta HTTP plano antes de Playwright para páginas estáticas; opt-out via `use_http_fast_path: false`; `filter_sitemap_by_path` filtra URLs del sitemap al subpath base — PR 1.3
+- **Parallel Discovery** — BFS paralelo con `asyncio.gather` por nivel de profundidad; env var `DISCOVERY_CONCURRENCY` — PR 1.4
+- **Job TTL** — cleanup background de jobs completados; `JOB_TTL_SECONDS` env var; `asyncio.Lock` en `JobManager` para thread safety; campo `completed_at` en `Job` — PR 1.5
+
+---
+
 ## [v0.9.7] - 2026-02-27
 
 ### Added
