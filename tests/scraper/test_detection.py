@@ -6,7 +6,6 @@ Source: src/scraper/detection.py
 import hashlib
 import re
 
-import pytest
 
 from src.scraper.detection import content_hash, is_blocked_response
 
@@ -28,8 +27,7 @@ class TestIsBlockedResponse:
     def test_returns_true_for_cloudflare_ddos_protection_page(self):
         """Returns True for a typical Cloudflare challenge page with multiple signals."""
         content = (
-            "DDoS protection by Cloudflare. "
-            "Just a moment... Checking your browser."
+            "DDoS protection by Cloudflare. Just a moment... Checking your browser."
         )
         assert is_blocked_response(content) is True
 
