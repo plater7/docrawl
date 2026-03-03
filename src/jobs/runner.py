@@ -27,6 +27,7 @@ from src.scraper.markdown import html_to_markdown, chunk_markdown
 from src.scraper.detection import is_blocked_response, content_hash
 from src.scraper.cache import PageCache
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -300,6 +301,8 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
         pages_ok = 0
         pages_partial = 0
         pages_failed = 0
+        pages_skipped = 0  # PR 2.3: dedup skips
+        pages_blocked = 0  # PR 2.3: bot-check pages
         pages_native_md = 0
         pages_proxy_md = 0
         pages_playwright = 0
@@ -319,9 +322,12 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
         sem = asyncio.Semaphore(request.max_concurrent)
         # Lock to protect shared counters and job.pages_completed
         _counter_lock = asyncio.Lock()
+        # PR 2.3: per-job content dedup state
+        seen_hashes: set[str] = set()
+        _hash_lock = asyncio.Lock()
 
         async def _process_page(i: int, url: str) -> None:
-            nonlocal pages_ok, pages_partial, pages_failed
+            nonlocal pages_ok, pages_partial, pages_failed, pages_skipped, pages_blocked
             nonlocal pages_native_md, pages_proxy_md, pages_playwright, pages_http_fast
 
             async with sem:
@@ -456,6 +462,42 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                     async with _hash_lock:
                         if h in seen_hashes:
                             async with _counter_lock:
+                                job.pages_skipped += 1
+                                job.pages_completed += 1
+                            await _log(
+                                job,
+                                "log",
+                                {
+                                    "phase": "scraping",
+                                    "message": f"[{i + 1}/{len(urls)}] ⚡ duplicate content, skipping {url}",
+                                },
+                            )
+                            return
+                        seen_hashes.add(h)
+
+                    # PR 2.3: check for blocked response (bot-check pages)
+                    if is_blocked_response(markdown):
+                        async with _counter_lock:
+                            pages_blocked += 1
+                            job.pages_blocked += 1
+                            job.pages_completed += 1
+                        await _log(
+                            job,
+                            "log",
+                            {
+                                "phase": "scraping",
+                                "message": f"[{i + 1}/{len(urls)}] ⚠ blocked response detected, skipping {url}",
+                                "level": "warning",
+                            },
+                        )
+                        return
+
+                    # PR 2.3: content dedup — skip near-identical pages
+                    h = content_hash(markdown)
+                    async with _hash_lock:
+                        if h in seen_hashes:
+                            async with _counter_lock:
+                                pages_skipped += 1
                                 job.pages_skipped += 1
                                 job.pages_completed += 1
                             await _log(
@@ -628,6 +670,8 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                     "pages_ok": pages_ok,
                     "pages_partial": pages_partial,
                     "pages_failed": pages_failed,
+                    "pages_skipped": pages_skipped,
+                    "pages_blocked": pages_blocked,
                     "pages_native_md": pages_native_md,
                     "pages_proxy_md": pages_proxy_md,
                     "pages_http_fast": pages_http_fast,
