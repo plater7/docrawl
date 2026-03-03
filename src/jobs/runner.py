@@ -25,6 +25,8 @@ from src.scraper.page import (
 )
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 from src.scraper.detection import is_blocked_response, content_hash
+from src.scraper.cache import PageCache
+
 
 logger = logging.getLogger(__name__)
 
@@ -306,6 +308,12 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
         pages_playwright = 0
         pages_http_fast = 0  # PR 1.3
 
+        # PR 2.4: optional page HTML cache
+        page_cache: PageCache | None = None
+        if request.use_cache:
+            cache_dir = output_path / ".cache"
+            page_cache = PageCache(cache_dir)
+
         # Semaphore enforces max_concurrent — closes CONS-010 / issue #56
         sem = asyncio.Semaphore(request.max_concurrent)
         # Lock to protect shared counters and job.pages_completed
@@ -342,6 +350,22 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                     native_token_count = None
                     fetch_method = "playwright"
                     load_time = 0.0
+
+                    # PR 2.4: check cache before any network call
+                    if page_cache is not None:
+                        cached_html = page_cache.get(url)
+                        if cached_html is not None:
+                            markdown = html_to_markdown(cached_html)
+                            fetch_method = "cache"
+                            load_time = time.monotonic() - page_start
+                            await _log(
+                                job,
+                                "log",
+                                {
+                                    "phase": "scraping",
+                                    "message": f"[{i + 1}/{len(urls)}] [cache] Served from cache {url} ({load_time:.2f}s)",
+                                },
+                            )
 
                     # Try native markdown via content negotiation
                     if request.use_native_markdown:
@@ -402,14 +426,50 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                                 },
                             )
 
-                    # Fall back to Playwright (pass pool if available and opted-in — PR 1.2)
+                    # Fall back to Playwright (pass pool if available — PR 1.2)
                     if markdown is None:
-                        _pool = page_pool if request.use_page_pool else None
-                        html = await scraper.get_html(url, pool=_pool)
+                        html = await scraper.get_html(url, pool=page_pool)
                         load_time = time.monotonic() - page_start
                         markdown = html_to_markdown(html)
                         async with _counter_lock:
                             pages_playwright += 1
+                        # PR 2.4: cache the raw HTML (only if not blocked — checked below)
+                        if page_cache is not None and not is_blocked_response(markdown):
+                            page_cache.put(url, html)
+
+                    # PR 2.3: check for blocked response (bot-check pages)
+                    if is_blocked_response(markdown):
+                        async with _counter_lock:
+                            job.pages_blocked += 1
+                            job.pages_completed += 1
+                        await _log(
+                            job,
+                            "log",
+                            {
+                                "phase": "scraping",
+                                "message": f"[{i + 1}/{len(urls)}] ⚠ blocked response detected, skipping {url}",
+                                "level": "warning",
+                            },
+                        )
+                        return
+
+                    # PR 2.3: content dedup — skip near-identical pages
+                    h = content_hash(markdown)
+                    async with _hash_lock:
+                        if h in seen_hashes:
+                            async with _counter_lock:
+                                job.pages_skipped += 1
+                                job.pages_completed += 1
+                            await _log(
+                                job,
+                                "log",
+                                {
+                                    "phase": "scraping",
+                                    "message": f"[{i + 1}/{len(urls)}] ⚡ duplicate content, skipping {url}",
+                                },
+                            )
+                            return
+                        seen_hashes.add(h)
 
                     # PR 2.3: check for blocked response (bot-check pages)
                     if is_blocked_response(markdown):
@@ -606,12 +666,14 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                     "pages_ok": pages_ok,
                     "pages_partial": pages_partial,
                     "pages_failed": pages_failed,
-                    "pages_skipped": pages_skipped,
-                    "pages_blocked": pages_blocked,
                     "pages_native_md": pages_native_md,
                     "pages_proxy_md": pages_proxy_md,
                     "pages_http_fast": pages_http_fast,
                     "pages_playwright": pages_playwright,
+                    "pages_skipped": job.pages_skipped,
+                    "pages_blocked": job.pages_blocked,
+                    "cache_hits": page_cache.hits if page_cache else 0,
+                    "cache_misses": page_cache.misses if page_cache else 0,
                     "output_path": str(output_path),
                     "message": f"Done: {pages_ok} ok, {pages_partial} partial, {pages_failed} failed",
                 },
