@@ -3,7 +3,6 @@
 Covers: _mask_code_blocks, _chunk_by_headings.
 """
 
-
 from src.scraper.markdown import (
     DEFAULT_CHUNK_SIZE,
     _chunk_by_headings,
