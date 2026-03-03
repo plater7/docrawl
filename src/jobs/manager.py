@@ -1,6 +1,8 @@
 """Job management."""
 
 import json
+import os
+import time
 import uuid
 import asyncio
 import logging
@@ -25,6 +27,9 @@ class Job:
     pages_total: int = 0
     pages_completed: int = 0
     current_url: str | None = None
+    completed_at: float | None = None  # PR 1.5: wall-clock time at completion
+    pages_skipped: int = 0  # PR 2.3: dedup skips
+    pages_blocked: int = 0  # PR 2.3: bot-check pages
     _cancelled: bool = False
     _events: asyncio.Queue = field(default_factory=asyncio.Queue)
     _task: Any = field(default=None, repr=False)  # asyncio.Task
@@ -84,13 +89,15 @@ class JobManager:
 
     def __init__(self) -> None:
         self._jobs: dict[str, Job] = {}
+        self._jobs_lock: asyncio.Lock = asyncio.Lock()  # PR 1.5: guards _jobs dict
         self.page_pool: "PagePool | None" = None  # PR 1.2: set in main.py lifespan
 
     async def create_job(self, request: JobRequest) -> Job:
         """Create and start a new job."""
         job_id = str(uuid.uuid4())
         job = Job(id=job_id, request=request)
-        self._jobs[job_id] = job
+        async with self._jobs_lock:
+            self._jobs[job_id] = job
 
         from src.jobs.runner import run_job
 
@@ -154,3 +161,36 @@ class JobManager:
             )
             logger.info(f"Cancelled job {job_id}")
         return job
+
+    async def cleanup_old_jobs(self) -> int:
+        """Remove completed/failed jobs older than JOB_TTL_SECONDS (PR 1.5).
+
+        Returns number of jobs removed.
+        """
+        ttl = int(os.environ.get("JOB_TTL_SECONDS", "3600"))
+        if ttl <= 0:
+            return 0
+        now = time.time()
+        to_remove = []
+        async with self._jobs_lock:
+            for job_id, job in self._jobs.items():
+                if job.completed_at is not None and (now - job.completed_at) > ttl:
+                    to_remove.append(job_id)
+            for job_id in to_remove:
+                del self._jobs[job_id]
+        if to_remove:
+            logger.info(f"TTL cleanup: removed {len(to_remove)} expired job(s)")
+        return len(to_remove)
+
+    async def start_cleanup_loop(self, interval: int = 300) -> None:
+        """Background task: periodically clean up expired jobs (PR 1.5).
+
+        JOB_TTL_SECONDS=0 disables cleanup.
+        """
+        logger.info(f"Job cleanup loop started (interval={interval}s)")
+        try:
+            while True:
+                await asyncio.sleep(interval)
+                await self.cleanup_old_jobs()
+        except asyncio.CancelledError:
+            logger.info("Job cleanup loop stopped")

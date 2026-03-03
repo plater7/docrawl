@@ -78,24 +78,69 @@ def html_to_markdown(html: str) -> str:
     return md(html, heading_style="ATX", strip=["script", "style", "nav", "footer"])
 
 
-def chunk_markdown(
-    text: str,
-    chunk_size: int = DEFAULT_CHUNK_SIZE,
-    native_token_count: int | None = None,
-) -> list[str]:
-    """Split markdown into chunks for LLM processing.
+# Regex to find top-level headings (H1-H3) for semantic splitting (PR 2.1)
+_HEADING_RE = re.compile(r"^(#{1,3})\s+", re.MULTILINE)
+# Regex to find fenced code blocks for masking (PR 2.1)
+_CODE_FENCE_RE = re.compile(r"```[\s\S]*?```", re.MULTILINE)
 
-    Pre-cleans markdown, tries heading boundaries first, then paragraphs.
-    Skips tiny fragments (< 50 chars).
+
+def _mask_code_blocks(text: str) -> str:
+    """Replace content inside fenced code blocks with spaces of equal length.
+
+    This prevents # characters inside code blocks from being treated as
+    heading boundaries during semantic chunking (PR 2.1).
+    The returned string has the same character positions as the input.
     """
-    # Pre-clean before chunking
-    text = _pre_clean_markdown(text)
 
-    # If server provided a token count and it fits in one chunk, skip splitting.
-    # Rough heuristic: 1 token ≈ 4 chars, so multiply token count by 4 to compare.
-    if native_token_count is not None and native_token_count * 4 <= chunk_size:
-        return [text] if len(text) >= 50 else ([text] if text.strip() else [])
+    def _blank(m: re.Match) -> str:
+        # Keep the opening ``` and closing ``` fence markers; blank the content
+        return " " * len(m.group(0))
 
+    return _CODE_FENCE_RE.sub(_blank, text)
+
+
+def _chunk_by_headings(text: str, chunk_size: int) -> list[str] | None:
+    """Split markdown text at H1-H3 heading boundaries.
+
+    Returns a list of sections, each starting with its heading.
+    Returns None if fewer than 2 headings are found (fallback to size-based).
+    Sections larger than chunk_size are further subdivided with _chunk_by_size().
+    Code blocks are masked before scanning to avoid false heading matches.
+
+    PR 2.1 — Semantic Chunking.
+    """
+    masked = _mask_code_blocks(text)
+    heading_positions = [m.start() for m in _HEADING_RE.finditer(masked)]
+
+    if len(heading_positions) < 2:
+        return None
+
+    sections: list[str] = []
+    for idx, start in enumerate(heading_positions):
+        end = (
+            heading_positions[idx + 1]
+            if idx + 1 < len(heading_positions)
+            else len(text)
+        )
+        section = text[start:end].strip()
+        if not section or len(section) < 50:
+            continue
+        if len(section) > chunk_size:
+            # Subdivide oversized section
+            sections.extend(_chunk_by_size(section, chunk_size))
+        else:
+            sections.append(section)
+
+    return sections if sections else None
+
+
+def _chunk_by_size(text: str, chunk_size: int = DEFAULT_CHUNK_SIZE) -> list[str]:
+    """Split text into chunks of at most chunk_size characters.
+
+    Tries paragraph boundaries first, then single newlines, then hard-splits.
+    Includes CHUNK_OVERLAP between consecutive chunks.
+    This is the original chunking logic extracted from chunk_markdown() (PR 2.1).
+    """
     if len(text) <= chunk_size:
         return [text] if len(text) >= 50 else ([text] if text.strip() else [])
 
@@ -122,10 +167,46 @@ def chunk_markdown(
                         end_pos = break_pos + 1
 
         chunk = text[current_pos:end_pos].strip()
-        if chunk and len(chunk) >= 50:  # Skip tiny fragments
+        if chunk and len(chunk) >= 50:
             chunks.append(chunk)
 
         current_pos = end_pos - CHUNK_OVERLAP if end_pos < len(text) else end_pos
 
-    logger.info(f"Split markdown into {len(chunks)} chunks (pre-cleaned)")
     return chunks if chunks else [text.strip()]
+
+
+def chunk_markdown(
+    text: str,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    native_token_count: int | None = None,
+) -> list[str]:
+    """Split markdown into chunks for LLM processing.
+
+    Pre-cleans markdown, then:
+    1. Tries heading-based semantic splits (PR 2.1) — natural section boundaries.
+    2. Falls back to size-based splitting if fewer than 2 headings are found.
+    Skips tiny fragments (< 50 chars).
+    """
+    # Pre-clean before chunking
+    text = _pre_clean_markdown(text)
+
+    # If server provided a token count and it fits in one chunk, skip splitting.
+    # Rough heuristic: 1 token ≈ 4 chars, so multiply token count by 4 to compare.
+    if native_token_count is not None and native_token_count * 4 <= chunk_size:
+        return [text] if len(text) >= 50 else ([text] if text.strip() else [])
+
+    if len(text) <= chunk_size:
+        return [text] if len(text) >= 50 else ([text] if text.strip() else [])
+
+    # PR 2.1: try semantic heading-based chunking first
+    heading_chunks = _chunk_by_headings(text, chunk_size)
+    if heading_chunks:
+        logger.info(
+            f"Split markdown into {len(heading_chunks)} semantic chunks (headings)"
+        )
+        return heading_chunks
+
+    # Fallback: size-based chunking
+    size_chunks = _chunk_by_size(text, chunk_size)
+    logger.info(f"Split markdown into {len(size_chunks)} chunks (size-based)")
+    return size_chunks if size_chunks else [text.strip()]

@@ -3,9 +3,10 @@
 import asyncio
 import gzip
 import logging
+import os
+import random
 import defusedxml.ElementTree as ET  # XXE-safe replacement — closes CONS-010 / issue #64
 from xml.etree.ElementTree import ParseError as XMLParseError
-from collections import deque
 from typing import cast
 from urllib.parse import urljoin, urlparse, urlunparse
 
@@ -72,13 +73,69 @@ def normalize_url(url: str) -> str:
         return url  # Return as-is, let caller handle
 
 
-async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
+async def _extract_links(
+    url: str,
+    base_domain: str,
+    client: httpx.AsyncClient,
+    sem: asyncio.Semaphore,
+    jitter: bool = True,
+) -> list[str]:
+    """Fetch a URL and return same-domain links found in it.
+
+    Used by parallel recursive_crawl per-depth-level gather.
+    Jitter 0.1–0.3s between requests mitigates rate limiting.
     """
-    Recursively crawl internal links up to max_depth using BFS.
+    async with sem:
+        if jitter:
+            await asyncio.sleep(random.uniform(0.1, 0.3))
+        try:
+            response = await client.get(url)
+            if response.status_code == 404:
+                logger.debug(f"Skipping 404: {url}")
+                return []
+            if response.status_code != 200:
+                logger.debug(f"Non-200 {response.status_code} for {url}")
+                return []
+            content_type = response.headers.get("content-type", "")
+            if "text/html" not in content_type:
+                return []
+
+            soup = BeautifulSoup(response.text, "html.parser")
+            links: list[str] = []
+            for link in soup.find_all("a", href=True):
+                href = cast(str, link["href"])
+                if any(
+                    skip in href.lower()
+                    for skip in ["#", "javascript:", "mailto:", "tel:"]
+                ):
+                    continue
+                absolute_url = urljoin(url, href)
+                parsed = urlparse(absolute_url)
+                if parsed.netloc == base_domain and parsed.scheme in ["http", "https"]:
+                    clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                    if parsed.query:
+                        clean_url += f"?{parsed.query}"
+                    links.append(clean_url)
+            return links
+        except httpx.TimeoutException:
+            logger.debug(f"Timeout crawling {url}")
+            return []
+        except Exception as e:
+            logger.debug(f"Failed to crawl {url}: {e}")
+            return []
+
+
+async def recursive_crawl(
+    base_url: str, max_depth: int, concurrency: int | None = None
+) -> list[str]:
+    """
+    Recursively crawl internal links up to max_depth using parallel BFS per depth level.
 
     Args:
         base_url: Starting URL
         max_depth: Maximum depth to crawl (1 = only direct links from base_url)
+        concurrency: Max concurrent requests per level. Defaults to DISCOVERY_CONCURRENCY env var (10).
+                     Set to 1 for sequential behaviour identical to the previous implementation.
 
     Returns:
         List of discovered URLs (deduplicated, normalized)
@@ -88,107 +145,80 @@ async def recursive_crawl(base_url: str, max_depth: int) -> list[str]:
     - Same-domain filtering
     - Fragment removal
     - Trailing slash normalization
-    - Rate limiting (0.5s between requests)
+    - Jitter 0.1–0.3s between requests (rate limiting mitigation)
     - Total URL cap (1000 URLs max to prevent explosion)
     - Timeout handling (10s per request)
     - Heartbeat logging every 10 URLs
     - Per-URL error handling (failures don't stop crawl)
     """
+    if concurrency is None:
+        concurrency = int(os.environ.get("DISCOVERY_CONCURRENCY", "10"))
+
     if max_depth < 1:
         return [base_url]
 
-    visited = set()
-    to_visit = deque([(base_url, 0)])  # (url, depth)
+    visited: set[str] = set()
     discovered_urls: list[str] = []
     base_domain = urlparse(base_url).netloc
 
     MAX_URLS = 1000  # Safety cap
-    RATE_LIMIT_DELAY = 0.5  # seconds between requests
     HEARTBEAT_INTERVAL = 10  # Log every N URLs
+
+    sem = asyncio.Semaphore(concurrency)
 
     async with httpx.AsyncClient(
         timeout=10.0,
         follow_redirects=True,
         headers={"User-Agent": "DocRawl/1.0 (Documentation Crawler)"},
     ) as client:
-        while to_visit and len(discovered_urls) < MAX_URLS:
-            current_url, depth = to_visit.popleft()
+        # BFS level by level
+        current_level: list[str] = [base_url]
 
-            # Normalize URL for deduplication
-            normalized = normalize_url(current_url)
-            if normalized in visited:
-                continue
+        for depth in range(max_depth + 1):
+            if not current_level or len(discovered_urls) >= MAX_URLS:
+                break
 
-            visited.add(normalized)
-            discovered_urls.append(normalized)
+            # Deduplicate and cap at current level
+            to_fetch: list[str] = []
+            for url in current_level:
+                normalized = normalize_url(url)
+                if normalized not in visited and len(discovered_urls) < MAX_URLS:
+                    visited.add(normalized)
+                    discovered_urls.append(normalized)
+                    to_fetch.append(url)
 
-            # Heartbeat logging
-            if len(discovered_urls) % HEARTBEAT_INTERVAL == 0:
-                msg = f"Crawl progress: {len(discovered_urls)} URLs discovered, {len(to_visit)} queued"
-                logger.info(msg)
+                    if len(discovered_urls) % HEARTBEAT_INTERVAL == 0:
+                        logger.info(
+                            f"Crawl progress: {len(discovered_urls)} URLs discovered"
+                        )
 
-            logger.debug(f"Crawling [{depth}/{max_depth}]: {current_url}")
-
-            # Stop if max depth reached
             if depth >= max_depth:
-                continue
+                break
 
-            # Fetch and parse links (per-URL error handling)
-            try:
-                await asyncio.sleep(RATE_LIMIT_DELAY)  # Rate limiting
-                response = await client.get(current_url)
+            logger.debug(
+                f"Crawling depth {depth}/{max_depth}: {len(to_fetch)} URLs in parallel"
+            )
 
-                if response.status_code == 404:
-                    logger.debug(f"Skipping 404: {current_url}")
-                    continue
-                elif response.status_code != 200:
-                    logger.warning(
-                        f"Non-200 status {response.status_code} for {current_url}"
+            # Gather links from all URLs at this depth in parallel
+            results = await asyncio.gather(
+                *[
+                    _extract_links(
+                        url, base_domain, client, sem, jitter=(concurrency > 1)
                     )
-                    continue
+                    for url in to_fetch
+                ],
+                return_exceptions=False,
+            )
 
-                # Only parse HTML content
-                content_type = response.headers.get("content-type", "")
-                if "text/html" not in content_type:
-                    logger.debug(f"Skipping non-HTML content: {content_type}")
-                    continue
+            # Flatten and deduplicate next level
+            next_level_set: set[str] = set()
+            for link_list in results:
+                for link in link_list:
+                    norm = normalize_url(link)
+                    if norm not in visited and norm not in next_level_set:
+                        next_level_set.add(norm)
 
-                soup = BeautifulSoup(response.text, "html.parser")
-
-                # Extract all links
-                for link in soup.find_all("a", href=True):
-                    href = cast(str, link["href"])
-
-                    # Skip common non-content links
-                    if any(
-                        skip in href.lower()
-                        for skip in ["#", "javascript:", "mailto:", "tel:"]
-                    ):
-                        continue
-
-                    absolute_url = urljoin(current_url, href)
-                    parsed = urlparse(absolute_url)
-
-                    # Filter: same domain, http/https only
-                    if parsed.netloc == base_domain and parsed.scheme in [
-                        "http",
-                        "https",
-                    ]:
-                        # Remove fragment, keep query params
-                        clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-                        if parsed.query:
-                            clean_url += f"?{parsed.query}"
-
-                        normalized_link = normalize_url(clean_url)
-                        if normalized_link not in visited:
-                            to_visit.append((clean_url, depth + 1))
-
-            except httpx.TimeoutException:
-                logger.debug(f"Timeout crawling {current_url}")
-                continue
-            except Exception as e:
-                logger.debug(f"Failed to crawl {current_url}: {e}")
-                continue
+            current_level = list(next_level_set)
 
     if len(discovered_urls) >= MAX_URLS:
         logger.warning(f"Hit URL cap ({MAX_URLS}). Crawl may be incomplete.")
