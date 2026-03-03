@@ -40,4 +40,4 @@ def content_hash(markdown: str) -> str:
     Used for per-job deduplication (~32 bytes per hash, ~32KB for 1000 URLs).
     """
     normalised = re.sub(r"\s+", " ", markdown.strip().lower())
-    return hashlib.md5(normalised.encode("utf-8")).hexdigest()
+    return hashlib.md5(normalised.encode("utf-8"), usedforsecurity=False).hexdigest()
