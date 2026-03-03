@@ -30,7 +30,9 @@ class JobRequest(BaseModel):
         "markdown"  # PR 3.2: structured JSON output opt-in
     )
     use_pipeline_mode: bool = False  # PR 3.3: opt-in producer/consumer pipeline
-    converter: str | None = Field(default=None, pattern=r"^[\w-]{1,50}$")  # PR 3.4: converter plugin name (None = default)
+    converter: str | None = Field(
+        default=None, pattern=r"^[\w-]{1,50}$"
+    )  # PR 3.4: converter plugin name (None = default)
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
 

@@ -15,7 +15,9 @@ class MarkdownifyConverter:
     """
 
     def convert(self, html: str) -> str:
-        return _md(html, heading_style="ATX", strip=["script", "style", "nav", "footer"])
+        return _md(
+            html, heading_style="ATX", strip=["script", "style", "nav", "footer"]
+        )
 
     def supports_tables(self) -> bool:
         return True

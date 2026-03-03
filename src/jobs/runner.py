@@ -2,7 +2,9 @@
 
 import asyncio
 import logging
+import os as _os
 import time
+from dataclasses import dataclass as _dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -21,7 +23,7 @@ from src.scraper.page import (
     fetch_markdown_proxy,
     fetch_html_fast,
 )
-from src.scraper.markdown import html_to_markdown, chunk_markdown
+from src.scraper.markdown import chunk_markdown
 from src.scraper.detection import is_blocked_response, content_hash
 from src.scraper.cache import PageCache
 from src.jobs.state import save_job_state
@@ -835,9 +837,6 @@ def _generate_index(urls: list[str], output_path: Path) -> None:
 # ---------------------------------------------------------------------------
 # PR 3.3: Producer / Consumer pipeline
 # ---------------------------------------------------------------------------
-
-import os as _os
-from dataclasses import dataclass as _dataclass
 
 
 @_dataclass
