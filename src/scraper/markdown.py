@@ -2,6 +2,7 @@
 
 import re
 import logging
+from markdownify import markdownify as md
 
 logger = logging.getLogger(__name__)
 
@@ -72,17 +73,9 @@ def _pre_clean_markdown(text: str) -> str:
     return result.strip()
 
 
-def html_to_markdown(html: str, converter_name: str | None = None) -> str:
-    """Convert HTML to Markdown using the converter registry (PR 3.4).
-
-    converter_name: name of a registered converter (default: "markdownify").
-    Backward compatible: when converter_name is None, uses the default converter
-    whose output is identical to the original markdownify call.
-    """
-    from src.scraper.converters import get_converter
-
-    converter = get_converter(converter_name)
-    return converter.convert(html)
+def html_to_markdown(html: str) -> str:
+    """Convert HTML to Markdown using markdownify."""
+    return md(html, heading_style="ATX", strip=["script", "style", "nav", "footer"])
 
 
 # Regex to find top-level headings (H1-H3) for semantic splitting (PR 2.1)
