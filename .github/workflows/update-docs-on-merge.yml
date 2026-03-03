@@ -1,0 +1,142 @@
+name: Update Docs on PR Merge
+
+# Automatically updates README version badge and CHANGELOG whenever a PR
+# is merged to main. Commits back to main with [skip ci] to avoid loops.
+#
+# What it does:
+#   1. Reads API_VERSION from src/main.py (source of truth)
+#   2. Updates the version badge in README.md
+#   3. Adds the merged PR as a bullet under the matching CHANGELOG version section
+#      (creates the section if it doesn't exist yet)
+#   4. Commits and pushes the changes if anything changed
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  update-docs:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          # Use default GITHUB_TOKEN — sufficient for push to non-protected main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract API_VERSION from src/main.py
+        id: ver
+        run: |
+          VERSION=$(grep -oP 'API_VERSION\s*=\s*"\K[^"]+' src/main.py | head -1)
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: Could not find API_VERSION in src/main.py"
+            exit 1
+          fi
+          echo "version=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected API_VERSION: v$VERSION"
+
+      - name: Update README version badge
+        run: |
+          TAG="${{ steps.ver.outputs.version }}"
+          # Replace the semver in the shields.io badge URL
+          sed -i "s|version-v[0-9][0-9.a-z]*-blue|version-${TAG}-blue|g" README.md
+          echo "README badge → $TAG"
+
+      - name: Update CHANGELOG
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE:  ${{ github.event.pull_request.title }}
+          PR_URL:    ${{ github.event.pull_request.html_url }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          VERSION:   ${{ steps.ver.outputs.version }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, re
+          from datetime import date
+
+          pr_number = os.environ["PR_NUMBER"]
+          pr_title  = os.environ["PR_TITLE"]
+          pr_url    = os.environ["PR_URL"]
+          pr_labels = os.environ["PR_LABELS"].lower()
+          version   = os.environ["VERSION"]          # e.g. "v0.9.10"
+          today     = date.today().isoformat()       # e.g. "2026-03-03"
+
+          # Map GitHub labels → CHANGELOG subsection
+          def subsection(labels: str) -> str:
+              if any(l in labels for l in ("bug", "fix", "hotfix")):
+                  return "Fixed"
+              if any(l in labels for l in ("breaking", "deprecated")):
+                  return "Changed"
+              if "ci" in labels or "chore" in labels:
+                  return "Changed"
+              return "Added"
+
+          sub = subsection(pr_labels)
+          bullet = f"- **{pr_title}** ([#{pr_number}]({pr_url}))"
+
+          with open("CHANGELOG.md", encoding="utf-8") as f:
+              content = f.read()
+
+          section_header = f"## [{version}]"
+
+          if section_header in content:
+              # Section exists — find or insert the right subsection
+              sub_header = f"### {sub}"
+              # Look for the subsection within this version's block
+              # (between this section header and the next ## header)
+              pattern = rf"({re.escape(section_header)}.*?)(### {sub}\n)(.*?)((?=\n## |\Z))"
+              m = re.search(pattern, content, re.DOTALL)
+              if m:
+                  # Subsection exists — append bullet after existing bullets
+                  insert_at = m.start(3) + len(m.group(3))
+                  content = content[:insert_at] + bullet + "\n" + content[insert_at:]
+              else:
+                  # Subsection missing — insert it after the section header line
+                  insert_marker = section_header
+                  # Find end of section header line
+                  pos = content.index(insert_marker)
+                  eol = content.index("\n", pos) + 1
+                  new_block = f"\n### {sub}\n{bullet}\n"
+                  content = content[:eol] + new_block + content[eol:]
+          else:
+              # Section missing entirely — insert after the first "---" separator
+              separator = "\n---\n"
+              insert_pos = content.find(separator)
+              if insert_pos == -1:
+                  insert_pos = content.index("\n## ")  # fallback: before first section
+              else:
+                  insert_pos += len(separator)
+
+              new_section = (
+                  f"\n## [{version}] - {today}\n\n"
+                  f"### {sub}\n"
+                  f"{bullet}\n"
+                  f"\n---\n"
+              )
+              content = content[:insert_pos] + new_section + content[insert_pos:]
+
+          with open("CHANGELOG.md", "w", encoding="utf-8") as f:
+              f.write(content)
+
+          print(f"CHANGELOG updated: [{version}] ### {sub} ← {bullet}")
+          PYEOF
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md CHANGELOG.md
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: update README + CHANGELOG after PR #${{ github.event.pull_request.number }} [skip ci]"
+            git push origin main
+            echo "Committed and pushed."
+          else
+            echo "No changes — README and CHANGELOG already up to date."
+          fi
