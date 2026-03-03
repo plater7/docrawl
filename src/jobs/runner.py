@@ -314,10 +314,6 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
             cache_dir = output_path / ".cache"
             page_cache = PageCache(cache_dir)
 
-        # PR 2.3: per-job content dedup state
-        seen_hashes: set[str] = set()
-        _hash_lock = asyncio.Lock()
-
         # Semaphore enforces max_concurrent — closes CONS-010 / issue #56
         sem = asyncio.Semaphore(request.max_concurrent)
         # Lock to protect shared counters and job.pages_completed
