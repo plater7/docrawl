@@ -1,0 +1,104 @@
+name: Auto Tag
+
+# Pushes a semver tag automatically when:
+#   1. A PR is merged and API_VERSION in src/main.py bumped
+#   2. A milestone whose title contains vX.Y.Z is closed
+#   3. Manually via workflow_dispatch (fallback / backfill)
+#
+# Once the tag is pushed, release.yml picks it up via `push: tags: v*`.
+
+on:
+  pull_request:
+    types: [closed]
+  milestone:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to push (e.g. v0.9.9)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Trigger: PR merged ────────────────────────────────────────────────────
+  tag-on-pr-merge:
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Extract API_VERSION from merged commit
+        id: ver
+        run: |
+          VERSION=$(grep -oP 'API_VERSION\s*=\s*"\K[^"]+' src/main.py | head -1)
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: v$VERSION"
+
+      - name: Push tag if new
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "Tag $TAG already exists — skipping"
+          else
+            git tag "$TAG" "${{ github.event.pull_request.merge_commit_sha }}"
+            git push origin "$TAG"
+            echo "Pushed tag $TAG"
+          fi
+
+  # ── Trigger: milestone closed ─────────────────────────────────────────────
+  tag-on-milestone-close:
+    if: github.event_name == 'milestone'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from milestone title
+        id: ver
+        run: |
+          TITLE="${{ github.event.milestone.title }}"
+          TAG=$(echo "$TITLE" | grep -oP 'v\d+\.\d+\.\d+' | head -1)
+          if [ -z "$TAG" ]; then
+            echo "No semver found in milestone title: '$TITLE' — skipping"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push tag if new
+        if: steps.ver.outputs.tag != ''
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "Tag $TAG already exists — skipping"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Pushed tag $TAG"
+          fi
+
+  # ── Trigger: manual dispatch ──────────────────────────────────────────────
+  tag-manual:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push tag
+        run: |
+          TAG="${{ github.event.inputs.version }}"
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
+            echo "Tag $TAG already exists — skipping"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+            echo "Pushed tag $TAG"
+          fi
