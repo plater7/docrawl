@@ -670,8 +670,6 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                     "pages_ok": pages_ok,
                     "pages_partial": pages_partial,
                     "pages_failed": pages_failed,
-                    "pages_skipped": pages_skipped,
-                    "pages_blocked": pages_blocked,
                     "pages_native_md": pages_native_md,
                     "pages_proxy_md": pages_proxy_md,
                     "pages_http_fast": pages_http_fast,
