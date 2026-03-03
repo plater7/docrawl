@@ -1,5 +1,11 @@
 """Tests for API routes in src/api/routes.py."""
 
+import os
+
+# Disable Playwright page pool so TestClient(app) lifespan does not require
+# a browser binary to be installed locally.
+os.environ.setdefault("PAGE_POOL_SIZE", "0")
+
 import httpx
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch

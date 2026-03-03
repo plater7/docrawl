@@ -28,6 +28,8 @@ class Job:
     pages_completed: int = 0
     current_url: str | None = None
     completed_at: float | None = None  # PR 1.5: wall-clock time at completion
+    pages_skipped: int = 0  # PR 2.3: dedup skips
+    pages_blocked: int = 0  # PR 2.3: bot-check pages
     _cancelled: bool = False
     _events: asyncio.Queue = field(default_factory=asyncio.Queue)
     _task: Any = field(default=None, repr=False)  # asyncio.Task
