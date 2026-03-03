@@ -203,7 +203,9 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
     # Wrap content in XML delimiters to isolate scraped data from prompt — closes CONS-006 / issue #58
     wrapped = f"<document>\n{markdown}\n</document>"
     level = classify_chunk(markdown)
-    template = HEAVY_CLEANUP_PROMPT_TEMPLATE if level == "heavy" else CLEANUP_PROMPT_TEMPLATE
+    template = (
+        HEAVY_CLEANUP_PROMPT_TEMPLATE if level == "heavy" else CLEANUP_PROMPT_TEMPLATE
+    )
     prompt = template.format(markdown=wrapped)
     timeout = _calculate_timeout(markdown)
     options = _cleanup_options(markdown)
