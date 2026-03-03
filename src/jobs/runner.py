@@ -396,9 +396,16 @@ async def run_job(job: Job, page_pool: PagePool | None = None) -> None:
                                 },
                             )
 
+<<<<<<< feat/pr-1.4
                     # Fall back to Playwright (pass pool if available — PR 1.2)
                     if markdown is None:
                         html = await scraper.get_html(url, pool=page_pool)
+=======
+                    # Fall back to Playwright (pass pool if available and opted-in — PR 1.2)
+                    if markdown is None:
+                        _pool = page_pool if request.use_page_pool else None
+                        html = await scraper.get_html(url, pool=_pool)
+>>>>>>> feat/pr-1.3
                         load_time = time.monotonic() - page_start
                         markdown = html_to_markdown(html)
                         async with _counter_lock:

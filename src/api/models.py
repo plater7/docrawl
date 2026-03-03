@@ -26,6 +26,7 @@ class JobRequest(BaseModel):
     use_http_fast_path: bool = True  # PR 1.3: try plain HTTP before Playwright
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
+    use_page_pool: bool = True  # PR 1.2: opt-out of PagePool
 
     @field_validator("output_path")
     @classmethod
