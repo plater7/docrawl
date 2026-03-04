@@ -13,7 +13,6 @@ from src.scraper.converters import (
     get_converter,
     register_converter,
 )
-from src.scraper.converters.base import MarkdownConverter
 from src.scraper.converters.markdownify_converter import MarkdownifyConverter
 
 

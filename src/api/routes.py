@@ -346,7 +346,7 @@ async def resume_from_state(
 
 @router.get("/converters")
 @limiter.limit("60/minute")
-async def list_converters() -> dict:
+async def list_converters(request: Request) -> dict:
     """List available HTML→Markdown converter plugins (PR 3.4)."""
     from src.scraper.converters import available_converters, get_converter
 
