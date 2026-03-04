@@ -1,6 +1,5 @@
 """Unit tests for html_to_structured() (PR 3.2) in src/scraper/structured.py."""
 
-import pytest
 
 from src.scraper.structured import ContentBlock, StructuredPage, html_to_structured
 
