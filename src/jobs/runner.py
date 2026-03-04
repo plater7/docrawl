@@ -1,6 +1,4 @@
-"""Job execution orchestration.
-
-"""
+"""Job execution orchestration."""
 
 import asyncio
 import logging
