@@ -650,6 +650,7 @@ async def run_job(
         ]
         try:
             import json as _json
+
             save_job_state(
                 output_path,
                 job_id=job.id,

@@ -102,8 +102,12 @@ class TestLoadJobState:
     def test_empty_url_lists_round_trip_correctly(self, tmp_path: Path):
         """Empty lists for completed/failed/pending are preserved after round-trip."""
         state_path = save_job_state(
-            tmp_path, _JOB_ID, _REQUEST_DICT,
-            completed_urls=[], failed_urls=[], pending_urls=[]
+            tmp_path,
+            _JOB_ID,
+            _REQUEST_DICT,
+            completed_urls=[],
+            failed_urls=[],
+            pending_urls=[],
         )
         loaded = load_job_state(state_path)
 

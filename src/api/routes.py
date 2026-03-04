@@ -309,7 +309,9 @@ async def resume_job(job_id: str) -> JobStatus:
 
 @router.post("/jobs/resume-from-state")
 @limiter.limit("10/minute")
-async def resume_from_state(request: Request, body: ResumeFromStateRequest) -> JobStatus:
+async def resume_from_state(
+    request: Request, body: ResumeFromStateRequest
+) -> JobStatus:
     """Create a new job resuming only the pending URLs from a saved state file (PR 3.1).
 
     Loads {state_file_path}, reconstructs the original JobRequest, and starts
@@ -320,7 +322,9 @@ async def resume_from_state(request: Request, body: ResumeFromStateRequest) -> J
 
     state_path = Path(body.state_file_path)
     if not state_path.exists():
-        raise HTTPException(status_code=404, detail=f"State file not found: {state_path}")
+        raise HTTPException(
+            status_code=404, detail=f"State file not found: {state_path}"
+        )
 
     try:
         state = load_job_state(state_path)
@@ -328,12 +332,16 @@ async def resume_from_state(request: Request, body: ResumeFromStateRequest) -> J
         raise HTTPException(status_code=422, detail=str(e))
 
     if not state.pending_urls:
-        raise HTTPException(status_code=409, detail="No pending URLs in state file — job was complete.")
+        raise HTTPException(
+            status_code=409, detail="No pending URLs in state file — job was complete."
+        )
 
     try:
         job_request = JobRequest.model_validate(state.request)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Invalid request in state file: {e}")
+        raise HTTPException(
+            status_code=422, detail=f"Invalid request in state file: {e}"
+        )
 
     active_count = job_manager.active_job_count()
     if active_count >= MAX_CONCURRENT_JOBS:

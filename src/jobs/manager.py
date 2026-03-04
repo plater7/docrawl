@@ -247,7 +247,9 @@ class JobManager:
                     job.status = "failed"
 
         task.add_done_callback(_on_done)
-        logger.info(f"Created resume job {job_id} with {len(pending_urls)} pending URLs")
+        logger.info(
+            f"Created resume job {job_id} with {len(pending_urls)} pending URLs"
+        )
         return job
 
     async def cleanup_old_jobs(self) -> int:
