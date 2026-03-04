@@ -827,7 +827,7 @@ def _generate_index(urls: list[str], output_path: Path) -> None:
         parsed = urlparse(url)
         path = parsed.path.strip("/")
         name = path.split("/")[-1] or "Home"
-        rel_path = path.replace("/", "_") or "index"
+        rel_path = path or "index"
         lines.append(f"- [{name}]({rel_path}.md)")
 
     index_path = output_path / "_index.md"
