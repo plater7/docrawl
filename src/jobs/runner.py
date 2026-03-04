@@ -2,11 +2,14 @@
 
 import asyncio
 import logging
+import os as _os
 import time
+from dataclasses import dataclass as _dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
 from src.jobs.manager import Job
+from src.api.models import JobRequest
 from src.crawler.discovery import discover_urls
 from src.crawler.filter import filter_urls
 from src.crawler.robots import RobotsParser
@@ -670,8 +673,34 @@ async def run_job(
 
                 await asyncio.sleep(delay_s)
 
-        # Launch all pages concurrently, semaphore controls actual parallelism
-        await asyncio.gather(*[_process_page(i, url) for i, url in enumerate(urls)])
+        # PR 3.3: opt-in pipeline mode (producer/consumer) vs default concurrent scraping
+        if request.use_pipeline_mode:
+            (
+                pages_ok,
+                pages_partial,
+                pages_failed,
+                pages_native_md,
+                pages_proxy_md,
+                pages_http_fast,
+                pages_playwright,
+            ) = await _run_pipeline_mode(
+                job=job,
+                urls=urls,
+                base_url=base_url,
+                output_path=output_path,
+                request=request,
+                scraper=scraper,
+                page_pool=page_pool,
+                page_cache=page_cache,
+                seen_hashes=seen_hashes,
+                _hash_lock=_hash_lock,
+                completed_urls=completed_urls,
+                failed_urls=failed_urls,
+                delay_s=delay_s,
+            )
+        else:
+            # Launch all pages concurrently, semaphore controls actual parallelism
+            await asyncio.gather(*[_process_page(i, url) for i, url in enumerate(urls)])
 
         # PR 3.1: save final state checkpoint (completed or paused)
         pending_urls = [
@@ -798,3 +827,250 @@ def _generate_index(urls: list[str], output_path: Path) -> None:
 
     index_path = output_path / "_index.md"
     index_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# PR 3.3: Producer / Consumer pipeline
+# ---------------------------------------------------------------------------
+
+
+@_dataclass
+class ScrapedPage:
+    """Item passed from pipeline producer to consumer (PR 3.3)."""
+
+    index: int
+    url: str
+    markdown: str
+    raw_html: str | None
+    native_token_count: int | None
+    fetch_method: str
+    load_time: float
+
+
+_PIPELINE_SENTINEL: ScrapedPage | None = None  # signals producer is done
+
+
+async def _run_pipeline_mode(
+    *,
+    job: "Job",
+    urls: list[str],
+    base_url: str,
+    output_path: Path,
+    request: "JobRequest",
+    scraper: "PageScraper",
+    page_pool: "PagePool | None",
+    page_cache: "PageCache | None",
+    seen_hashes: set[str],
+    _hash_lock: asyncio.Lock,
+    completed_urls: list[str],
+    failed_urls: list[str],
+    delay_s: float,
+) -> tuple[int, int, int, int, int, int, int]:
+    """Producer/Consumer pipeline for page fetching + LLM cleanup (PR 3.3).
+
+    Producer: fetches pages concurrently (respecting semaphore), enqueues
+              ScrapedPage items.
+    Consumer: single coroutine — dedup, LLM cleanup, atomic file save.
+    asyncio.Queue(maxsize=20) provides natural backpressure.
+    """
+    queue: asyncio.Queue[ScrapedPage | None] = asyncio.Queue(maxsize=20)
+    sem = asyncio.Semaphore(request.max_concurrent)
+    _counter_lock = asyncio.Lock()
+
+    # Shared counters via mutable dict (avoids nonlocal complexity)
+    c = {
+        "ok": 0,
+        "partial": 0,
+        "failed": 0,
+        "native_md": 0,
+        "proxy_md": 0,
+        "http_fast": 0,
+        "playwright": 0,
+    }
+
+    async def _fetch_one(i: int, url: str) -> None:
+        async with sem:
+            await job.wait_if_paused()
+            if job.is_cancelled:
+                return
+            try:
+                page_start = time.monotonic()
+                markdown: str | None = None
+                raw_html: str | None = None
+                fetch_method = "playwright"
+                native_token_count: int | None = None
+
+                # PR 2.4: cache hit
+                if page_cache is not None:
+                    cached_html = page_cache.get(url)
+                    if cached_html:
+                        raw_html = cached_html
+                        markdown = html_to_markdown(cached_html)
+                        fetch_method = "cache"
+
+                # Native markdown (Ollama endpoint)
+                if markdown is None and request.use_native_markdown:
+                    native_md, token_count = await fetch_markdown_native(url)
+                    if native_md:
+                        markdown = native_md
+                        native_token_count = token_count
+                        fetch_method = "native"
+                        async with _counter_lock:
+                            c["native_md"] += 1
+
+                # Markdown proxy
+                if markdown is None and request.use_markdown_proxy:
+                    proxy_url = request.markdown_proxy_url or "https://markdown.new"
+                    md_content, _ = await fetch_markdown_proxy(url, proxy_url)
+                    if md_content:
+                        markdown = md_content
+                        fetch_method = "proxy"
+                        async with _counter_lock:
+                            c["proxy_md"] += 1
+
+                # HTTP fast-path (PR 1.3)
+                if markdown is None and request.use_http_fast_path:
+                    fast_md = await fetch_html_fast(url)
+                    if fast_md:
+                        markdown = fast_md
+                        fetch_method = "http_fast"
+                        async with _counter_lock:
+                            c["http_fast"] += 1
+
+                # Playwright fallback
+                if markdown is None:
+                    html = await scraper.get_html(url, pool=page_pool)
+                    raw_html = html
+                    markdown = html_to_markdown(html)
+                    async with _counter_lock:
+                        c["playwright"] += 1
+                    if page_cache is not None and not is_blocked_response(markdown):
+                        page_cache.put(url, html)
+
+                load_time = time.monotonic() - page_start
+                await queue.put(
+                    ScrapedPage(
+                        index=i,
+                        url=url,
+                        markdown=markdown,
+                        raw_html=raw_html,
+                        native_token_count=native_token_count,
+                        fetch_method=fetch_method,
+                        load_time=load_time,
+                    )
+                )
+            except Exception as e:
+                logger.error(f"Job {job.id}: pipeline producer error for {url}: {e}")
+                async with _counter_lock:
+                    c["failed"] += 1
+                    job.pages_completed += 1
+            await asyncio.sleep(delay_s)
+
+    async def _producer() -> None:
+        try:
+            await asyncio.gather(*[_fetch_one(i, url) for i, url in enumerate(urls)])
+        finally:
+            await queue.put(_PIPELINE_SENTINEL)
+
+    async def _consumer() -> None:
+        while True:
+            item = await queue.get()
+            if item is None:  # _PIPELINE_SENTINEL
+                break
+
+            page: ScrapedPage = item
+            url = page.url
+            markdown = page.markdown
+
+            try:
+                # PR 2.3: blocked response check
+                if is_blocked_response(markdown):
+                    async with _counter_lock:
+                        job.pages_blocked += 1
+                        job.pages_completed += 1
+                    continue
+
+                # PR 2.3: content dedup
+                h = content_hash(markdown)
+                async with _hash_lock:
+                    if h in seen_hashes:
+                        async with _counter_lock:
+                            job.pages_skipped += 1
+                            job.pages_completed += 1
+                        continue
+                    seen_hashes.add(h)
+
+                file_path = _url_to_filepath(url, base_url, output_path)
+
+                if request.output_format == "json":
+                    # PR 3.2: structured JSON — no LLM, skip chunking entirely
+                    if page.raw_html is not None:
+                        structured_page = html_to_structured(url, page.raw_html)
+                    else:
+                        structured_page = StructuredPage(
+                            url=url,
+                            title=None,
+                            blocks=[ContentBlock(type="paragraph", content=markdown)],
+                        )
+                    json_path = file_path.with_suffix(".json")
+                    save_structured(structured_page, json_path)
+                    completed_urls.append(url)
+                    async with _counter_lock:
+                        c["ok"] += 1
+                        job.pages_completed += 1
+                    continue
+
+                chunks = chunk_markdown(
+                    markdown, native_token_count=page.native_token_count
+                )
+                chunks_failed = 0
+                cleaned_chunks: list[str] = []
+                for chunk in chunks:
+                    if job.is_cancelled:
+                        break
+                    try:
+                        if needs_llm_cleanup(chunk):
+                            cleaned = await cleanup_markdown(
+                                chunk, request.pipeline_model
+                            )
+                        else:
+                            cleaned = chunk
+                        cleaned_chunks.append(cleaned)
+                    except Exception as chunk_err:
+                        logger.warning(
+                            f"Pipeline chunk cleanup failed for {url}: {chunk_err}"
+                        )
+                        cleaned_chunks.append(chunk)
+                        chunks_failed += 1
+
+                final_md = "\n\n".join(cleaned_chunks)
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp_path = file_path.with_suffix(".tmp")
+                tmp_path.write_text(final_md, encoding="utf-8")
+                _os.replace(tmp_path, file_path)
+
+                completed_urls.append(url)
+                async with _counter_lock:
+                    if chunks_failed == 0:
+                        c["ok"] += 1
+                    else:
+                        c["partial"] += 1
+                    job.pages_completed += 1
+
+            except Exception as e:
+                logger.error(f"Job {job.id}: pipeline consumer error for {url}: {e}")
+                failed_urls.append(url)
+                async with _counter_lock:
+                    c["failed"] += 1
+                    job.pages_completed += 1
+
+    await asyncio.gather(_producer(), _consumer())
+    return (
+        c["ok"],
+        c["partial"],
+        c["failed"],
+        c["native_md"],
+        c["proxy_md"],
+        c["http_fast"],
+        c["playwright"],
+    )
