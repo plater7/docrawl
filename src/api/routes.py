@@ -67,12 +67,9 @@ async def list_providers():
                     p_id == "ollama"
                     or (
                         p_id == "openrouter"
-                        and bool(__import__("os").environ.get("OPENROUTER_API_KEY"))
+                        and bool(os.environ.get("OPENROUTER_API_KEY"))
                     )
-                    or (
-                        p_id == "opencode"
-                        and bool(__import__("os").environ.get("OPENCODE_API_KEY"))
-                    )
+                    or (p_id == "opencode" and bool(os.environ.get("OPENCODE_API_KEY")))
                     or False
                 ),
                 "requires_api_key": config["requires_api_key"],
