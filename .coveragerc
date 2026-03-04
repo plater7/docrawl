@@ -1,7 +1,6 @@
 [run]
 omit =
-    # Requires Playwright browser + full async orchestration — integration tests only
-    src/jobs/runner.py
+    # Requires live Playwright browser — no unit-level mock available
     src/scraper/page.py
 
 [report]
