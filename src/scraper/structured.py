@@ -22,7 +22,9 @@ from bs4 import BeautifulSoup, Tag
 
 logger = logging.getLogger(__name__)
 
-BlockType = Literal["heading", "paragraph", "code", "table", "list", "image", "blockquote"]
+BlockType = Literal[
+    "heading", "paragraph", "code", "table", "list", "image", "blockquote"
+]
 
 CONTAINER_TAGS = {"div", "section", "article", "main", "aside", "nav", "header"}
 
@@ -56,11 +58,13 @@ def _parse_element(el: Tag) -> list[ContentBlock]:
     if name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
         text = el.get_text(separator=" ", strip=True)
         if text:
-            blocks.append(ContentBlock(
-                type="heading",
-                content=text,
-                level=int(name[1]),
-            ))
+            blocks.append(
+                ContentBlock(
+                    type="heading",
+                    content=text,
+                    level=int(name[1]),
+                )
+            )
         return blocks
 
     # Code blocks
@@ -71,13 +75,15 @@ def _parse_element(el: Tag) -> list[ContentBlock]:
             classes = code_el.get("class", [])
             for cls in classes:
                 if isinstance(cls, str) and cls.startswith("language-"):
-                    lang = cls[len("language-"):]
+                    lang = cls[len("language-") :]
                     break
-            blocks.append(ContentBlock(
-                type="code",
-                content=code_el.get_text(),
-                language=lang,
-            ))
+            blocks.append(
+                ContentBlock(
+                    type="code",
+                    content=code_el.get_text(),
+                    language=lang,
+                )
+            )
         else:
             blocks.append(ContentBlock(type="code", content=el.get_text()))
         return blocks
@@ -93,7 +99,10 @@ def _parse_element(el: Tag) -> list[ContentBlock]:
     if name == "table":
         rows = []
         for row in el.find_all("tr"):
-            cells = [td.get_text(separator=" ", strip=True) for td in row.find_all(["td", "th"])]
+            cells = [
+                td.get_text(separator=" ", strip=True)
+                for td in row.find_all(["td", "th"])
+            ]
             rows.append(cells)
         if rows:
             blocks.append(ContentBlock(type="table", content=json.dumps(rows)))
@@ -101,7 +110,10 @@ def _parse_element(el: Tag) -> list[ContentBlock]:
 
     # Lists
     if name in {"ul", "ol"}:
-        items = [li.get_text(separator=" ", strip=True) for li in el.find_all("li", recursive=False)]
+        items = [
+            li.get_text(separator=" ", strip=True)
+            for li in el.find_all("li", recursive=False)
+        ]
         if items:
             blocks.append(ContentBlock(type="list", content="\n".join(items)))
         return blocks
@@ -118,7 +130,11 @@ def _parse_element(el: Tag) -> list[ContentBlock]:
         src = el.get("src", "")
         alt = el.get("alt", "")
         if src:
-            blocks.append(ContentBlock(type="image", content=str(src), alt=str(alt) if alt else None))
+            blocks.append(
+                ContentBlock(
+                    type="image", content=str(src), alt=str(alt) if alt else None
+                )
+            )
         return blocks
 
     # Paragraphs
@@ -180,5 +196,7 @@ def save_structured(page: StructuredPage, file_path: Path) -> None:
     }
     file_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = file_path.with_suffix(".tmp")
-    tmp_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     os.replace(tmp_path, file_path)

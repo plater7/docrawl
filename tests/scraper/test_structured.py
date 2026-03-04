@@ -3,7 +3,12 @@
 import json
 from pathlib import Path
 
-from src.scraper.structured import ContentBlock, StructuredPage, html_to_structured, save_structured
+from src.scraper.structured import (
+    ContentBlock,
+    StructuredPage,
+    html_to_structured,
+    save_structured,
+)
 
 _URL = "https://docs.example.com/page"
 
@@ -98,7 +103,9 @@ class TestHtmlToStructuredCode:
         assert len(code_blocks) >= 1
         assert code_blocks[0].language is None
 
-    def test_standalone_code_element_direct_child_of_container_produces_code_block(self):
+    def test_standalone_code_element_direct_child_of_container_produces_code_block(
+        self,
+    ):
         """<code>snippet</code> as a direct child of a container (not inside <p> or <pre>)
         produces a code block. Note: inline <code> inside <p> is absorbed into the
         paragraph text — it does not produce a separate code block."""
@@ -159,7 +166,9 @@ class TestHtmlToStructuredTitle:
 
     def test_title_tag_is_captured_in_structured_page_title(self):
         """<title>Page Title</title> is stored in StructuredPage.title."""
-        html = "<html><head><title>Page Title</title></head><body><p>x</p></body></html>"
+        html = (
+            "<html><head><title>Page Title</title></head><body><p>x</p></body></html>"
+        )
         page = html_to_structured(_URL, html)
 
         assert page.title == "Page Title"

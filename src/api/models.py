@@ -28,7 +28,9 @@ class JobRequest(BaseModel):
     use_cache: bool = False  # PR 2.4: opt-in disk cache (24h TTL)
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
-    output_format: Literal["markdown", "json"] = "markdown"  # PR 3.2: structured JSON output opt-in
+    output_format: Literal["markdown", "json"] = (
+        "markdown"  # PR 3.2: structured JSON output opt-in
+    )
 
     @field_validator("output_path")
     @classmethod

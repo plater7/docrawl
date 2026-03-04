@@ -13,12 +13,23 @@ from src.crawler.robots import RobotsParser
 from src.llm.filter import filter_urls_with_llm
 from src.llm.cleanup import cleanup_markdown, needs_llm_cleanup
 from src.llm.client import get_available_models, get_provider_for_model
-from src.scraper.page import PageScraper, PagePool, fetch_markdown_native, fetch_markdown_proxy, fetch_html_fast
+from src.scraper.page import (
+    PageScraper,
+    PagePool,
+    fetch_markdown_native,
+    fetch_markdown_proxy,
+    fetch_html_fast,
+)
 from src.scraper.markdown import html_to_markdown, chunk_markdown
 from src.scraper.detection import is_blocked_response, content_hash
 from src.scraper.cache import PageCache
 from src.jobs.state import save_job_state
-from src.scraper.structured import html_to_structured, save_structured, StructuredPage, ContentBlock
+from src.scraper.structured import (
+    html_to_structured,
+    save_structured,
+    StructuredPage,
+    ContentBlock,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -289,14 +300,14 @@ async def run_job(
             llm_duration = time.monotonic() - llm_start
 
         await _log(
-                job,
-                "log",
-                {
-                    "phase": "filtering",
-                    "active_model": request.crawl_model,
-                    "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
-                },
-            )
+            job,
+            "log",
+            {
+                "phase": "filtering",
+                "active_model": request.crawl_model,
+                "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
+            },
+        )
         # end else (full discovery/filtering)
 
         job.pages_total = len(urls)
@@ -526,7 +537,9 @@ async def run_job(
                             },
                         )
 
-                    for ci, chunk in (enumerate(chunks) if request.output_format != "json" else []):
+                    for ci, chunk in (
+                        enumerate(chunks) if request.output_format != "json" else []
+                    ):
                         if job.is_cancelled:
                             break
 
@@ -587,7 +600,9 @@ async def run_job(
                             structured_page = StructuredPage(
                                 url=url,
                                 title=None,
-                                blocks=[ContentBlock(type="paragraph", content=markdown)],
+                                blocks=[
+                                    ContentBlock(type="paragraph", content=markdown)
+                                ],
                             )
                         json_path = md_file_path.with_suffix(".json")
                         save_structured(structured_page, json_path)
