@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **API Version** — `X-API-Version: 0.9.9` — PR 2.5
 
 ---
+- **feat(structured-output): Opt-in structured JSON output with 7 block types** ([#133](https://github.com/plater7/docrawl/pull/133))
 
 ## [v0.9.8] - 2026-03-03
 
