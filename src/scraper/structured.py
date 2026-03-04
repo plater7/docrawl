@@ -72,9 +72,8 @@ def _parse_element(el: Tag) -> list[ContentBlock]:
         code_el = el.find("code")
         if code_el:
             lang = None
-            classes = code_el.get("class", [])
-            for cls in classes:
-                if isinstance(cls, str) and cls.startswith("language-"):
+            for cls in code_el.get_attribute_list("class"):
+                if cls.startswith("language-"):
                     lang = cls[len("language-") :]
                     break
             blocks.append(
