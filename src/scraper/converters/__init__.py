@@ -52,6 +52,10 @@ def register_converter(name: str, converter: MarkdownConverter) -> None:
 
     The converter must implement the MarkdownConverter Protocol.
     Raises TypeError if the protocol is not satisfied.
+
+    Note: Not thread-safe. Concurrent registration during tests should be
+    guarded externally. In production, converters are registered at startup
+    (before async event loop), so this is not a runtime concern.
     """
     if not isinstance(converter, MarkdownConverter):
         raise TypeError(
