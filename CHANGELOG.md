@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 - **feat(structured-output): Opt-in structured JSON output with 7 block types** ([#133](https://github.com/plater7/docrawl/pull/133))
+- **feat(pipeline): Opt-in producer/consumer pipeline mode with asyncio.Queue** ([#134](https://github.com/plater7/docrawl/pull/134))
 
 ## [v0.9.8] - 2026-03-03
 
