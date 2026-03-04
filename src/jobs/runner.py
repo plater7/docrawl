@@ -18,7 +18,7 @@ from src.scraper.markdown import html_to_markdown, chunk_markdown
 from src.scraper.detection import is_blocked_response, content_hash
 from src.scraper.cache import PageCache
 from src.jobs.state import save_job_state
-from src.scraper.structured import html_to_structured, save_structured
+from src.scraper.structured import html_to_structured, save_structured, StructuredPage, ContentBlock
 
 logger = logging.getLogger(__name__)
 
@@ -584,7 +584,6 @@ async def run_job(
                         if raw_html is not None:
                             structured_page = html_to_structured(url, raw_html)
                         else:
-                            from src.scraper.structured import StructuredPage, ContentBlock
                             structured_page = StructuredPage(
                                 url=url,
                                 title=None,

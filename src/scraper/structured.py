@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 BlockType = Literal["heading", "paragraph", "code", "table", "list", "image", "blockquote"]
 
-CONTAINER_TAGS = {"div", "section", "article", "main", "aside"}
+CONTAINER_TAGS = {"div", "section", "article", "main", "aside", "nav", "header"}
 
 
 @dataclass
@@ -35,6 +35,7 @@ class ContentBlock:
     content: str
     level: int | None = None  # For headings: 1-6
     language: str | None = None  # For code blocks: detected language
+    alt: str | None = None  # For images: alt text
 
 
 @dataclass
@@ -117,7 +118,7 @@ def _parse_element(el: Tag) -> list[ContentBlock]:
         src = el.get("src", "")
         alt = el.get("alt", "")
         if src:
-            blocks.append(ContentBlock(type="image", content=str(src), language=str(alt) if alt else None))
+            blocks.append(ContentBlock(type="image", content=str(src), alt=str(alt) if alt else None))
         return blocks
 
     # Paragraphs
@@ -134,7 +135,8 @@ def _parse_element(el: Tag) -> list[ContentBlock]:
                 blocks.extend(_parse_element(child))
         return blocks
 
-    # Fallback: extract text as paragraph
+    # Fallback: extract text as paragraph for unrecognised tags.
+    # 20-char threshold filters out stray single words / punctuation (e.g. nav labels).
     text = el.get_text(separator=" ", strip=True)
     if text and len(text) > 20:
         blocks.append(ContentBlock(type="paragraph", content=text))

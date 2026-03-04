@@ -1,7 +1,9 @@
-"""Unit tests for html_to_structured() (PR 3.2) in src/scraper/structured.py."""
+"""Unit tests for html_to_structured() and save_structured() (PR 3.2)."""
 
+import json
+from pathlib import Path
 
-from src.scraper.structured import ContentBlock, StructuredPage, html_to_structured
+from src.scraper.structured import ContentBlock, StructuredPage, html_to_structured, save_structured
 
 _URL = "https://docs.example.com/page"
 
@@ -50,6 +52,30 @@ class TestHtmlToStructuredParagraphs:
         assert any("Hello" in p.content for p in paragraphs)
 
 
+class TestHtmlToStructuredImages:
+    """Tests for image block extraction."""
+
+    def test_img_src_stored_in_content_and_alt_in_alt_field(self):
+        """<img src='...' alt='...'> stores src in content and alt in the alt field."""
+        html = '<body><img src="https://example.com/logo.png" alt="Logo"></body>'
+        page = html_to_structured(_URL, html)
+
+        images = _blocks_of_type(page, "image")
+        assert len(images) >= 1
+        assert images[0].content == "https://example.com/logo.png"
+        assert images[0].alt == "Logo"
+        assert images[0].language is None  # language field must not be misused
+
+    def test_img_without_alt_has_none_alt(self):
+        """<img src='...'> without alt attribute stores alt=None."""
+        html = '<body><img src="https://example.com/logo.png"></body>'
+        page = html_to_structured(_URL, html)
+
+        images = _blocks_of_type(page, "image")
+        assert len(images) >= 1
+        assert images[0].alt is None
+
+
 class TestHtmlToStructuredCode:
     """Tests for code block extraction."""
 
@@ -71,6 +97,26 @@ class TestHtmlToStructuredCode:
         code_blocks = _blocks_of_type(page, "code")
         assert len(code_blocks) >= 1
         assert code_blocks[0].language is None
+
+    def test_standalone_code_element_direct_child_of_container_produces_code_block(self):
+        """<code>snippet</code> as a direct child of a container (not inside <p> or <pre>)
+        produces a code block. Note: inline <code> inside <p> is absorbed into the
+        paragraph text — it does not produce a separate code block."""
+        html = "<body><code>sys.exit()</code></body>"
+        page = html_to_structured(_URL, html)
+
+        code_blocks = _blocks_of_type(page, "code")
+        assert len(code_blocks) >= 1
+        assert "sys.exit()" in code_blocks[0].content
+
+    def test_inline_code_inside_p_is_included_in_paragraph_text(self):
+        """<p>Use <code>sys.exit()</code> to quit.</p> — the code text is part of
+        the paragraph block, not a separate code block."""
+        html = "<body><p>Use <code>sys.exit()</code> to quit.</p></body>"
+        page = html_to_structured(_URL, html)
+
+        paragraphs = _blocks_of_type(page, "paragraph")
+        assert any("sys.exit()" in p.content for p in paragraphs)
 
 
 class TestHtmlToStructuredLists:
@@ -146,3 +192,40 @@ class TestHtmlToStructuredEmptyElements:
         """The url parameter is stored verbatim on the returned StructuredPage."""
         page = html_to_structured(_URL, "<p>content</p>")
         assert page.url == _URL
+
+
+class TestSaveStructured:
+    """Tests for save_structured() atomic write."""
+
+    def test_save_structured_writes_valid_json(self, tmp_path: Path):
+        """save_structured() writes parseable JSON with url, title, and blocks keys."""
+        page = StructuredPage(
+            url=_URL,
+            title="Test",
+            blocks=[ContentBlock(type="paragraph", content="Hello")],
+        )
+        out = tmp_path / "page.json"
+        save_structured(page, out)
+
+        data = json.loads(out.read_text(encoding="utf-8"))
+        assert data["url"] == _URL
+        assert data["title"] == "Test"
+        assert len(data["blocks"]) == 1
+        assert data["blocks"][0]["type"] == "paragraph"
+
+    def test_save_structured_no_tmp_file_left_behind(self, tmp_path: Path):
+        """After a successful write the .tmp file is removed (atomic rename)."""
+        page = StructuredPage(url=_URL, title=None, blocks=[])
+        out = tmp_path / "page.json"
+        save_structured(page, out)
+
+        assert out.exists()
+        assert not out.with_suffix(".tmp").exists()
+
+    def test_save_structured_creates_parent_dirs(self, tmp_path: Path):
+        """save_structured() creates any missing parent directories."""
+        page = StructuredPage(url=_URL, title=None, blocks=[])
+        out = tmp_path / "deep" / "nested" / "page.json"
+        save_structured(page, out)
+
+        assert out.exists()
