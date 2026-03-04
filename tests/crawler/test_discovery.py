@@ -11,11 +11,12 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.crawler.discovery import (
     normalize_url,
     discover_urls,
+    try_nav_parse,
 )
 
 
@@ -392,3 +393,107 @@ class TestIntegrationScenarios:
                     mock_crawl.assert_called_once()
                     assert len(result) == 3
                     assert "https://react.dev/learn" in result
+
+
+class TestTryNavParseBrowserCleanup:
+    """Verify try_nav_parse closes browser/page on all exception paths (issue #63)."""
+
+    def _make_playwright_stack(
+        self,
+        *,
+        page_goto_side_effect: Exception | None = None,
+    ) -> tuple[MagicMock, AsyncMock, AsyncMock, AsyncMock]:
+        """Build a minimal async_playwright mock stack.
+
+        Returns (pw_cm, playwright_mock, browser_mock, page_mock).
+        """
+        page_mock = AsyncMock()
+        page_mock.__aenter__ = AsyncMock(return_value=page_mock)
+        page_mock.__aexit__ = AsyncMock(return_value=False)
+        if page_goto_side_effect is not None:
+            page_mock.goto = AsyncMock(side_effect=page_goto_side_effect)
+        else:
+            page_mock.goto = AsyncMock(return_value=None)
+        page_mock.query_selector_all = AsyncMock(return_value=[])
+
+        browser_mock = AsyncMock()
+        browser_mock.__aenter__ = AsyncMock(return_value=browser_mock)
+        browser_mock.__aexit__ = AsyncMock(return_value=False)
+        browser_mock.new_page = AsyncMock(return_value=page_mock)
+
+        playwright_mock = AsyncMock()
+        playwright_mock.chromium.launch = AsyncMock(return_value=browser_mock)
+
+        pw_cm = MagicMock()
+        pw_cm.__aenter__ = AsyncMock(return_value=playwright_mock)
+        pw_cm.__aexit__ = AsyncMock(return_value=False)
+
+        return pw_cm, playwright_mock, browser_mock, page_mock
+
+    @pytest.mark.asyncio
+    async def test_browser_context_manager_entered_and_exited_on_success(self):
+        """Browser __aexit__ is called on the happy path (no leak)."""
+        pw_cm, _, browser_mock, _ = self._make_playwright_stack()
+
+        with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
+                await try_nav_parse("https://example.com/")
+
+        browser_mock.__aexit__.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_browser_context_manager_exited_on_timeout(self):
+        """Browser __aexit__ is called even when page.goto() raises PlaywrightTimeout."""
+        from playwright.async_api import TimeoutError as PlaywrightTimeout
+
+        pw_cm, _, browser_mock, _ = self._make_playwright_stack(
+            page_goto_side_effect=PlaywrightTimeout("timeout")
+        )
+
+        with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
+                result = await try_nav_parse("https://example.com/")
+
+        # Function should return empty list (timeout path)
+        assert result == []
+        # Browser context manager must have been exited (no leak)
+        browser_mock.__aexit__.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_browser_context_manager_exited_on_generic_exception(self):
+        """Browser __aexit__ is called even when page.goto() raises a generic exception."""
+        pw_cm, _, browser_mock, _ = self._make_playwright_stack(
+            page_goto_side_effect=RuntimeError("network error")
+        )
+
+        with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
+                result = await try_nav_parse("https://example.com/")
+
+        # Function should return empty list (error path)
+        assert result == []
+        # Browser context manager must have been exited (no leak)
+        browser_mock.__aexit__.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_page_context_manager_exited_on_timeout(self):
+        """Page __aexit__ is called even when page.goto() raises PlaywrightTimeout."""
+        from playwright.async_api import TimeoutError as PlaywrightTimeout
+
+        pw_cm, _, _, page_mock = self._make_playwright_stack(
+            page_goto_side_effect=PlaywrightTimeout("timeout")
+        )
+
+        with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
+                await try_nav_parse("https://example.com/")
+
+        page_mock.__aexit__.assert_awaited_once()

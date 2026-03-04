@@ -272,54 +272,57 @@ async def try_nav_parse(base_url: str) -> list[str]:
 
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
+            async with await p.chromium.launch(headless=True) as browser:
+                async with await browser.new_page() as page:
+                    logger.debug("Loading page for nav parsing...")
+                    await page.goto(
+                        base_url, wait_until="domcontentloaded", timeout=10000
+                    )
 
-            logger.debug("Loading page for nav parsing...")
-            await page.goto(base_url, wait_until="domcontentloaded", timeout=10000)
-
-            # Try each selector with limit
-            for selector in NAV_SELECTORS:
-                if len(discovered_urls) >= MAX_NAV_URLS:
-                    logger.info(f"Hit nav URL cap ({MAX_NAV_URLS}), stopping")
-                    break
-
-                try:
-                    links = await page.query_selector_all(selector)
-                    logger.debug(f"Selector '{selector}' found {len(links)} links")
-
-                    for link in links:
+                    # Try each selector with limit
+                    for selector in NAV_SELECTORS:
                         if len(discovered_urls) >= MAX_NAV_URLS:
+                            logger.info(f"Hit nav URL cap ({MAX_NAV_URLS}), stopping")
                             break
 
-                        href = await link.get_attribute("href")
-                        if not href:
-                            continue
-
-                        # Skip anchors and non-http links
-                        if href.startswith("#") or href.startswith("javascript:"):
-                            continue
-
-                        absolute_url = urljoin(base_url, href)
-                        parsed = urlparse(absolute_url)
-
-                        # Same domain only
-                        if parsed.netloc == base_domain and parsed.scheme in [
-                            "http",
-                            "https",
-                        ]:
-                            clean_url = (
-                                f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                        try:
+                            links = await page.query_selector_all(selector)
+                            logger.debug(
+                                f"Selector '{selector}' found {len(links)} links"
                             )
-                            if parsed.query:
-                                clean_url += f"?{parsed.query}"
-                            discovered_urls.add(normalize_url(clean_url))
 
-                except Exception as e:
-                    logger.debug(f"Selector '{selector}' failed: {e}")
-                    continue
+                            for link in links:
+                                if len(discovered_urls) >= MAX_NAV_URLS:
+                                    break
 
-            await browser.close()
+                                href = await link.get_attribute("href")
+                                if not href:
+                                    continue
+
+                                # Skip anchors and non-http links
+                                if href.startswith("#") or href.startswith(
+                                    "javascript:"
+                                ):
+                                    continue
+
+                                absolute_url = urljoin(base_url, href)
+                                parsed = urlparse(absolute_url)
+
+                                # Same domain only
+                                if parsed.netloc == base_domain and parsed.scheme in [
+                                    "http",
+                                    "https",
+                                ]:
+                                    clean_url = (
+                                        f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                                    )
+                                    if parsed.query:
+                                        clean_url += f"?{parsed.query}"
+                                    discovered_urls.add(normalize_url(clean_url))
+
+                        except Exception as e:
+                            logger.debug(f"Selector '{selector}' failed: {e}")
+                            continue
 
     except PlaywrightTimeout:
         msg = f"Nav parsing timeout after 10s on {base_url}"
