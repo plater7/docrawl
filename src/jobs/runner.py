@@ -681,7 +681,8 @@ async def run_job(
                 job=job, urls=urls, base_url=base_url, output_path=output_path,
                 request=request, scraper=scraper, page_pool=page_pool,
                 page_cache=page_cache, seen_hashes=seen_hashes,
-                _hash_lock=_hash_lock, delay_s=delay_s,
+                _hash_lock=_hash_lock, completed_urls=completed_urls,
+                failed_urls=failed_urls, delay_s=delay_s,
             )
         else:
             # Launch all pages concurrently, semaphore controls actual parallelism
@@ -845,8 +846,10 @@ async def _run_pipeline_mode(
     scraper: "PageScraper",
     page_pool: "PagePool | None",
     page_cache: "PageCache | None",
-    seen_hashes: set,
+    seen_hashes: set[str],
     _hash_lock: asyncio.Lock,
+    completed_urls: list[str],
+    failed_urls: list[str],
     delay_s: float,
 ) -> tuple[int, int, int, int, int, int, int]:
     """Producer/Consumer pipeline for page fetching + LLM cleanup (PR 3.3).
@@ -856,7 +859,7 @@ async def _run_pipeline_mode(
     Consumer: single coroutine — dedup, LLM cleanup, atomic file save.
     asyncio.Queue(maxsize=20) provides natural backpressure.
     """
-    queue: asyncio.Queue = asyncio.Queue(maxsize=20)
+    queue: asyncio.Queue[ScrapedPage | None] = asyncio.Queue(maxsize=20)
     sem = asyncio.Semaphore(request.max_concurrent)
     _counter_lock = asyncio.Lock()
 
@@ -947,12 +950,11 @@ async def _run_pipeline_mode(
     async def _consumer() -> None:
         while True:
             item = await queue.get()
-            if item is _PIPELINE_SENTINEL:
+            if item is None:  # _PIPELINE_SENTINEL
                 break
 
-            page = item
+            page: ScrapedPage = item
             url = page.url
-            _i = page.index
             markdown = page.markdown
 
             try:
@@ -973,14 +975,10 @@ async def _run_pipeline_mode(
                         continue
                     seen_hashes.add(h)
 
-                chunks = chunk_markdown(
-                    markdown, native_token_count=page.native_token_count
-                )
-                chunks_failed = 0
                 file_path = _url_to_filepath(url, base_url, output_path)
 
                 if request.output_format == "json":
-                    # PR 3.2: structured JSON — no LLM
+                    # PR 3.2: structured JSON — no LLM, skip chunking entirely
                     if page.raw_html is not None:
                         structured_page = html_to_structured(url, page.raw_html)
                     else:
@@ -990,11 +988,16 @@ async def _run_pipeline_mode(
                         )
                     json_path = file_path.with_suffix(".json")
                     save_structured(structured_page, json_path)
+                    completed_urls.append(url)
                     async with _counter_lock:
                         c["ok"] += 1
                         job.pages_completed += 1
                     continue
 
+                chunks = chunk_markdown(
+                    markdown, native_token_count=page.native_token_count
+                )
+                chunks_failed = 0
                 cleaned_chunks: list[str] = []
                 for chunk in chunks:
                     if job.is_cancelled:
@@ -1016,6 +1019,7 @@ async def _run_pipeline_mode(
                 tmp_path.write_text(final_md, encoding="utf-8")
                 _os.replace(tmp_path, file_path)
 
+                completed_urls.append(url)
                 async with _counter_lock:
                     if chunks_failed == 0:
                         c["ok"] += 1
@@ -1025,6 +1029,7 @@ async def _run_pipeline_mode(
 
             except Exception as e:
                 logger.error(f"Job {job.id}: pipeline consumer error for {url}: {e}")
+                failed_urls.append(url)
                 async with _counter_lock:
                     c["failed"] += 1
                     job.pages_completed += 1
