@@ -1,31 +1,61 @@
 name: Publish Docker Image
 
+# Runs after the Release workflow completes successfully.
+# This ensures the GitHub Release exists before the image is published.
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
 
 jobs:
   publish:
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3.7.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3.12.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6.19.2
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c4a2a40f68dd1a87d78c41d3e6ee4e6b6  # v5.6.1
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/docrawl
+          tags: |
+            type=raw,value=${{ github.event.workflow_run.head_branch }}
+            type=raw,value=latest,enable=${{ !contains(github.event.workflow_run.head_branch, '-') }}
+            type=sha,prefix=sha-,format=short,value=${{ github.event.workflow_run.head_sha }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6.19.2
         with:
           context: .
           file: docker/Dockerfile
           push: true
-          tags: ghcr.io/plater7/docrawl:${{ github.ref_name }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true

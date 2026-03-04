@@ -36,7 +36,16 @@ jobs:
       - name: Extract API_VERSION from merged commit
         id: ver
         run: |
-          VERSION=$(grep -oP 'API_VERSION\s*=\s*"\K[^"]+' src/main.py | head -1)
+          VERSION=$(python3 - <<'PYEOF'
+          import ast
+          tree = ast.parse(open('src/main.py').read())
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Assign):
+                  for t in node.targets:
+                      if isinstance(t, ast.Name) and t.id == 'API_VERSION':
+                          print(ast.literal_eval(node.value))
+                          raise SystemExit(0)
+          PYEOF)
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "Detected version: v$VERSION"
 

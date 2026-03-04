@@ -35,7 +35,17 @@ jobs:
       - name: Extract API_VERSION from src/main.py
         id: ver
         run: |
-          VERSION=$(grep -oP 'API_VERSION\s*=\s*"\K[^"]+' src/main.py | head -1)
+          VERSION=$(python3 - <<'PYEOF'
+          import ast, sys
+          tree = ast.parse(open('src/main.py').read())
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Assign):
+                  for t in node.targets:
+                      if isinstance(t, ast.Name) and t.id == 'API_VERSION':
+                          print(ast.literal_eval(node.value))
+                          raise SystemExit(0)
+          sys.exit(1)
+          PYEOF)
           if [ -z "$VERSION" ]; then
             echo "ERROR: Could not find API_VERSION in src/main.py"
             exit 1

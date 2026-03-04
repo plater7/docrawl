@@ -5,6 +5,10 @@ on:
     tags:
       - "v*"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false  # Never cancel an in-flight release
+
 permissions:
   contents: write
   id-token: write
@@ -18,23 +22,41 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate changelog
-        id: changelog
+      - name: Extract release notes from CHANGELOG.md
+        id: notes
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          if [ -z "$PREV_TAG" ]; then
-            CHANGES=$(git log --pretty=format:"- %s (%h)" HEAD)
+          python3 - <<'PYEOF'
+          import re, sys
+
+          tag = "${{ github.ref_name }}"   # e.g. "v0.9.10"
+
+          with open("CHANGELOG.md", encoding="utf-8") as f:
+              content = f.read()
+
+          # Match ## [v0.9.10] - date  OR  ## [v0.9.10] (with or without date)
+          pattern = rf"(?m)^## \[{re.escape(tag)}\][^\n]*\n(.*?)(?=\n## |\Z)"
+          m = re.search(pattern, content, re.DOTALL)
+
+          notes = m.group(1).strip() if m else f"Release {tag}. See CHANGELOG.md for details."
+
+          with open("/tmp/release_notes.md", "w", encoding="utf-8") as f:
+              f.write(notes)
+
+          print(f"Extracted {len(notes)} chars of notes for {tag}")
+          PYEOF
+
+      - name: Detect pre-release
+        id: prerelease
+        run: |
+          if echo "${{ github.ref_name }}" | grep -qE '(alpha|beta|rc)'; then
+            echo "is_prerelease=true"  >> "$GITHUB_OUTPUT"
           else
-            CHANGES=$(git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD)
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
           fi
-          echo "changes<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b  # v2.5.0
         with:
-          body: |
-            ## Changes
-            ${{ steps.changelog.outputs.changes }}
-          generate_release_notes: true
+          body_path: /tmp/release_notes.md
+          generate_release_notes: false
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
