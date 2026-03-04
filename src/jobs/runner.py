@@ -984,7 +984,6 @@ async def _run_pipeline_mode(
                     if page.raw_html is not None:
                         structured_page = html_to_structured(url, page.raw_html)
                     else:
-                        from src.scraper.structured import StructuredPage, ContentBlock
                         structured_page = StructuredPage(
                             url=url, title=None,
                             blocks=[ContentBlock(type="paragraph", content=markdown)],
