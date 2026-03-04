@@ -117,7 +117,8 @@ class TestRunPipelineMode:
         job = _make_job()
         completed_urls: list[str] = []
         failed_urls: list[str] = []
-
+        mock_converter = MagicMock()
+        mock_converter.convert.return_value = "# mocked markdown"
         scraper = MagicMock()
         scraper.get_html = AsyncMock(return_value="<p>Hello pipeline.</p>")
 
@@ -133,6 +134,7 @@ class TestRunPipelineMode:
                 page_cache=None,
                 seen_hashes=set(),
                 _hash_lock=asyncio.Lock(),
+                converter=mock_converter,
                 completed_urls=completed_urls,
                 failed_urls=failed_urls,
                 delay_s=0.0,
@@ -150,7 +152,8 @@ class TestRunPipelineMode:
         job = _make_job()
         completed_urls: list[str] = []
         failed_urls: list[str] = []
-
+        mock_converter = MagicMock()
+        mock_converter.convert.return_value = "# mocked markdown"
         scraper = MagicMock()
         scraper.get_html = AsyncMock(return_value="<p>Structured content.</p>")
 
@@ -165,6 +168,7 @@ class TestRunPipelineMode:
             page_cache=None,
             seen_hashes=set(),
             _hash_lock=asyncio.Lock(),
+            converter=mock_converter,
             completed_urls=completed_urls,
             failed_urls=failed_urls,
             delay_s=0.0,
@@ -181,7 +185,8 @@ class TestRunPipelineMode:
         job = _make_job()
         completed_urls: list[str] = []
         failed_urls: list[str] = []
-
+        mock_converter = MagicMock()
+        mock_converter.convert.return_value = "# mocked markdown"
         scraper = MagicMock()
         scraper.get_html = AsyncMock(return_value="<p>Will fail.</p>")
 
@@ -199,6 +204,7 @@ class TestRunPipelineMode:
                 page_cache=None,
                 seen_hashes=set(),
                 _hash_lock=asyncio.Lock(),
+                converter=mock_converter,
                 completed_urls=completed_urls,
                 failed_urls=failed_urls,
                 delay_s=0.0,
