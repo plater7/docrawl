@@ -251,20 +251,6 @@ async def health_ready() -> dict:
     return {"ready": True, "checks": checks}
 
 
-@router.get("/info")
-async def app_info() -> dict:
-    """App identity metadata: version, repo, author, models used during development."""
-    from src.main import API_VERSION
-
-    return {
-        "name": "Docrawl",
-        "version": API_VERSION,
-        "repo": "https://github.com/plater7/docrawl",
-        "author": "plater7",
-        "models_used": ["qwen3-coder:free", "glm-4.7-free", "claude-sonnet-4-6"],
-    }
-
-
 @router.post("/jobs/{job_id}/pause")
 async def pause_job(job_id: str) -> JobStatus:
     """Pause a running job after the current page finishes (PR 3.1).
@@ -356,3 +342,36 @@ async def resume_from_state(
         status=job.status,
         pages_total=len(state.pending_urls),
     )
+
+
+@router.get("/converters")
+@limiter.limit("60/minute")
+async def list_converters(request: Request) -> dict:
+    """List available HTML→Markdown converter plugins (PR 3.4)."""
+    from src.scraper.converters import available_converters, get_converter
+
+    converters = []
+    for name in available_converters():
+        c = get_converter(name)
+        converters.append(
+            {
+                "name": name,
+                "supports_tables": c.supports_tables(),
+                "supports_code_blocks": c.supports_code_blocks(),
+            }
+        )
+    return {"converters": converters, "default": "markdownify"}
+
+
+@router.get("/info")
+async def app_info() -> dict:
+    """App identity metadata: version, repo, author, models used during development."""
+    from src.main import API_VERSION
+
+    return {
+        "name": "Docrawl",
+        "version": API_VERSION,
+        "repo": "https://github.com/plater7/docrawl",
+        "author": "plater7",
+        "models_used": ["qwen3-coder:free", "glm-4.7-free", "claude-sonnet-4-6"],
+    }
