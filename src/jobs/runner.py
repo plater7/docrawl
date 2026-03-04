@@ -1,6 +1,5 @@
 """Job execution orchestration.
 
-🤖 Generated with AI assistance by DocCrawler 🕷️ (model: qwen3-coder:free) and human review.
 """
 
 import asyncio
@@ -345,9 +344,6 @@ async def run_job(
         sem = asyncio.Semaphore(request.max_concurrent)
         # Lock to protect shared counters and job.pages_completed
         _counter_lock = asyncio.Lock()
-        # PR 2.3: per-job content dedup state
-        seen_hashes: set[str] = set()
-        _hash_lock = asyncio.Lock()
 
         async def _process_page(i: int, url: str) -> None:
             nonlocal pages_ok, pages_partial, pages_failed, pages_skipped, pages_blocked
