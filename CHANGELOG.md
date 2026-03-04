@@ -14,9 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **State Checkpoint** — al pausar se escribe `{output_path}/.job_state.json` (atomic write) con URLs completadas/fallidas/pendientes + `JobRequest` serializado — PR 3.1
 - **Resume from State** — `POST /api/jobs/resume-from-state` crea un nuevo job procesando solo las URLs pendientes del checkpoint; protección path traversal (solo bajo `/data`) — PR 3.1
 - **Structured Output** — `output_format: "json"` devuelve `StructuredPage` con 7 tipos de `ContentBlock` (heading, paragraph, code, table, list, blockquote, image) — PR 3.2
-- **Pipeline Mode** — `use_pipeline_mode: true` activa arquitectura productor/consumidor con `asyncio.Queue(maxsize=20)` para overlap scraping+cleanup — PR 3.3
-- **Converter Plugins** — sistema de plugins `MarkdownConverter` (Protocol `@runtime_checkable`) + registry estático; `GET /api/converters` lista los registrados; campo `converter` en `JobRequest` — PR 3.4
-- **MarkdownifyConverter** — implementación por defecto del protocol, configurable vía `converter: "markdownify"` — PR 3.4
 
 ---
 
