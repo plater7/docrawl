@@ -26,7 +26,9 @@ class JobRequest(BaseModel):
     markdown_proxy_url: str | None = Field(default=None)
     use_http_fast_path: bool = True  # PR 1.3: try plain HTTP before Playwright
     use_cache: bool = False  # PR 2.4: opt-in disk cache (24h TTL)
-    output_format: Literal["markdown", "json"] = "markdown"  # PR 3.2: structured JSON output opt-in
+    output_format: Literal["markdown", "json"] = (
+        "markdown"  # PR 3.2: structured JSON output opt-in
+    )
     use_pipeline_mode: bool = False  # PR 3.3: opt-in producer/consumer pipeline
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True

@@ -675,14 +675,28 @@ async def run_job(
 
         # PR 3.3: opt-in pipeline mode (producer/consumer) vs default concurrent scraping
         if request.use_pipeline_mode:
-            (pages_ok, pages_partial, pages_failed,
-             pages_native_md, pages_proxy_md, pages_http_fast, pages_playwright
-             ) = await _run_pipeline_mode(
-                job=job, urls=urls, base_url=base_url, output_path=output_path,
-                request=request, scraper=scraper, page_pool=page_pool,
-                page_cache=page_cache, seen_hashes=seen_hashes,
-                _hash_lock=_hash_lock, completed_urls=completed_urls,
-                failed_urls=failed_urls, delay_s=delay_s,
+            (
+                pages_ok,
+                pages_partial,
+                pages_failed,
+                pages_native_md,
+                pages_proxy_md,
+                pages_http_fast,
+                pages_playwright,
+            ) = await _run_pipeline_mode(
+                job=job,
+                urls=urls,
+                base_url=base_url,
+                output_path=output_path,
+                request=request,
+                scraper=scraper,
+                page_pool=page_pool,
+                page_cache=page_cache,
+                seen_hashes=seen_hashes,
+                _hash_lock=_hash_lock,
+                completed_urls=completed_urls,
+                failed_urls=failed_urls,
+                delay_s=delay_s,
             )
         else:
             # Launch all pages concurrently, semaphore controls actual parallelism
@@ -865,8 +879,13 @@ async def _run_pipeline_mode(
 
     # Shared counters via mutable dict (avoids nonlocal complexity)
     c = {
-        "ok": 0, "partial": 0, "failed": 0,
-        "native_md": 0, "proxy_md": 0, "http_fast": 0, "playwright": 0,
+        "ok": 0,
+        "partial": 0,
+        "failed": 0,
+        "native_md": 0,
+        "proxy_md": 0,
+        "http_fast": 0,
+        "playwright": 0,
     }
 
     async def _fetch_one(i: int, url: str) -> None:
@@ -929,11 +948,17 @@ async def _run_pipeline_mode(
                         page_cache.put(url, html)
 
                 load_time = time.monotonic() - page_start
-                await queue.put(ScrapedPage(
-                    index=i, url=url, markdown=markdown, raw_html=raw_html,
-                    native_token_count=native_token_count,
-                    fetch_method=fetch_method, load_time=load_time,
-                ))
+                await queue.put(
+                    ScrapedPage(
+                        index=i,
+                        url=url,
+                        markdown=markdown,
+                        raw_html=raw_html,
+                        native_token_count=native_token_count,
+                        fetch_method=fetch_method,
+                        load_time=load_time,
+                    )
+                )
             except Exception as e:
                 logger.error(f"Job {job.id}: pipeline producer error for {url}: {e}")
                 async with _counter_lock:
@@ -983,7 +1008,8 @@ async def _run_pipeline_mode(
                         structured_page = html_to_structured(url, page.raw_html)
                     else:
                         structured_page = StructuredPage(
-                            url=url, title=None,
+                            url=url,
+                            title=None,
                             blocks=[ContentBlock(type="paragraph", content=markdown)],
                         )
                     json_path = file_path.with_suffix(".json")
@@ -1004,12 +1030,16 @@ async def _run_pipeline_mode(
                         break
                     try:
                         if needs_llm_cleanup(chunk):
-                            cleaned = await cleanup_markdown(chunk, request.pipeline_model)
+                            cleaned = await cleanup_markdown(
+                                chunk, request.pipeline_model
+                            )
                         else:
                             cleaned = chunk
                         cleaned_chunks.append(cleaned)
                     except Exception as chunk_err:
-                        logger.warning(f"Pipeline chunk cleanup failed for {url}: {chunk_err}")
+                        logger.warning(
+                            f"Pipeline chunk cleanup failed for {url}: {chunk_err}"
+                        )
                         cleaned_chunks.append(chunk)
                         chunks_failed += 1
 
@@ -1035,4 +1065,12 @@ async def _run_pipeline_mode(
                     job.pages_completed += 1
 
     await asyncio.gather(_producer(), _consumer())
-    return c["ok"], c["partial"], c["failed"], c["native_md"], c["proxy_md"], c["http_fast"], c["playwright"]
+    return (
+        c["ok"],
+        c["partial"],
+        c["failed"],
+        c["native_md"],
+        c["proxy_md"],
+        c["http_fast"],
+        c["playwright"],
+    )
