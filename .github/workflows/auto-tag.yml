@@ -1,65 +1,32 @@
 name: Auto Tag
 
 # Pushes a semver tag automatically when:
-#   1. A PR is merged and API_VERSION in src/main.py bumped
-#   2. A milestone whose title contains vX.Y.Z is closed
-#   3. Manually via workflow_dispatch (fallback / backfill)
+#   1. A milestone whose title contains vX.Y.Z is closed (primary trigger)
+#   2. Manually via workflow_dispatch (fallback / backfill)
+#
+# Tag-on-PR-merge was removed: that responsibility now lives at the end of
+# update-docs-on-merge.yml, which pushes the tag AFTER committing the
+# CHANGELOG update. This prevents a race condition where the tag pointed at
+# the bare merge commit and the release body was missing the last bullet.
 #
 # Once the tag is pushed, release.yml picks it up via `push: tags: v*`.
 
 on:
-  pull_request:
-    types: [closed]
   milestone:
     types: [closed]
   workflow_dispatch:
     inputs:
       version:
-        description: "Version tag to push (e.g. v0.9.9)"
+        description: "Version tag to push (e.g. v0.9.10)"
         required: true
+      commit_sha:
+        description: "Commit SHA to tag (default: HEAD of main)"
+        required: false
 
 permissions:
   contents: write
 
 jobs:
-  # ── Trigger: PR merged ────────────────────────────────────────────────────
-  tag-on-pr-merge:
-    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-        with:
-          ref: ${{ github.event.pull_request.merge_commit_sha }}
-          fetch-depth: 0
-
-      - name: Extract API_VERSION from merged commit
-        id: ver
-        run: |
-          VERSION=$(python3 - <<'PYEOF'
-          import ast
-          tree = ast.parse(open('src/main.py').read())
-          for node in ast.walk(tree):
-              if isinstance(node, ast.Assign):
-                  for t in node.targets:
-                      if isinstance(t, ast.Name) and t.id == 'API_VERSION':
-                          print(ast.literal_eval(node.value))
-                          raise SystemExit(0)
-          PYEOF)
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Detected version: v$VERSION"
-
-      - name: Push tag if new
-        run: |
-          TAG="${{ steps.ver.outputs.tag }}"
-          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
-            echo "Tag $TAG already exists — skipping"
-          else
-            git tag "$TAG" "${{ github.event.pull_request.merge_commit_sha }}"
-            git push origin "$TAG"
-            echo "Pushed tag $TAG"
-          fi
-
   # ── Trigger: milestone closed ─────────────────────────────────────────────
   tag-on-milestone-close:
     if: github.event_name == 'milestone'
@@ -68,6 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
+          ref: main          # always tag the tip of main, not an arbitrary runner SHA
           fetch-depth: 0
 
       - name: Extract version from milestone title
@@ -89,9 +57,10 @@ jobs:
           if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
             echo "Tag $TAG already exists — skipping"
           else
-            git tag "$TAG"
+            # Explicitly tag the current HEAD of main (fetched above with ref: main)
+            git tag "$TAG" "$(git rev-parse HEAD)"
             git push origin "$TAG"
-            echo "Pushed tag $TAG"
+            echo "Pushed tag $TAG → $(git rev-parse HEAD)"
           fi
 
   # ── Trigger: manual dispatch ──────────────────────────────────────────────
@@ -102,15 +71,21 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Push tag
         run: |
           TAG="${{ github.event.inputs.version }}"
+          # Allow caller to target a specific commit; default to main HEAD
+          TARGET="${{ github.event.inputs.commit_sha }}"
+          if [ -z "$TARGET" ]; then
+            TARGET="$(git rev-parse HEAD)"
+          fi
           if git ls-remote --tags origin "refs/tags/$TAG" | grep -q .; then
             echo "Tag $TAG already exists — skipping"
           else
-            git tag "$TAG"
+            git tag "$TAG" "$TARGET"
             git push origin "$TAG"
-            echo "Pushed tag $TAG"
+            echo "Pushed tag $TAG → $TARGET"
           fi

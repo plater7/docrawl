@@ -37,14 +37,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Parse semver from tag
+        id: semver
+        run: |
+          # head_branch for a tag-triggered workflow_run is the tag name (e.g. v0.9.10)
+          RAW="${{ github.event.workflow_run.head_branch }}"
+          VERSION="${RAW#v}"                     # strip leading 'v' → 0.9.10
+          MINOR="${VERSION%.*}"                  # drop patch → 0.9
+          IS_STABLE=$([[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo true || echo false)
+          echo "version=$VERSION"  >> "$GITHUB_OUTPUT"
+          echo "minor=$MINOR"      >> "$GITHUB_OUTPUT"
+          echo "stable=$IS_STABLE" >> "$GITHUB_OUTPUT"
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@c299e40c4a2a40f68dd1a87d78c41d3e6ee4e6b6  # v5.6.1
         with:
           images: ghcr.io/${{ github.repository_owner }}/docrawl
           tags: |
-            type=raw,value=${{ github.event.workflow_run.head_branch }}
-            type=raw,value=latest,enable=${{ !contains(github.event.workflow_run.head_branch, '-') }}
+            type=raw,value=${{ steps.semver.outputs.version }}
+            type=raw,value=${{ steps.semver.outputs.minor }},enable=${{ steps.semver.outputs.stable }}
+            type=raw,value=latest,enable=${{ steps.semver.outputs.stable }}
             type=sha,prefix=sha-,format=short,value=${{ github.event.workflow_run.head_sha }}
 
       - name: Build and push Docker image

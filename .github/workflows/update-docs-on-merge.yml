@@ -9,8 +9,11 @@ name: Update Docs on PR Merge
 #      "v0.9.10 - Advanced Features" → v0.9.10). Falls back to API_VERSION
 #      if no milestone is set.
 #   3. Adds the merged PR as a bullet under the matching CHANGELOG version section
-#      (creates the section if it doesn't exist yet)
+#      (creates the section if it doesn't exist yet; uses "- unreleased" for the
+#      date placeholder so only release.yml stamps the real date)
 #   4. Commits and pushes the changes if anything changed
+#   5. If API_VERSION changed vs the last semver tag, pushes the new git tag
+#      pointing at the post-CHANGELOG commit (not the bare merge commit)
 
 on:
   pull_request:
@@ -144,7 +147,7 @@ jobs:
                   insert_pos += len(separator)
 
               new_section = (
-                  f"\n## [{version}] - {today}\n\n"
+                  f"\n## [{version}] - unreleased\n\n"
                   f"### {sub}\n"
                   f"{bullet}\n"
                   f"\n---\n"
@@ -168,4 +171,18 @@ jobs:
             echo "Committed and pushed."
           else
             echo "No changes — README and CHANGELOG already up to date."
+          fi
+
+      - name: Push semver tag if API_VERSION is new
+        # Runs after the CHANGELOG commit so the tag points at the updated state,
+        # not the bare merge commit. Replaces the former tag-on-pr-merge job in
+        # auto-tag.yml which raced against this workflow.
+        run: |
+          API_TAG="${{ steps.ver.outputs.api_version }}"
+          if git ls-remote --tags origin "refs/tags/${API_TAG}" | grep -q .; then
+            echo "Tag ${API_TAG} already exists — skipping"
+          else
+            git tag "${API_TAG}" "$(git rev-parse HEAD)"
+            git push origin "${API_TAG}"
+            echo "Pushed tag ${API_TAG} → $(git rev-parse HEAD)"
           fi
