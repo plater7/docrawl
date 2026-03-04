@@ -4,8 +4,10 @@ name: Update Docs on PR Merge
 # is merged to main. Commits back to main with [skip ci] to avoid loops.
 #
 # What it does:
-#   1. Reads API_VERSION from src/main.py (source of truth)
-#   2. Updates the version badge in README.md
+#   1. Reads API_VERSION from src/main.py → updates README badge (live version)
+#   2. Determines CHANGELOG version from the PR's milestone title (e.g.
+#      "v0.9.10 - Advanced Features" → v0.9.10). Falls back to API_VERSION
+#      if no milestone is set.
 #   3. Adds the merged PR as a bullet under the matching CHANGELOG version section
 #      (creates the section if it doesn't exist yet)
 #   4. Commits and pushes the changes if anything changed
@@ -50,12 +52,28 @@ jobs:
             echo "ERROR: Could not find API_VERSION in src/main.py"
             exit 1
           fi
-          echo "version=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "api_version=v$VERSION" >> "$GITHUB_OUTPUT"
           echo "Detected API_VERSION: v$VERSION"
+
+      - name: Resolve CHANGELOG version from PR milestone (fallback to API_VERSION)
+        id: changelog_ver
+        env:
+          MILESTONE_TITLE: ${{ github.event.pull_request.milestone.title }}
+          API_VERSION:     ${{ steps.ver.outputs.api_version }}
+        run: |
+          # Parse vX.Y.Z from milestone title, e.g. "v0.9.10 - Advanced Features"
+          MILESTONE_VER=$(echo "$MILESTONE_TITLE" | grep -oP 'v\d+\.\d+\.\d+' | head -1)
+          if [ -n "$MILESTONE_VER" ]; then
+            echo "version=$MILESTONE_VER" >> "$GITHUB_OUTPUT"
+            echo "CHANGELOG version from milestone: $MILESTONE_VER"
+          else
+            echo "version=$API_VERSION" >> "$GITHUB_OUTPUT"
+            echo "No milestone semver found — falling back to API_VERSION: $API_VERSION"
+          fi
 
       - name: Update README version badge
         run: |
-          TAG="${{ steps.ver.outputs.version }}"
+          TAG="${{ steps.ver.outputs.api_version }}"
           # Replace the semver in the shields.io badge URL
           sed -i "s|version-v[0-9][0-9.a-z]*-blue|version-${TAG}-blue|g" README.md
           echo "README badge → $TAG"
@@ -66,7 +84,7 @@ jobs:
           PR_TITLE:  ${{ github.event.pull_request.title }}
           PR_URL:    ${{ github.event.pull_request.html_url }}
           PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
-          VERSION:   ${{ steps.ver.outputs.version }}
+          VERSION:   ${{ steps.changelog_ver.outputs.version }}
         run: |
           python3 - <<'PYEOF'
           import os, re

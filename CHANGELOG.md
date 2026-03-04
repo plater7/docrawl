@@ -7,13 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v0.9.10] - 2026-03-03
+## [v0.9.10] - unreleased
 
 ### Added
-- **Pause/Resume** — `POST /jobs/{id}/pause` pausa el job después de la página actual; `POST /jobs/{id}/resume` lo reanuda en el mismo proceso; `asyncio.Event` interno (set=running, clear=paused) — PR 3.1
+- **Pause/Resume** — `POST /jobs/{id}/pause` pausa el job después de la página actual; `POST /jobs/{id}/resume` lo reanuda en el mismo proceso; `asyncio.Event` interno (set=running, clear=paused) — PR 3.1 ([#131](https://github.com/plater7/docrawl/pull/131))
 - **State Checkpoint** — al pausar se escribe `{output_path}/.job_state.json` (atomic write) con URLs completadas/fallidas/pendientes + `JobRequest` serializado — PR 3.1
 - **Resume from State** — `POST /api/jobs/resume-from-state` crea un nuevo job procesando solo las URLs pendientes del checkpoint; protección path traversal (solo bajo `/data`) — PR 3.1
-- **Structured Output** — `output_format: "json"` devuelve `StructuredPage` con 7 tipos de `ContentBlock` (heading, paragraph, code, table, list, blockquote, image) — PR 3.2
+- **Structured Output** — `output_format: "json"` devuelve `StructuredPage` con 7 tipos de `ContentBlock` (heading, paragraph, code, table, list, blockquote, image) — PR 3.2 ([#133](https://github.com/plater7/docrawl/pull/133))
+- **Pipeline Mode** — `use_pipeline_mode: true` activa productor/consumidor con `asyncio.Queue(maxsize=20)` y backpressure; dedup + LLM cleanup en paralelo al scraping — PR 3.3 ([#134](https://github.com/plater7/docrawl/pull/134))
 
 ---
 
@@ -26,10 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Page Cache** — `PageCache` con TTL 24h y escritura atómica; opt-in via `use_cache: false`; campo `cache_dir` configurable — PR 2.4
 - **Token Estimation** — `_estimate_tokens()` con ratios distintos para código (3.0), tablas (3.5) y prosa (4.0) — PR 2.5
 - **API Version** — `X-API-Version: 0.9.9` — PR 2.5
-
----
-- **feat(structured-output): Opt-in structured JSON output with 7 block types** ([#133](https://github.com/plater7/docrawl/pull/133))
-- **feat(pipeline): Opt-in producer/consumer pipeline mode with asyncio.Queue** ([#134](https://github.com/plater7/docrawl/pull/134))
 
 ## [v0.9.8] - 2026-03-03
 
