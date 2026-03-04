@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pipeline Mode** — `use_pipeline_mode: true` activa productor/consumidor con `asyncio.Queue(maxsize=20)` y backpressure; dedup + LLM cleanup en paralelo al scraping — PR 3.3 ([#134](https://github.com/plater7/docrawl/pull/134))
 
 ---
+- **feat(converters): HTML→Markdown converter plugin architecture — v0.9.10** ([#135](https://github.com/plater7/docrawl/pull/135))
 
 ## [v0.9.9] - 2026-03-03
 
