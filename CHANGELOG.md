@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 - **feat(converters): HTML→Markdown converter plugin architecture — v0.9.10** ([#135](https://github.com/plater7/docrawl/pull/135))
+- **test(coverage): increase unit test coverage from ~55% to ~60% — v0.9.10** ([#146](https://github.com/plater7/docrawl/pull/146))
 
 ## [v0.9.9] - 2026-03-03
 
