@@ -337,7 +337,9 @@ async def try_nav_parse(base_url: str) -> list[str]:
     return result
 
 
-async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
+async def try_sitemap(
+    base_url: str, filter_by_path: bool = True, sitemap_cache: any = None
+) -> list[str]:
     """
     Try to parse sitemap.xml and robots.txt.
 
@@ -349,6 +351,9 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
     Args:
         base_url: Base URL of the site
         filter_by_path: If True, filter URLs to only include those under the base URL's path
+        sitemap_cache: Optional PageCache instance for sitemap HTTP responses (PR 2.4).
+                         TODO: Implement cache usage in parse_sitemap_xml to reduce sitemap HTTP requests
+                         during repeated crawls.
 
     Returns:
         List of URLs found in sitemaps
@@ -488,7 +493,7 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
 
 
 async def discover_urls(
-    base_url: str, max_depth: int = 5, filter_by_path: bool = True
+    base_url: str, max_depth: int = 5, filter_by_path: bool = True, sitemap_cache: any = None
 ) -> list[str]:
     """
     Discover URLs using cascade strategy — stops at first success:
@@ -500,6 +505,7 @@ async def discover_urls(
         base_url: Base URL to discover
         max_depth: Maximum depth for recursive crawl
         filter_by_path: If True, filter sitemap URLs to only include those under base URL's path
+        sitemap_cache: Optional PageCache instance for sitemap HTTP responses (PR 2.4).
 
     Returns deduplicated, normalized URLs. Never returns empty list.
     """
@@ -516,7 +522,7 @@ async def discover_urls(
     logger.info(msg)
 
     try:
-        sitemap_urls = await try_sitemap(base_url, filter_by_path)
+        sitemap_urls = await try_sitemap(base_url, filter_by_path, sitemap_cache)
         if sitemap_urls:
             all_urls.update(sitemap_urls)
             msg = f"✓ Sitemap success: {len(sitemap_urls)} URLs found"
