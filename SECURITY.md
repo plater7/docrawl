@@ -1,11 +1,5 @@
 # Security Policy
 
-## Supported Versions
-
-| Version | Supported |
-|---------|-----------|
-| 0.x.x   | Yes       |
-
 ## Reporting a Vulnerability
 
 If you discover a security vulnerability in Docrawl, please report it responsibly.
@@ -50,3 +44,4 @@ These operations require careful handling of:
 - Keep dependencies updated (Dependabot is configured)
 - Never expose the Ollama API directly to the internet
 - Review output paths before starting crawl jobs
+
