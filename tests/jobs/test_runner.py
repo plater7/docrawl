@@ -53,12 +53,8 @@ class TestValidateModels:
             "src.jobs.runner.get_available_models",
             return_value=[{"name": "mistral:7b"}],
         ):
-            with patch(
-                "src.jobs.runner.get_provider_for_model", return_value="ollama"
-            ):
-                errors = await validate_models(
-                    "mistral:7b", "mistral:7b", "mistral:7b"
-                )
+            with patch("src.jobs.runner.get_provider_for_model", return_value="ollama"):
+                errors = await validate_models("mistral:7b", "mistral:7b", "mistral:7b")
         assert errors == []
 
     async def test_error_when_ollama_model_not_in_list(self):
@@ -66,12 +62,8 @@ class TestValidateModels:
             "src.jobs.runner.get_available_models",
             return_value=[{"name": "llama3:8b"}],
         ):
-            with patch(
-                "src.jobs.runner.get_provider_for_model", return_value="ollama"
-            ):
-                errors = await validate_models(
-                    "mistral:7b", "mistral:7b", "mistral:7b"
-                )
+            with patch("src.jobs.runner.get_provider_for_model", return_value="ollama"):
+                errors = await validate_models("mistral:7b", "mistral:7b", "mistral:7b")
         assert len(errors) == 3
         assert "mistral:7b" in errors[0]
 
@@ -80,12 +72,8 @@ class TestValidateModels:
             "src.jobs.runner.get_available_models",
             side_effect=Exception("connection refused"),
         ):
-            with patch(
-                "src.jobs.runner.get_provider_for_model", return_value="ollama"
-            ):
-                errors = await validate_models(
-                    "mistral:7b", "mistral:7b", "mistral:7b"
-                )
+            with patch("src.jobs.runner.get_provider_for_model", return_value="ollama"):
+                errors = await validate_models("mistral:7b", "mistral:7b", "mistral:7b")
         assert len(errors) == 3
         assert "connection refused" in errors[0]
 
@@ -95,12 +83,8 @@ class TestValidateModels:
             "src.jobs.runner.get_available_models",
             return_value=[{"name": "mistral:latest"}],
         ):
-            with patch(
-                "src.jobs.runner.get_provider_for_model", return_value="ollama"
-            ):
-                errors = await validate_models(
-                    "mistral:7b", "mistral:7b", "mistral:7b"
-                )
+            with patch("src.jobs.runner.get_provider_for_model", return_value="ollama"):
+                errors = await validate_models("mistral:7b", "mistral:7b", "mistral:7b")
         assert errors == []
 
     async def test_no_error_for_lmstudio_provider(self):
@@ -112,9 +96,7 @@ class TestValidateModels:
             with patch(
                 "src.jobs.runner.get_provider_for_model", return_value="lmstudio"
             ):
-                errors = await validate_models(
-                    "lmstudio/m", "lmstudio/m", "lmstudio/m"
-                )
+                errors = await validate_models("lmstudio/m", "lmstudio/m", "lmstudio/m")
         assert errors == []
 
 
@@ -408,9 +390,7 @@ class TestRunJobHappyPath:
                                         await run_job(job, resume_urls=urls)
 
         done_events = [
-            call
-            for call in job.emit_event.call_args_list
-            if call.args[0] == "job_done"
+            call for call in job.emit_event.call_args_list if call.args[0] == "job_done"
         ]
         assert len(done_events) == 1
         assert done_events[0].args[1]["status"] == "completed"
@@ -527,9 +507,7 @@ class TestRunJobCancellation:
                                         await run_job(job, resume_urls=urls)
 
         done_events = [
-            c
-            for c in job.emit_event.call_args_list
-            if c.args[0] == "job_done"
+            c for c in job.emit_event.call_args_list if c.args[0] == "job_done"
         ]
         completed = [e for e in done_events if e.args[1].get("status") == "completed"]
         assert completed == []
