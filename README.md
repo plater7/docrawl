@@ -135,6 +135,7 @@ Docrawl usa **3 modelos especializados** por rol:
 | 🦙 **Ollama** | Local (gratis) | Corre en `localhost:11434` |
 | 🌐 **OpenRouter** | API | Set `OPENROUTER_API_KEY` |
 | 💎 **OpenCode** | API | Set `OPENCODE_API_KEY` |
+| 🌐 **LM Studio | Local (gratis) | Set `LMSTUDIO_URL` & `LMSTUDIO_API_KEY` (opcional) |
 
 ### Configuración de Providers
 
@@ -170,6 +171,12 @@ export OPENCODE_API_KEY=...
 
 Modelos disponibles: `opencode/claude-sonnet-4-5`, `opencode/claude-haiku-4-5`, `opencode/gpt-5-nano`, y más.
 
+#### LM Studio
+```bash
+# En .env o variable de entorno:
+export LMSTUDIO_URL=...
+export LMSTUDIO_API_KEY=...
+```
 > 💡 **Tip**: Puedes usar proveedores distintos para cada rol (e.g., Ollama para crawl y OpenRouter para pipeline).
 
 ## 📡 API
@@ -258,160 +265,11 @@ pytest tests/ -v
 
 Ver [CHANGELOG.md](./CHANGELOG.md) para historial de versiones.
 
-## 🗺️ Roadmap de Mejoras
-
-### Estado del Proyecto (Feb 2026)
-
-| Métrica | Cantidad |
-|---------|----------|
-| **Issues** | 113+ (total) · 24 abiertos |
-| **PRs** | 119+ (total) · 2 abiertos |
-| **Branches** | 3 activos |
-| **Tests** | 335 passing · 58.68% coverage |
-| **Releases** | v0.9.1 → v0.9.7 (8 releases) |
-
-### Auditoría Multi-Agente — Progreso
-
-| Wave | Estado | Hallazgos |
-|------|--------|-----------|
-| 0 — GitHub Infra | ✅ DONE | — |
-| 1 — Core Code Review | ✅ DONE | 174 (15 critical) |
-| 2 — Infra & DevOps | ✅ DONE | 70 (5 critical) |
-| 3 — AI/ML Engineering | ✅ DONE | 48 (7 critical) |
-| 4 — Quality & Security | ✅ DONE | 90 (13 critical) |
-| 5 — Docs & DX | ✅ DONE | 50 (6 critical) |
-| 6 — Architecture | ✅ DONE | 12 (5 critical), Score: 6/10 |
-| 7 — Synthesis | ✅ DONE | 444→62 findings |
-
----
-
-### 🎯 Roadmap Priorizado
-
-> Estado sincronizado con [GitHub Issues](https://github.com/plater7/docrawl/issues) · 11 issues abiertos (P1)
-
-#### P0 — Bloqueantes de Producción ✅ Todos resueltos
-
-| # | Hallazgo | Severidad | Estado |
-|---|----------|-----------|--------|
-| 1 | Path Traversal via `output_path` | Critical | ✅ Fixed v0.9.0 (#47) |
-| 2 | SSRF via Playwright a URLs internas | Critical | ✅ Fixed v0.9.0 (#51) |
-| 3 | Sin autenticación en endpoints | Critical | ✅ Fixed v0.9.0 (#48) |
-| 4 | Worker Cloudflare sin auth | Critical | ✅ Fixed v0.9.0 (#50) |
-| 5 | XSS via `innerHTML` con datos SSE | Critical | ✅ Fixed v0.9.0 (#52) |
-| 6 | Prompt injection via contenido scrapeado | Critical | ✅ Fixed v0.9.0 (#58) + v0.9.5 (#94) |
-| 7 | Sin rate limiting ni job concurrency cap | Critical | ✅ Fixed v0.9.0 (#53) |
-| 8 | Puerto 8002 expuesto en 0.0.0.0 | Critical | ✅ Fixed v0.9.0 (CORS + middleware) |
-| 9 | Blocking sync HTTP en async context | Major | ✅ Fixed v0.9.1 (#59) |
-| 10 | `max_concurrent` nunca implementado | Major | ✅ Fixed v0.9.1 (#56) |
-
-**P0: 10/10 resueltos** — sin bloqueantes críticos de producción
-
-#### P1 — Alta Prioridad (11 issues abiertos)
-
-**Resueltos:**
-
-| Item | Estado |
-|------|--------|
-| No `.dockerignore` | ✅ Fixed v0.9.2 (#77) |
-| Test deps en imagen runtime | ✅ Fixed v0.9.2 (#78) |
-| Security CI gates deshabilitados | ✅ Fixed v0.9.2 (#54) |
-| `cloudflared:latest` unpinned | ✅ Fixed v0.9.2 (#79) |
-| `num_ctx` insuficiente para chunks | ✅ Fixed v0.9.1 (#57) |
-| Atomic file writes en async context | ✅ Fixed v0.9.6 (#99) |
-| CORS no configurado | ✅ Fixed v0.9.0 (#80) |
-| `print()` mixed with logging | ✅ Fixed v0.9.6 (#89) |
-
-**Pendientes (GitHub issues abiertos):**
-
-| Issue | Hallazgo | Label |
-|-------|----------|-------|
-| [#61](https://github.com/plater7/docrawl/issues/61) | Memory leak — jobs completados nunca se eliminan del dict | bug |
-| [#62](https://github.com/plater7/docrawl/issues/62) | Race condition en `JobManager._jobs` — dict sin `asyncio.Lock` | bug |
-| [#63](https://github.com/plater7/docrawl/issues/63) | Resource leak Playwright — browsers no cerrados en error | bug |
-| [#69](https://github.com/plater7/docrawl/issues/69) | Sin connection pooling en cliente LLM — 150+ TCP connections por job | performance |
-| [#70](https://github.com/plater7/docrawl/issues/70) | `_generate_index` produce links rotos — separador `_` en vez de `/` | bug |
-| [#71](https://github.com/plater7/docrawl/issues/71) | `reasoning_model` validado pero nunca invocado en runner | bug |
-| [#72](https://github.com/plater7/docrawl/issues/72) | Parser JSON frágil para output del LLM — falla >30% con modelos 7B | bug |
-| [#73](https://github.com/plater7/docrawl/issues/73) | Exception handler de cleanup es dead code — `pages_partial` siempre 0 | bug |
-| [#74](https://github.com/plater7/docrawl/issues/74) | Sin crash recovery — restart pierde todos los jobs activos | bug |
-| [#75](https://github.com/plater7/docrawl/issues/75) | `__import__('os')` inline en `routes.py` — anti-patrón crítico | refactor |
-| [#76](https://github.com/plater7/docrawl/issues/76) | Sync file writes en event loop — bloqueo en Docker volumes | performance |
-
-#### P2 — Media Prioridad ✅ Todos resueltos
-
-| Item | Estado |
-|------|--------|
-| No caching de model lists | ✅ Fixed v0.9.5/v0.9.6 (#92) |
-| Case-sensitive path handling (robots.txt) | ✅ Fixed v0.9.5 |
-| Retry backoff fijo → exponencial | ✅ Fixed v0.9.6 (#100) |
-| MAX_RETRIES insuficiente | ✅ Fixed v0.9.6 (#94) |
-| Dead code (`generate_legacy`, etc.) | ✅ Fixed v0.9.5 (#116) |
-| 3 funciones `_generate_*` duplicadas | ✅ Fixed v0.9.5 (#116) |
-
-#### P3 — Baja Prioridad / Nice to Have ✅ Todos resueltos
-
-| Issue | Hallazgo | Estado |
-|-------|----------|--------|
-| [#103](https://github.com/plater7/docrawl/issues/103) | Sin API versioning | ✅ Fixed v0.9.7 (#115) |
-| [#104](https://github.com/plater7/docrawl/issues/104) | Health check no funcional | ✅ Fixed v0.9.7 (#115) |
-| [#105](https://github.com/plater7/docrawl/issues/105) | Sin tracking de tokens | ✅ Fixed v0.9.7 (#115) |
-| [#106](https://github.com/plater7/docrawl/issues/106) | Sin pre-commit hooks | ✅ Fixed v0.9.7 (#115) |
-| [#107](https://github.com/plater7/docrawl/issues/107) | Sin conventional commits | ✅ Fixed v0.9.7 (#115) |
-| [#108](https://github.com/plater7/docrawl/issues/108) | Sin deployment pipeline | ✅ Fixed v0.9.7 (#115) |
-| [#109](https://github.com/plater7/docrawl/issues/109) | Sin structured logging | ✅ Fixed v0.9.7 (#115) |
-| [#110](https://github.com/plater7/docrawl/issues/110) | Inconsistencia de idioma en docs | ✅ Fixed v0.9.7 (#115) |
-| [#111](https://github.com/plater7/docrawl/issues/111) | Multi-provider no documentado | ✅ Fixed v0.9.7 (#115) |
-| [#112](https://github.com/plater7/docrawl/issues/112) | Playwright innecesario en CI | ✅ Fixed v0.9.7 (#115) |
-| [#113](https://github.com/plater7/docrawl/issues/113) | Info leakage en errores | ✅ Fixed v0.9.7 (#115) |
-
----
-
-### Progreso de Fixes
-
-| PR | Milestone | Issues | Estado |
-|----|-----------|--------|--------|
-| [#82](https://github.com/plater7/docrawl/pull/82) | v0.9.0 Security Hardening | 14 (P0/P1 security) | ✅ Merged |
-| [#83](https://github.com/plater7/docrawl/pull/83) | v0.9.1 Code Quality | 4 (async, concurrency, context) | ✅ Merged |
-| [#84](https://github.com/plater7/docrawl/pull/84) | v0.9.2 Infrastructure | 5 (dockerignore, CI, cloudflared, coverage) | ✅ Merged |
-| [#85](https://github.com/plater7/docrawl/pull/85) | v0.9.4 Testing | 1 (coverage >80%) | ✅ Merged |
-| [#116](https://github.com/plater7/docrawl/pull/116) | v0.9.5 Backlog P2 | 16 (P2 backlog) | ✅ Merged |
-| [#119](https://github.com/plater7/docrawl/pull/119) | v0.9.6 P2 Followup | 5 (#89, #92, #94, #99, #100) | ✅ Merged |
-| [#120](https://github.com/plater7/docrawl/pull/120) | v0.9.6a UI Meta | `/api/info` + UI footer | ✅ Merged |
-| [#121](https://github.com/plater7/docrawl/pull/121) | v0.9.6b Footer Fix | footer `position: fixed` | ✅ Merged |
-| [#115](https://github.com/plater7/docrawl/pull/115) | v0.9.7 Backlog P3 | 11 (P3 issues #103–#113) | ✅ Merged |
-
-**Estado actual:** P0 ✅ · P1 11 open · P2 ✅ · P3 ✅ · Tests: 335 passing · Coverage: 59%
-
-### Cómo Contribuir
-
-1. Fork → Branch → PR
-2. Sign commits: `git commit -s`
-3. AI-assisted code welcome with human review
-4. Revisa los [issues P0](https://github.com/plater7/docrawl/labels/P0) primero
-
 ## 🤝 Contributing
 
 1. Fork → Branch → PR
 2. Sign commits: `git commit -s`
 3. AI-assisted code welcome with human review
-
-## 🔒 Security (v0.9.0)
-
-v0.9.0 fixes 15 security vulnerabilities identified in a pre-production audit:
-
-| # | Issue | Fix |
-|---|-------|-----|
-| CONS-001 | Path traversal via `output_path` | `Path.resolve()` boundary check |
-| CONS-002 | No authentication | `X-Api-Key` middleware |
-| CONS-005 | SSRF via Playwright | `validate_url_not_ssrf()` on all fetch paths |
-| CONS-006 | XSS via `innerHTML` | Replaced with safe DOM API |
-| CONS-007 | No rate limiting | `slowapi` 10 req/min + job concurrency cap |
-| CONS-018 | XXE in sitemap parser | `defusedxml` replacing stdlib |
-| CONS-019 | SSRF via markdown proxy | Proxy URL validator (HTTPS + private IP block) |
-| CONS-022 | No security headers | `SecurityHeadersMiddleware` (CSP, X-Frame, etc.) |
-| CONS-034 | No CORS | `CORSMiddleware` with `CORS_ORIGINS` env var |
-
-See [`SECURITY.md`](SECURITY.md) for the full disclosure and [`CHANGELOG.md`](CHANGELOG.md) for all fixes.
 
 ---
 
@@ -420,13 +278,7 @@ See [`SECURITY.md`](SECURITY.md) for the full disclosure and [`CHANGELOG.md`](CH
 MIT
 
 ---
-
-> 🤖 **AI-Assisted Development**: Este proyecto fue desarrollado con asistencia de IA y revisión humana.
-> 
-> **Bot**: OpenCode 🤖 (model: glm-5-free)
->
-> _Co-authored-by: OpenCode 🤖 <opencode@anomaly.la>_
-
 <p align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/plater7">plater7</a> + OpenCode 🤖 (glm-5-free)</sub>
+  <sub>Built with ❤️ by <a href="https://github.com/plater7">plater7</a> + Claude Code 🤖 + OpenCode 🤖</sub>
 </p>
+
