@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Page Cache** — `PageCache` con TTL 24h y escritura atómica; opt-in via `use_cache: false`; campo `cache_dir` configurable — PR 2.4
 - **Token Estimation** — `_estimate_tokens()` con ratios distintos para código (3.0), tablas (3.5) y prosa (4.0) — PR 2.5
 - **API Version** — `X-API-Version: 0.9.9` — PR 2.5
+- **feat(lmstudio): LM Studio local provider — model listing, generation, health check, UI integration** ([#154](https://github.com/plater7/docrawl/pull/154))
 
 ## [v0.9.8] - 2026-03-03
 
