@@ -174,7 +174,7 @@ class PageScraper:
             self._browser = None
             logger.info("Browser stopped")
         if self._playwright is not None:
-            await self._playwright.stop()  # type: ignore[union-attr]
+            await self._playwright.stop()  # type: ignore[union-attr,attr-defined]
             self._playwright = None
 
     async def _remove_noise(self, page: Page) -> None:
