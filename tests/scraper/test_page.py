@@ -180,9 +180,7 @@ class TestPageScraperResourceCleanup:
 
         with patch(
             "src.scraper.page.async_playwright",
-            return_value=MagicMock(
-                start=AsyncMock(return_value=mock_playwright)
-            ),
+            return_value=MagicMock(start=AsyncMock(return_value=mock_playwright)),
         ):
             scraper = PageScraper()
             await scraper.start()
@@ -198,9 +196,7 @@ class TestPageScraperResourceCleanup:
 
         with patch(
             "src.scraper.page.async_playwright",
-            return_value=MagicMock(
-                start=AsyncMock(return_value=mock_playwright)
-            ),
+            return_value=MagicMock(start=AsyncMock(return_value=mock_playwright)),
         ):
             scraper = PageScraper()
             await scraper.start()
@@ -219,9 +215,7 @@ class TestPageScraperResourceCleanup:
 
         with patch(
             "src.scraper.page.async_playwright",
-            return_value=MagicMock(
-                start=AsyncMock(return_value=mock_playwright)
-            ),
+            return_value=MagicMock(start=AsyncMock(return_value=mock_playwright)),
         ):
             scraper = PageScraper()
 

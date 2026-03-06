@@ -313,9 +313,7 @@ async def try_nav_parse(base_url: str) -> list[str]:
                                     "http",
                                     "https",
                                 ]:
-                                    clean_url = (
-                                        f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-                                    )
+                                    clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
                                     if parsed.query:
                                         clean_url += f"?{parsed.query}"
                                     discovered_urls.add(normalize_url(clean_url))
