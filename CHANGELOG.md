@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.0.0] - unreleased
+
+### Added
+- **fix(ui): send phase_change before scraping loop** ([#151](https://github.com/plater7/docrawl/pull/151))
+
+---
+
 ## [v0.9.10] - unreleased
 
 ### Added
