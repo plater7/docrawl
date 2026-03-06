@@ -1112,6 +1112,11 @@
                 <span class="status-value" id="ollamaStatus">INIT...</span>
             </div>
             <div class="status-item">
+                <span class="status-dot loading" id="lmstudioDot"></span>
+                <span class="status-label">LMStudio:</span>
+                <span class="status-value" id="lmstudioStatus">INIT...</span>
+            </div>
+            <div class="status-item">
                 <span class="status-dot loading" id="diskDot"></span>
                 <span class="status-label">Disk:</span>
                 <span class="status-value" id="diskStatus">INIT...</span>
@@ -1135,6 +1140,7 @@
                 <label for="provider">// LLM Provider</label>
                 <select id="provider">
                     <option value="ollama">◈ OLLAMA (Local)</option>
+                    <option value="lmstudio">◈ LMSTUDIO (Local)</option>
                     <option value="openrouter">◉ OPENROUTER (API)</option>
                     <option value="opencode">◉ OPENCODE (API)</option>
                 </select>
@@ -1545,7 +1551,7 @@
         function checkExternalProvider(provider) {
             const warning = document.getElementById('externalProviderWarning');
             if (!warning) return;
-            if (provider !== 'ollama') {
+            if (provider !== 'ollama' && provider !== 'lmstudio') {
                 warning.style.display = 'block';
             } else {
                 warning.style.display = 'none';
@@ -1815,6 +1821,12 @@
                 if (ollama.status === 'ok') { ollamaDot.className = 'status-dot ok'; ollamaStatus.textContent = `${ollama.models_count} models`; }
                 else if (ollama.status === 'unreachable') { ollamaDot.className = 'status-dot error'; ollamaStatus.textContent = 'OFFLINE'; }
                 else { ollamaDot.className = 'status-dot warning'; ollamaStatus.textContent = ollama.status || 'ERROR'; }
+                const lmstudioDot = document.getElementById('lmstudioDot');
+                const lmstudioStatus = document.getElementById('lmstudioStatus');
+                const lms = data.checks.lmstudio || {};
+                if (lms.status === 'ok') { lmstudioDot.className = 'status-dot ok'; lmstudioStatus.textContent = `${lms.models_count} models`; }
+                else if (lms.status === 'unreachable') { lmstudioDot.className = 'status-dot error'; lmstudioStatus.textContent = 'OFFLINE'; }
+                else { lmstudioDot.className = 'status-dot warning'; lmstudioStatus.textContent = lms.status || 'ERROR'; }
                 const disk = data.checks.disk_space || {};
                 if (disk.status === 'ok') { diskDot.className = 'status-dot ok'; diskStatus.textContent = `${disk.free_gb}GB free`; }
                 else if (disk.status === 'warning') { diskDot.className = 'status-dot warning'; diskStatus.textContent = `${disk.free_gb}GB (low)`; }
@@ -1826,6 +1838,8 @@
                 else { writeDot.className = 'status-dot warning'; writeStatus.textContent = write.status || 'UNKNOWN'; }
             } catch (e) {
                 ollamaDot.className = 'status-dot error'; ollamaStatus.textContent = 'ERROR';
+                document.getElementById('lmstudioDot').className = 'status-dot error';
+                document.getElementById('lmstudioStatus').textContent = 'ERROR';
                 diskDot.className = 'status-dot error'; diskStatus.textContent = 'ERROR';
                 writeDot.className = 'status-dot error'; writeStatus.textContent = 'ERROR';
             }

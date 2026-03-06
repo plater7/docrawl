@@ -165,6 +165,85 @@ class TestHealthReady:
         detail = response.json()["detail"]
         assert detail["ready"] is False
 
+    def _make_client_with_get_responses(self, *responses):
+        """Return a mock httpx client whose .get() returns successive responses."""
+        client_instance = AsyncMock()
+        client_instance.get.side_effect = list(responses)
+        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+        client_instance.__aexit__ = AsyncMock(return_value=False)
+        return client_instance
+
+    def _ollama_ok_response(self):
+        r = MagicMock()
+        r.status_code = 200
+        r.json.return_value = {"models": [{"name": "mistral:7b"}]}
+        r.raise_for_status = MagicMock()
+        return r
+
+    def test_lmstudio_ok(self):
+        """Health check reports lmstudio ok with model count when reachable."""
+        lms_response = MagicMock()
+        lms_response.status_code = 200
+        lms_response.json.return_value = {"data": [{"id": "llama"}, {"id": "mistral"}]}
+        lms_response.raise_for_status = MagicMock()
+
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(), lms_response
+        )
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        assert response.status_code == 200
+        checks = response.json()["checks"]
+        assert checks["lmstudio"]["status"] == "ok"
+        assert checks["lmstudio"]["models_count"] == 2
+
+    def test_lmstudio_unreachable(self):
+        """Health check reports lmstudio unreachable on ConnectError."""
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(), httpx.ConnectError("refused")
+        )
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        checks = response.json().get("checks") or response.json().get("detail", {}).get("checks", {})
+        assert checks["lmstudio"]["status"] == "unreachable"
+
+    def test_lmstudio_timeout(self):
+        """Health check reports lmstudio timeout on TimeoutException."""
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(), httpx.TimeoutException("timed out")
+        )
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        checks = response.json().get("checks") or response.json().get("detail", {}).get("checks", {})
+        assert checks["lmstudio"]["status"] == "timeout"
+
 
 # ---------------------------------------------------------------------------
 # Models endpoint

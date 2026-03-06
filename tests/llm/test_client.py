@@ -21,7 +21,9 @@ from src.llm.client import (
     _is_free_model,
     _get_opencode_models,
     _get_ollama_models,
+    _get_lmstudio_models,
     _generate_openrouter,
+    _generate_lmstudio,
     generate,
 )
 
@@ -52,6 +54,10 @@ class TestGetProviderForModel:
     def test_ollama_model_with_namespace_colon(self):
         """Ollama model namespace:tag style stays as ollama."""
         assert get_provider_for_model("qwen3:14b") == "ollama"
+
+    def test_lmstudio_prefix_returns_lmstudio(self):
+        """lmstudio/ prefix routes to lmstudio."""
+        assert get_provider_for_model("lmstudio/llama3.2") == "lmstudio"
 
 
 class TestIsFreeModel:
@@ -261,6 +267,119 @@ class TestGenerateOllama:
         with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
             with pytest.raises(httpx.TimeoutException):
                 await generate("mistral:7b", "hello")
+
+
+class TestGetLMStudioModels:
+    """Test _get_lmstudio_models() with mocked httpx."""
+
+    async def test_success(self):
+        """Successful response is parsed into model dicts."""
+        fake_data = {
+            "data": [
+                {"id": "llama-3.1-8b"},
+                {"id": "mistral-7b"},
+            ]
+        }
+        mock_response = MagicMock()
+        mock_response.json.return_value = fake_data
+        mock_response.raise_for_status = MagicMock()
+
+        client_instance = AsyncMock()
+        client_instance.get.return_value = mock_response
+        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+        client_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
+            result = await _get_lmstudio_models()
+
+        assert len(result) == 2
+        assert result[0]["name"] == "llama-3.1-8b"
+        assert result[0]["provider"] == "lmstudio"
+        assert result[0]["is_free"] is True
+        assert result[0]["size"] is None
+
+    async def test_connection_error_returns_empty_list(self):
+        """ConnectError causes _get_lmstudio_models to return []."""
+        client_instance = AsyncMock()
+        client_instance.get.side_effect = httpx.ConnectError("connection refused")
+        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+        client_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
+            result = await _get_lmstudio_models()
+
+        assert result == []
+
+    async def test_with_api_key_sends_auth_header(self):
+        """Authorization header is sent when LMSTUDIO_API_KEY is set."""
+        fake_data = {"data": [{"id": "llama-3.1-8b"}]}
+        mock_response = MagicMock()
+        mock_response.json.return_value = fake_data
+        mock_response.raise_for_status = MagicMock()
+
+        client_instance = AsyncMock()
+        client_instance.get.return_value = mock_response
+        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+        client_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
+            with patch("src.llm.client.LMSTUDIO_API_KEY", "test-key"):
+                await _get_lmstudio_models()
+
+        call_kwargs = client_instance.get.call_args.kwargs
+        assert call_kwargs["headers"].get("Authorization") == "Bearer test-key"
+
+
+class TestGenerateLMStudio:
+    """Test _generate_lmstudio() with mocked httpx."""
+
+    async def test_success_no_key(self):
+        """Successful response is parsed and content returned."""
+        fake_reply = {"choices": [{"message": {"content": "Hello from LM Studio"}}]}
+        mock_response = MagicMock()
+        mock_response.json.return_value = fake_reply
+        mock_response.raise_for_status = MagicMock()
+
+        client_instance = AsyncMock()
+        client_instance.post.return_value = mock_response
+        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+        client_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
+            with patch("src.llm.client.LMSTUDIO_API_KEY", ""):
+                result = await _generate_lmstudio("llama-3.1-8b", "Hi", None, 60, None)
+
+        assert result == "Hello from LM Studio"
+
+    async def test_with_api_key_sends_auth_header(self):
+        """Authorization header is sent when LMSTUDIO_API_KEY is set."""
+        fake_reply = {"choices": [{"message": {"content": "ok"}}]}
+        mock_response = MagicMock()
+        mock_response.json.return_value = fake_reply
+        mock_response.raise_for_status = MagicMock()
+
+        client_instance = AsyncMock()
+        client_instance.post.return_value = mock_response
+        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+        client_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
+            with patch("src.llm.client.LMSTUDIO_API_KEY", "my-key"):
+                await _generate_lmstudio("llama-3.1-8b", "Hi", None, 60, None)
+
+        call_kwargs = client_instance.post.call_args.kwargs
+        assert call_kwargs["headers"].get("Authorization") == "Bearer my-key"
+
+    async def test_timeout_propagates(self):
+        """TimeoutException from LM Studio propagates out."""
+        client_instance = AsyncMock()
+        client_instance.post.side_effect = httpx.TimeoutException("timed out")
+        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+        client_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
+            with pytest.raises(httpx.TimeoutException):
+                await _generate_lmstudio("llama-3.1-8b", "hi", None, 60, None)
 
 
 class TestGenerateOpenrouterNoKey:

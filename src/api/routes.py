@@ -15,7 +15,7 @@ from slowapi.util import get_remote_address
 from sse_starlette.sse import EventSourceResponse
 
 from src.api.models import JobRequest, JobStatus, OllamaModel, ResumeFromStateRequest
-from src.llm.client import get_available_models, PROVIDERS, OLLAMA_URL
+from src.llm.client import get_available_models, PROVIDERS, OLLAMA_URL, LMSTUDIO_URL, LMSTUDIO_API_KEY
 from src.jobs.manager import JobManager
 
 logger = logging.getLogger(__name__)
@@ -183,6 +183,29 @@ async def health_ready() -> dict:
     except Exception as e:
         checks["ollama"] = {"status": "error", "message": str(e)}
         issues.append(f"Ollama check failed: {e}")
+
+    # Check LM Studio connectivity
+    try:
+        lms_headers = {}
+        if LMSTUDIO_API_KEY:
+            lms_headers["Authorization"] = f"Bearer {LMSTUDIO_API_KEY}"
+        async with httpx.AsyncClient() as client:
+            r = await client.get(f"{LMSTUDIO_URL}/models", headers=lms_headers, timeout=5)
+            if r.status_code == 200:
+                data = r.json()
+                checks["lmstudio"] = {
+                    "status": "ok",
+                    "models_count": len(data.get("data", [])),
+                    "url": LMSTUDIO_URL,
+                }
+            else:
+                checks["lmstudio"] = {"status": "error", "url": LMSTUDIO_URL}
+    except httpx.ConnectError:
+        checks["lmstudio"] = {"status": "unreachable", "url": LMSTUDIO_URL}
+    except httpx.TimeoutException:
+        checks["lmstudio"] = {"status": "timeout", "url": LMSTUDIO_URL}
+    except Exception as e:
+        checks["lmstudio"] = {"status": "error", "message": str(e)}
 
     # Check disk space
     data_path = Path("/data")
