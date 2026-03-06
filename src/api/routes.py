@@ -15,7 +15,13 @@ from slowapi.util import get_remote_address
 from sse_starlette.sse import EventSourceResponse
 
 from src.api.models import JobRequest, JobStatus, OllamaModel, ResumeFromStateRequest
-from src.llm.client import get_available_models, PROVIDERS, OLLAMA_URL, LMSTUDIO_URL, LMSTUDIO_API_KEY
+from src.llm.client import (
+    get_available_models,
+    PROVIDERS,
+    OLLAMA_URL,
+    LMSTUDIO_URL,
+    LMSTUDIO_API_KEY,
+)
 from src.jobs.manager import JobManager
 
 logger = logging.getLogger(__name__)
@@ -190,7 +196,9 @@ async def health_ready() -> dict:
         if LMSTUDIO_API_KEY:
             lms_headers["Authorization"] = f"Bearer {LMSTUDIO_API_KEY}"
         async with httpx.AsyncClient() as client:
-            r = await client.get(f"{LMSTUDIO_URL}/models", headers=lms_headers, timeout=5)
+            r = await client.get(
+                f"{LMSTUDIO_URL}/models", headers=lms_headers, timeout=5
+            )
             if r.status_code == 200:
                 data = r.json()
                 checks["lmstudio"] = {

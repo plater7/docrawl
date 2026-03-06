@@ -115,11 +115,18 @@ async def _get_lmstudio_models() -> list[dict[str, Any]]:
         if LMSTUDIO_API_KEY:
             headers["Authorization"] = f"Bearer {LMSTUDIO_API_KEY}"
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{LMSTUDIO_URL}/models", headers=headers, timeout=10)
+            response = await client.get(
+                f"{LMSTUDIO_URL}/models", headers=headers, timeout=10
+            )
             response.raise_for_status()
             data = response.json()
             return [
-                {"name": f"lmstudio/{m['id']}", "size": None, "provider": "lmstudio", "is_free": True}
+                {
+                    "name": f"lmstudio/{m['id']}",
+                    "size": None,
+                    "provider": "lmstudio",
+                    "is_free": True,
+                }
                 for m in data.get("data", [])
             ]
     except Exception as e:
@@ -358,8 +365,9 @@ async def _generate_lmstudio(
     options: dict[str, Any] | None,
 ) -> str:
     """Generate text using LM Studio."""
+    model_id = model.removeprefix("lmstudio/")
     payload: dict[str, Any] = {
-        "model": model,
+        "model": model_id,
         "messages": [],
     }
     if system:

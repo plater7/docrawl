@@ -222,7 +222,9 @@ class TestHealthReady:
                 for p in patches:
                     p.stop()
 
-        checks = response.json().get("checks") or response.json().get("detail", {}).get("checks", {})
+        checks = response.json().get("checks") or response.json().get("detail", {}).get(
+            "checks", {}
+        )
         assert checks["lmstudio"]["status"] == "unreachable"
 
     def test_lmstudio_timeout(self):
@@ -241,7 +243,9 @@ class TestHealthReady:
                 for p in patches:
                     p.stop()
 
-        checks = response.json().get("checks") or response.json().get("detail", {}).get("checks", {})
+        checks = response.json().get("checks") or response.json().get("detail", {}).get(
+            "checks", {}
+        )
         assert checks["lmstudio"]["status"] == "timeout"
 
 
