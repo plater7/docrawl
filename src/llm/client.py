@@ -19,6 +19,8 @@ MODEL_CACHE_TTL = 60  # seconds
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 OPENCODE_API_KEY = os.environ.get("OPENCODE_API_KEY", "")
+LMSTUDIO_URL = os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1")
+LMSTUDIO_API_KEY = os.environ.get("LMSTUDIO_API_KEY", "")
 
 # Provider configurations
 PROVIDERS = {
@@ -35,6 +37,11 @@ PROVIDERS = {
     "opencode": {
         "base_url": "https://api.opencode.ai/v1",
         "requires_api_key": True,
+        "model_format": "model",
+    },
+    "lmstudio": {
+        "base_url": LMSTUDIO_URL,
+        "requires_api_key": False,
         "model_format": "model",
     },
 }
@@ -71,6 +78,8 @@ async def get_available_models(provider: str = "ollama") -> list[dict[str, Any]]
         models = await _get_openrouter_models()
     elif provider == "opencode":
         models = _get_opencode_models()
+    elif provider == "lmstudio":
+        models = await _get_lmstudio_models()
     else:
         return []
 
@@ -99,9 +108,37 @@ async def _get_ollama_models() -> list[dict[str, Any]]:
         return []
 
 
+async def _get_lmstudio_models() -> list[dict[str, Any]]:
+    """Get list of available LM Studio models."""
+    try:
+        headers = {}
+        if LMSTUDIO_API_KEY:
+            headers["Authorization"] = f"Bearer {LMSTUDIO_API_KEY}"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LMSTUDIO_URL}/models", headers=headers, timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            return [
+                {
+                    "name": f"lmstudio/{m['id']}",
+                    "size": None,
+                    "provider": "lmstudio",
+                    "is_free": True,
+                }
+                for m in data.get("data", [])
+            ]
+    except Exception as e:
+        logger.error(f"Failed to get LM Studio models: {e}")
+        return []
+
+
 def _is_free_model(model_name: str, provider: str) -> bool:
     """Determine if a model is free based on name patterns."""
     if provider == "ollama":
+        return True
+    if provider == "lmstudio":
         return True
     if provider == "openrouter":
         return ":free" in model_name
@@ -190,6 +227,8 @@ async def generate(
         return await _generate_openrouter(model, prompt, system, timeout, options)
     elif provider == "opencode":
         return await _generate_opencode(model, prompt, system, timeout, options)
+    elif provider == "lmstudio":
+        return await _generate_lmstudio(model, prompt, system, timeout, options)
     else:
         raise ValueError(f"Unknown provider: {provider}")
 
@@ -315,6 +354,43 @@ async def _generate_opencode(
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
     except Exception as e:
         logger.error(f"OpenCode request failed: {e}")
+        raise
+
+
+async def _generate_lmstudio(
+    model: str,
+    prompt: str,
+    system: str | None,
+    timeout: int,
+    options: dict[str, Any] | None,
+) -> str:
+    """Generate text using LM Studio."""
+    model_id = model.removeprefix("lmstudio/")
+    payload: dict[str, Any] = {
+        "model": model_id,
+        "messages": [],
+    }
+    if system:
+        payload["messages"].append({"role": "system", "content": system})
+    payload["messages"].append({"role": "user", "content": prompt})
+
+    headers = {"Content-Type": "application/json"}
+    if LMSTUDIO_API_KEY:
+        headers["Authorization"] = f"Bearer {LMSTUDIO_API_KEY}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LMSTUDIO_URL}/chat/completions",
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except Exception as e:
+        logger.error(f"LM Studio request failed: {e}")
         raise
 
 

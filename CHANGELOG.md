@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ---
 
 ## [v0.9.10] - 2026-03-04
-
 ### Added
+- **fix(ui): send phase_change before scraping loop** ([#151](https://github.com/plater7/docrawl/pull/151))
+- **feat(ui): two-column layout - job history panel** ([#153](https://github.com/plater7/docrawl/pull/153))
 - **Pause/Resume** — `POST /jobs/{id}/pause` pausa el job después de la página actual; `POST /jobs/{id}/resume` lo reanuda en el mismo proceso; `asyncio.Event` interno (set=running, clear=paused) — PR 3.1 ([#131](https://github.com/plater7/docrawl/pull/131))
 - **State Checkpoint** — al pausar se escribe `{output_path}/.job_state.json` (atomic write) con URLs completadas/fallidas/pendientes + `JobRequest` serializado — PR 3.1
 - **Resume from State** — `POST /api/jobs/resume-from-state` crea un nuevo job procesando solo las URLs pendientes del checkpoint; protección path traversal (solo bajo `/data`) — PR 3.1
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Page Cache** — `PageCache` con TTL 24h y escritura atómica; opt-in via `use_cache: false`; campo `cache_dir` configurable — PR 2.4
 - **Token Estimation** — `_estimate_tokens()` con ratios distintos para código (3.0), tablas (3.5) y prosa (4.0) — PR 2.5
 - **API Version** — `X-API-Version: 0.9.9` — PR 2.5
+- **feat(lmstudio): LM Studio local provider — model listing, generation, health check, UI integration** ([#154](https://github.com/plater7/docrawl/pull/154))
 
 ## [v0.9.8] - 2026-03-03
 

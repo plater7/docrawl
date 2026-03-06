@@ -679,6 +679,16 @@ async def run_job(
 
         # PR 3.3: opt-in pipeline mode (producer/consumer) vs default concurrent scraping
         if request.use_pipeline_mode:
+            # Notify UI of scraping phase start (fixes UI stuck on "filtering")
+            await _log(
+                job,
+                "phase_change",
+                {
+                    "phase": "scraping",
+                    "message": f"Processing {len(urls)} pages (pipeline mode)...",
+                    "progress": f"0/{len(urls)}",
+                },
+            )
             (
                 pages_ok,
                 pages_partial,
@@ -704,6 +714,16 @@ async def run_job(
                 converter=_converter,
             )
         else:
+            # Notify UI of scraping phase start before loop (fixes UI stuck on "filtering")
+            await _log(
+                job,
+                "phase_change",
+                {
+                    "phase": "scraping",
+                    "message": f"Processing {len(urls)} pages...",
+                    "progress": f"0/{len(urls)}",
+                },
+            )
             # Launch all pages concurrently, semaphore controls actual parallelism
             await asyncio.gather(*[_process_page(i, url) for i, url in enumerate(urls)])
 
