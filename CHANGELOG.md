@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **fix(ui): send phase_change before scraping loop** ([#151](https://github.com/plater7/docrawl/pull/151))
 
 ---
+- **feat(ui): two-column layout - job history panel** ([#153](https://github.com/plater7/docrawl/pull/153))
 
 ## [v0.9.10] - unreleased
 
