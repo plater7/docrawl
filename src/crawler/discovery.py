@@ -7,8 +7,11 @@ import os
 import random
 import defusedxml.ElementTree as ET  # XXE-safe replacement — closes CONS-010 / issue #64
 from xml.etree.ElementTree import ParseError as XMLParseError
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from urllib.parse import urljoin, urlparse, urlunparse
+
+if TYPE_CHECKING:
+    from src.scraper.cache import PageCache
 
 import httpx
 from bs4 import BeautifulSoup
@@ -338,7 +341,9 @@ async def try_nav_parse(base_url: str) -> list[str]:
 
 
 async def try_sitemap(
-    base_url: str, filter_by_path: bool = True, sitemap_cache: any = None
+    base_url: str,
+    filter_by_path: bool = True,
+    sitemap_cache: "PageCache | None" = None,
 ) -> list[str]:
     """
     Try to parse sitemap.xml and robots.txt.
@@ -351,9 +356,9 @@ async def try_sitemap(
     Args:
         base_url: Base URL of the site
         filter_by_path: If True, filter URLs to only include those under the base URL's path
-        sitemap_cache: Optional PageCache instance for sitemap HTTP responses (PR 2.4).
-                         TODO: Implement cache usage in parse_sitemap_xml to reduce sitemap HTTP requests
-                         during repeated crawls.
+        sitemap_cache: Optional PageCache for sitemap HTTP responses. When provided,
+                       sitemap XML is cached on first fetch and reused on repeat crawls,
+                       avoiding redundant HTTP requests. Gzipped sitemaps (.gz) are not cached.
 
     Returns:
         List of URLs found in sitemaps
@@ -377,21 +382,37 @@ async def try_sitemap(
     async def parse_sitemap_xml(url: str, client: httpx.AsyncClient) -> set[str]:
         """Parse a sitemap XML file with robust error handling."""
         urls: set[str] = set()
+        is_gz = url.endswith(".gz")
 
         try:
-            response = await client.get(url, timeout=10.0)
+            content: bytes | None = None
 
-            # Skip 404s gracefully
-            if response.status_code == 404:
-                logger.debug(f"Sitemap not found (404): {url}")
-                return urls
-            elif response.status_code != 200:
-                logger.debug(
-                    f"Non-200 status {response.status_code} for sitemap: {url}"
-                )
-                return urls
+            # Check cache first (non-gzipped only — binary .gz can't round-trip through str)
+            if sitemap_cache and not is_gz:
+                cached = sitemap_cache.get(url)
+                if cached is not None:
+                    logger.debug(f"Sitemap cache HIT: {url}")
+                    content = cached.encode("utf-8")
 
-            content = response.content
+            if content is None:
+                response = await client.get(url, timeout=10.0)
+
+                # Skip 404s gracefully
+                if response.status_code == 404:
+                    logger.debug(f"Sitemap not found (404): {url}")
+                    return urls
+                elif response.status_code != 200:
+                    logger.debug(
+                        f"Non-200 status {response.status_code} for sitemap: {url}"
+                    )
+                    return urls
+
+                content = response.content
+
+                # Cache successful non-gzipped responses
+                if sitemap_cache and not is_gz:
+                    logger.debug(f"Sitemap cache MISS, storing: {url}")
+                    sitemap_cache.put(url, response.text)
 
             # Handle gzipped sitemaps
             if url.endswith(".gz"):
@@ -493,7 +514,10 @@ async def try_sitemap(
 
 
 async def discover_urls(
-    base_url: str, max_depth: int = 5, filter_by_path: bool = True, sitemap_cache: any = None
+    base_url: str,
+    max_depth: int = 5,
+    filter_by_path: bool = True,
+    sitemap_cache: "PageCache | None" = None,
 ) -> list[str]:
     """
     Discover URLs using cascade strategy — stops at first success:

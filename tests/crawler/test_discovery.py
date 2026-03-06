@@ -17,6 +17,7 @@ from src.crawler.discovery import (
     normalize_url,
     discover_urls,
     try_nav_parse,
+    try_sitemap,
 )
 
 
@@ -497,3 +498,161 @@ class TestTryNavParseBrowserCleanup:
                 await try_nav_parse("https://example.com/")
 
         page_mock.__aexit__.assert_awaited_once()
+
+
+class TestSitemapCache:
+    """Test sitemap HTTP response caching in try_sitemap."""
+
+    SITEMAP_XML = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<url><loc>https://example.com/page1</loc></url>"
+        "</urlset>"
+    )
+
+    def _make_mock_client(self, responses: dict):
+        """Build an async mock httpx client that returns pre-set responses."""
+
+        async def fake_get(url, **kwargs):
+            resp = MagicMock()
+            if url in responses:
+                resp.status_code = 200
+                resp.content = responses[url].encode("utf-8")
+                resp.text = responses[url]
+            else:
+                resp.status_code = 404
+                resp.content = b""
+                resp.text = ""
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = fake_get
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        return mock_client
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_skips_http_request(self, tmp_path):
+        """When cache has sitemap XML, the HTTP fetch for that URL is skipped."""
+        from src.scraper.cache import PageCache
+
+        cache = PageCache(tmp_path / ".cache")
+        cache.put("https://example.com/sitemap.xml", self.SITEMAP_XML)
+
+        http_fetched = []
+
+        async def fake_get(url, **kwargs):
+            http_fetched.append(url)
+            resp = MagicMock()
+            resp.status_code = 404
+            resp.content = b""
+            resp.text = ""
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = fake_get
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            result = await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        assert "https://example.com/page1" in result
+        assert "https://example.com/sitemap.xml" not in http_fetched
+
+    @pytest.mark.asyncio
+    async def test_cache_miss_stores_fetched_response(self, tmp_path):
+        """On a cache miss, successfully fetched sitemap XML is stored in cache."""
+        from src.scraper.cache import PageCache
+
+        cache = PageCache(tmp_path / ".cache")
+        sitemap_url = "https://example.com/sitemap.xml"
+
+        mock_client = self._make_mock_client({sitemap_url: self.SITEMAP_XML})
+
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        assert cache.get(sitemap_url) is not None
+
+    @pytest.mark.asyncio
+    async def test_second_call_uses_cache_not_http(self, tmp_path):
+        """Second try_sitemap call returns URLs from cache without HTTP."""
+        from src.scraper.cache import PageCache
+
+        cache = PageCache(tmp_path / ".cache")
+        sitemap_url = "https://example.com/sitemap.xml"
+
+        # First call: HTTP fetch populates cache
+        mock_client = self._make_mock_client({sitemap_url: self.SITEMAP_XML})
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        # Second call: should use cache, HTTP returns 404 for everything
+        http_fetched_second = []
+
+        async def always_404(url, **kwargs):
+            http_fetched_second.append(url)
+            resp = MagicMock()
+            resp.status_code = 404
+            resp.content = b""
+            resp.text = ""
+            return resp
+
+        mock_client2 = AsyncMock()
+        mock_client2.get.side_effect = always_404
+        mock_client2.__aenter__ = AsyncMock(return_value=mock_client2)
+        mock_client2.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client2):
+            result = await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        assert "https://example.com/page1" in result
+        assert sitemap_url not in http_fetched_second
+
+    @pytest.mark.asyncio
+    async def test_no_cache_makes_normal_http_request(self):
+        """With sitemap_cache=None, normal HTTP request behavior applies."""
+        sitemap_url = "https://example.com/sitemap.xml"
+        mock_client = self._make_mock_client({sitemap_url: self.SITEMAP_XML})
+
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            result = await try_sitemap("https://example.com/", sitemap_cache=None)
+
+        assert "https://example.com/page1" in result
+        # HTTP was called (not bypassed)
+        fetched_urls = [call.args[0] for call in mock_client.get.call_args_list]
+        assert sitemap_url in fetched_urls
+
+    @pytest.mark.asyncio
+    async def test_gz_sitemap_not_cached(self, tmp_path):
+        """Gzipped sitemaps bypass cache (binary content stored as text is invalid)."""
+        import gzip as gzip_module
+        from src.scraper.cache import PageCache
+
+        cache = PageCache(tmp_path / ".cache")
+        gz_url = "https://example.com/sitemap.xml.gz"
+        gz_content = gzip_module.compress(self.SITEMAP_XML.encode("utf-8"))
+
+        async def fake_get(url, **kwargs):
+            resp = MagicMock()
+            if url == gz_url:
+                resp.status_code = 200
+                resp.content = gz_content
+                resp.text = gz_content.decode("latin-1")
+            else:
+                resp.status_code = 404
+                resp.content = b""
+                resp.text = ""
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = fake_get
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        # .gz URL should NOT be in cache
+        assert cache.get(gz_url) is None
