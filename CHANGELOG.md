@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.0.0] - unreleased
+
+### Fixed
+- **fix(playwright): use async context managers to prevent browser resource leaks — v1.0.0** ([#150](https://github.com/plater7/docrawl/pull/150))
+
+---
+
 ## [v0.9.10] - 2026-03-04
 ### Added
 - **fix(ui): send phase_change before scraping loop** ([#151](https://github.com/plater7/docrawl/pull/151))
