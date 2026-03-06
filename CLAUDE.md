@@ -1,25 +1,15 @@
 # CLAUDE.md — Docrawl
 
-## Auditoría Multi-Agente (en curso)
+## Auditoría Multi-Agente (COMPLETA)
 
-Este proyecto tiene una auditoría de pre-producción en progreso. **Antes de continuar la auditoría o hacer cambios significativos, lee estos archivos en orden:**
+Auditoría de pre-producción completada. Resultados almacenados en Supermemory:
+- 8 waves completadas, 23+ agentes ejecutados
+- 444 findings → 62 únicos (14 P0, 21 P1, 17 P2, 10 P3)
+- Score global: 4/10 (fixable a 7.5-8/10 en 2 sprints)
 
-1. `audit-reports/PLAN.md` — Plan completo: qué agentes, qué archivos, qué buscar en cada wave
-2. `audit-reports/wave1-summary.md` — Wave 1: Core Code Review (174 findings, 15 critical)
-3. `audit-reports/wave2-summary.md` — Wave 2: Infra & DevOps (70 findings, 4 critical)
-
-### Estado de waves
-
-| Wave | Estado | Descripción |
-|------|--------|-------------|
-| 0 — GitHub Infra | ✅ DONE | Labels, milestones, templates, workflows, dependabot |
-| 1 — Core Code Review | ✅ DONE | 5 agentes sonnet, 174 findings |
-| 2 — Infra & DevOps | ✅ DONE | 4 agentes, 70 findings |
-| 3 — AI/ML Engineering | ✅ DONE | 3 agentes, 48 findings, 7 critical |
-| 4 — Quality & Security | ✅ DONE | 5 agentes, 90 findings, 13 critical |
-| 5 — Docs & DX | ✅ DONE | 3 agentes, 50 findings, 6 critical |
-| 6 — Architecture | ✅ DONE | 1 agente opus, 12 findings, 5 critical, score 6/10 |
-| 7 — Synthesis + GitHub Issues | ✅ DONE | 2 agentes, 444→62 findings, script de issues listo |
+Hallazgos críticos documentados en Supermemory:
+- Path traversal (CVSS 9.1), Sin autenticación (CVSS 9.8), SSRF (CVSS 9.1), XSS (CVSS 7.5)
+- 14 P0 resuelven problemas bloqueantes de producción
 
 ### Setup requerido en el equipo (plugins Claude Code)
 
