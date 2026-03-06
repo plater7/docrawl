@@ -293,7 +293,7 @@ class TestGetLMStudioModels:
             result = await _get_lmstudio_models()
 
         assert len(result) == 2
-        assert result[0]["name"] == "llama-3.1-8b"
+        assert result[0]["name"] == "lmstudio/llama-3.1-8b"
         assert result[0]["provider"] == "lmstudio"
         assert result[0]["is_free"] is True
         assert result[0]["size"] is None

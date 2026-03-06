@@ -119,7 +119,7 @@ async def _get_lmstudio_models() -> list[dict[str, Any]]:
             response.raise_for_status()
             data = response.json()
             return [
-                {"name": m["id"], "size": None, "provider": "lmstudio", "is_free": True}
+                {"name": f"lmstudio/{m['id']}", "size": None, "provider": "lmstudio", "is_free": True}
                 for m in data.get("data", [])
             ]
     except Exception as e:
