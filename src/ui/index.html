@@ -74,10 +74,135 @@
         }
 
         .container { 
-            max-width: 900px; 
+            max-width: 1200px; 
             margin: 0 auto; 
             position: relative;
             z-index: 1001;
+        }
+
+        /* Two-column layout */
+        .two-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .left-column {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .right-column {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        /* Job History Panel */
+        .job-history-panel {
+            margin-bottom: 1.5rem;
+        }
+
+        .job-history-header {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .job-history-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg);
+        }
+
+        .job-history-empty {
+            padding: 1rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .job-history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+        }
+
+        .job-history-item:last-child {
+            border-bottom: none;
+        }
+
+        .job-history-id {
+            font-family: monospace;
+            color: var(--accent-cyan);
+        }
+
+        .job-history-status {
+            padding: 0.15rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .job-history-status.running {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+        }
+
+        .job-history-status.completed {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        .job-history-status.failed {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .job-history-status.cancelled {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .job-history-stop {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            padding: 0.15rem 0.5rem;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        .job-history-stop:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Right column execute button */
+        .right-column .buttons {
+            margin-bottom: 1rem;
+        }
+
+        /* Responsive: stack on mobile */
+        @media (max-width: 900px) {
+            .two-columns {
+                grid-template-columns: 1fr;
+            }
         }
 
         h1 {
@@ -998,7 +1123,9 @@
             </div>
         </div>
 
-        <form id="crawlForm">
+        <div class="two-columns">
+            <div class="left-column">
+                <form id="crawlForm">
             <div class="form-group">
                 <label for="url">[URL] Target Documentation</label>
                 <input type="url" id="url" required placeholder="https://docs.example.com">
@@ -1163,16 +1290,32 @@
                 <button type="button" class="btn-danger" id="cancelBtn">■ ABORT</button>
             </div>
         </form>
+            </div>
 
-        <div class="phase-banner" id="phaseBanner">
-            <span class="phase-dot" id="phaseDot"></span>
-            <span class="phase-name" id="phaseName">INIT</span>
-            <span class="phase-separator">│</span>
-            <span class="phase-detail" id="phaseDetail"></span>
-        </div>
-        <div class="log" id="log"></div>
+            <div class="right-column">
+                <!-- Job History Panel -->
+                <div class="job-history-panel">
+                    <div class="job-history-header">// Job History</div>
+                    <div class="job-history-list" id="jobHistoryList">
+                        <div class="job-history-empty">No jobs yet</div>
+                    </div>
+                </div>
 
-        <div class="summary" id="summary">
+                <!-- Execute Button for Right Column -->
+                <div class="buttons">
+                    <button type="button" class="btn-primary" id="startBtnRight">▶ EXECUTE CRAWL</button>
+                    <button type="button" class="btn-danger" id="cancelBtnRight">■ ABORT</button>
+                </div>
+
+                <div class="phase-banner" id="phaseBanner">
+                    <span class="phase-dot" id="phaseDot"></span>
+                    <span class="phase-name" id="phaseName">INIT</span>
+                    <span class="phase-separator">│</span>
+                    <span class="phase-detail" id="phaseDetail"></span>
+                </div>
+                <div class="log" id="log"></div>
+
+                <div class="summary" id="summary">
             <h3>// Mission Report</h3>
             <div>
                 <span class="stat"><span class="stat-value" id="pagesOk">0</span><br><span class="stat-label">Complete</span></span>
@@ -1181,7 +1324,8 @@
             </div>
             <div id="fetchStats"></div>
         </div>
-    </div>
+        </div>
+        </div>
 
     <footer class="app-footer">
         <span class="footer-name">🕷️ Docrawl</span>
@@ -1209,12 +1353,16 @@
         const form = document.getElementById('crawlForm');
         const startBtn = document.getElementById('startBtn');
         const cancelBtn = document.getElementById('cancelBtn');
+        // Right column buttons
+        const startBtnRight = document.getElementById('startBtnRight');
+        const cancelBtnRight = document.getElementById('cancelBtnRight');
         const logDiv = document.getElementById('log');
         const summaryDiv = document.getElementById('summary');
         const phaseBanner = document.getElementById('phaseBanner');
         const phaseDot = document.getElementById('phaseDot');
         const phaseName = document.getElementById('phaseName');
         const phaseDetail = document.getElementById('phaseDetail');
+        const jobHistoryList = document.getElementById('jobHistoryList');
 
         const providerSelect = document.getElementById('provider');
         const crawlModelSelect = document.getElementById('crawlModel');
@@ -1229,6 +1377,62 @@
 
         let currentJobId = null;
         let eventSource = null;
+
+        // Job History Management
+        const jobHistory = [];
+        const MAX_JOB_HISTORY = 10;
+
+        function updateJobHistoryUI() {
+            if (jobHistory.length === 0) {
+                jobHistoryList.innerHTML = '<div class="job-history-empty">No jobs yet</div>';
+                return;
+            }
+            jobHistoryList.innerHTML = jobHistory.map(job => `
+                <div class="job-history-item" data-job-id="${job.id}">
+                    <span class="job-history-id">${job.id.substring(0, 8)}</span>
+                    <span class="job-history-status ${job.status}">${job.status}</span>
+                    ${job.status === 'running' ? `<button class="job-history-stop" onclick="stopJob('${job.id}')">STOP</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function stopJob(jobId) {
+            try {
+                const res = await fetch(`/api/jobs/${jobId}/cancel`, { method: 'POST' });
+                if (res.ok) {
+                    const job = jobHistory.find(j => j.id === jobId);
+                    if (job) job.status = 'cancelled';
+                    updateJobHistoryUI();
+                }
+            } catch (e) {
+                console.error('Failed to stop job:', e);
+            }
+        }
+
+        function addJobToHistory(jobId) {
+            const existing = jobHistory.find(j => j.id === jobId);
+            if (!existing) {
+                jobHistory.unshift({ id: jobId, status: 'running' });
+                if (jobHistory.length > MAX_JOB_HISTORY) jobHistory.pop();
+            }
+            updateJobHistoryUI();
+        }
+
+        function updateJobStatus(jobId, status) {
+            const job = jobHistory.find(j => j.id === jobId);
+            if (job) {
+                job.status = status;
+                updateJobHistoryUI();
+            }
+        }
+
+        // Sync right column buttons with left
+        startBtnRight.addEventListener('click', () => form.dispatchEvent(new Event('submit')));
+        cancelBtnRight.addEventListener('click', () => {
+            if (currentJobId) {
+                stopJob(currentJobId);
+            }
+        });
 
         function getModelCategory(modelName, modelSize) {
             const name = modelName.toLowerCase();
@@ -1470,6 +1674,7 @@
                 });
                 const job = await res.json();
                 currentJobId = job.id;
+                addJobToHistory(job.id);
                 logMessage(`Job initialized: ${job.id}`, 'init', 'info');
                 setRunning(true);
                 subscribeToEvents(job.id);
@@ -1521,9 +1726,11 @@
                 if (data.status === 'completed') {
                     updatePhaseBanner('done', `Output: ${data.output_path}`);
                     logMessage(`Mission complete! ${data.pages_ok} OK, ${data.pages_partial || 0} partial, ${data.pages_failed || 0} failed`, 'done', 'success');
+                    updateJobStatus(currentJobId, 'completed');
                 } else {
                     updatePhaseBanner('failed', data.error || 'Unknown error');
                     logMessage(`Mission failed: ${data.error}`, 'failed', 'error');
+                    updateJobStatus(currentJobId, 'failed');
                 }
                 showSummary(data);
                 cleanupJob();
@@ -1532,6 +1739,7 @@
                 const data = JSON.parse(e.data);
                 updatePhaseBanner('cancelled', `${data.pages_completed}/${data.pages_total} processed`);
                 logMessage(`Operation aborted. ${data.pages_completed}/${data.pages_total} pages processed.`, 'cancelled');
+                updateJobStatus(currentJobId, 'cancelled');
                 cleanupJob();
             });
             eventSource.addEventListener('keepalive', () => {});
