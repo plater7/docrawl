@@ -11,11 +11,13 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.crawler.discovery import (
     normalize_url,
     discover_urls,
+    try_nav_parse,
+    try_sitemap,
 )
 
 
@@ -392,3 +394,267 @@ class TestIntegrationScenarios:
                     mock_crawl.assert_called_once()
                     assert len(result) == 3
                     assert "https://react.dev/learn" in result
+
+
+class TestTryNavParseBrowserCleanup:
+    """Verify try_nav_parse closes browser/page on all exception paths (issue #63)."""
+
+    def _make_playwright_stack(
+        self,
+        *,
+        page_goto_side_effect: Exception | None = None,
+    ) -> tuple[MagicMock, AsyncMock, AsyncMock, AsyncMock]:
+        """Build a minimal async_playwright mock stack.
+
+        Returns (pw_cm, playwright_mock, browser_mock, page_mock).
+        """
+        page_mock = AsyncMock()
+        page_mock.__aenter__ = AsyncMock(return_value=page_mock)
+        page_mock.__aexit__ = AsyncMock(return_value=False)
+        if page_goto_side_effect is not None:
+            page_mock.goto = AsyncMock(side_effect=page_goto_side_effect)
+        else:
+            page_mock.goto = AsyncMock(return_value=None)
+        page_mock.query_selector_all = AsyncMock(return_value=[])
+
+        browser_mock = AsyncMock()
+        browser_mock.__aenter__ = AsyncMock(return_value=browser_mock)
+        browser_mock.__aexit__ = AsyncMock(return_value=False)
+        browser_mock.new_page = AsyncMock(return_value=page_mock)
+
+        playwright_mock = AsyncMock()
+        playwright_mock.chromium.launch = AsyncMock(return_value=browser_mock)
+
+        pw_cm = MagicMock()
+        pw_cm.__aenter__ = AsyncMock(return_value=playwright_mock)
+        pw_cm.__aexit__ = AsyncMock(return_value=False)
+
+        return pw_cm, playwright_mock, browser_mock, page_mock
+
+    @pytest.mark.asyncio
+    async def test_browser_context_manager_entered_and_exited_on_success(self):
+        """Browser __aexit__ is called on the happy path (no leak)."""
+        pw_cm, _, browser_mock, _ = self._make_playwright_stack()
+
+        with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
+                await try_nav_parse("https://example.com/")
+
+        browser_mock.__aexit__.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_browser_context_manager_exited_on_timeout(self):
+        """Browser __aexit__ is called even when page.goto() raises PlaywrightTimeout."""
+        from playwright.async_api import TimeoutError as PlaywrightTimeout
+
+        pw_cm, _, browser_mock, _ = self._make_playwright_stack(
+            page_goto_side_effect=PlaywrightTimeout("timeout")
+        )
+
+        with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
+                result = await try_nav_parse("https://example.com/")
+
+        # Function should return empty list (timeout path)
+        assert result == []
+        # Browser context manager must have been exited (no leak)
+        browser_mock.__aexit__.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_browser_context_manager_exited_on_generic_exception(self):
+        """Browser __aexit__ is called even when page.goto() raises a generic exception."""
+        pw_cm, _, browser_mock, _ = self._make_playwright_stack(
+            page_goto_side_effect=RuntimeError("network error")
+        )
+
+        with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
+                result = await try_nav_parse("https://example.com/")
+
+        # Function should return empty list (error path)
+        assert result == []
+        # Browser context manager must have been exited (no leak)
+        browser_mock.__aexit__.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_page_context_manager_exited_on_timeout(self):
+        """Page __aexit__ is called even when page.goto() raises PlaywrightTimeout."""
+        from playwright.async_api import TimeoutError as PlaywrightTimeout
+
+        pw_cm, _, _, page_mock = self._make_playwright_stack(
+            page_goto_side_effect=PlaywrightTimeout("timeout")
+        )
+
+        with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
+                await try_nav_parse("https://example.com/")
+
+        page_mock.__aexit__.assert_awaited_once()
+
+
+class TestSitemapCache:
+    """Test sitemap HTTP response caching in try_sitemap."""
+
+    SITEMAP_XML = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<url><loc>https://example.com/page1</loc></url>"
+        "</urlset>"
+    )
+
+    def _make_mock_client(self, responses: dict):
+        """Build an async mock httpx client that returns pre-set responses."""
+
+        async def fake_get(url, **kwargs):
+            resp = MagicMock()
+            if url in responses:
+                resp.status_code = 200
+                resp.content = responses[url].encode("utf-8")
+                resp.text = responses[url]
+            else:
+                resp.status_code = 404
+                resp.content = b""
+                resp.text = ""
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = fake_get
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        return mock_client
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_skips_http_request(self, tmp_path):
+        """When cache has sitemap XML, the HTTP fetch for that URL is skipped."""
+        from src.scraper.cache import PageCache
+
+        cache = PageCache(tmp_path / ".cache")
+        cache.put("https://example.com/sitemap.xml", self.SITEMAP_XML)
+
+        http_fetched = []
+
+        async def fake_get(url, **kwargs):
+            http_fetched.append(url)
+            resp = MagicMock()
+            resp.status_code = 404
+            resp.content = b""
+            resp.text = ""
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = fake_get
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            result = await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        assert "https://example.com/page1" in result
+        assert "https://example.com/sitemap.xml" not in http_fetched
+
+    @pytest.mark.asyncio
+    async def test_cache_miss_stores_fetched_response(self, tmp_path):
+        """On a cache miss, successfully fetched sitemap XML is stored in cache."""
+        from src.scraper.cache import PageCache
+
+        cache = PageCache(tmp_path / ".cache")
+        sitemap_url = "https://example.com/sitemap.xml"
+
+        mock_client = self._make_mock_client({sitemap_url: self.SITEMAP_XML})
+
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        assert cache.get(sitemap_url) is not None
+
+    @pytest.mark.asyncio
+    async def test_second_call_uses_cache_not_http(self, tmp_path):
+        """Second try_sitemap call returns URLs from cache without HTTP."""
+        from src.scraper.cache import PageCache
+
+        cache = PageCache(tmp_path / ".cache")
+        sitemap_url = "https://example.com/sitemap.xml"
+
+        # First call: HTTP fetch populates cache
+        mock_client = self._make_mock_client({sitemap_url: self.SITEMAP_XML})
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        # Second call: should use cache, HTTP returns 404 for everything
+        http_fetched_second = []
+
+        async def always_404(url, **kwargs):
+            http_fetched_second.append(url)
+            resp = MagicMock()
+            resp.status_code = 404
+            resp.content = b""
+            resp.text = ""
+            return resp
+
+        mock_client2 = AsyncMock()
+        mock_client2.get.side_effect = always_404
+        mock_client2.__aenter__ = AsyncMock(return_value=mock_client2)
+        mock_client2.__aexit__ = AsyncMock(return_value=None)
+
+        with patch(
+            "src.crawler.discovery.httpx.AsyncClient", return_value=mock_client2
+        ):
+            result = await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        assert "https://example.com/page1" in result
+        assert sitemap_url not in http_fetched_second
+
+    @pytest.mark.asyncio
+    async def test_no_cache_makes_normal_http_request(self):
+        """With sitemap_cache=None, normal HTTP request behavior applies."""
+        sitemap_url = "https://example.com/sitemap.xml"
+        mock_client = self._make_mock_client({sitemap_url: self.SITEMAP_XML})
+
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            result = await try_sitemap("https://example.com/", sitemap_cache=None)
+
+        assert "https://example.com/page1" in result
+        # HTTP was called (not bypassed)
+        fetched_urls = [call.args[0] for call in mock_client.get.call_args_list]
+        assert sitemap_url in fetched_urls
+
+    @pytest.mark.asyncio
+    async def test_gz_sitemap_not_cached(self, tmp_path):
+        """Gzipped sitemaps bypass cache (binary content stored as text is invalid)."""
+        import gzip as gzip_module
+        from src.scraper.cache import PageCache
+
+        cache = PageCache(tmp_path / ".cache")
+        gz_url = "https://example.com/sitemap.xml.gz"
+        gz_content = gzip_module.compress(self.SITEMAP_XML.encode("utf-8"))
+
+        async def fake_get(url, **kwargs):
+            resp = MagicMock()
+            if url == gz_url:
+                resp.status_code = 200
+                resp.content = gz_content
+                resp.text = gz_content.decode("latin-1")
+            else:
+                resp.status_code = 404
+                resp.content = b""
+                resp.text = ""
+            return resp
+
+        mock_client = AsyncMock()
+        mock_client.get.side_effect = fake_get
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client):
+            await try_sitemap("https://example.com/", sitemap_cache=cache)
+
+        # .gz URL should NOT be in cache
+        assert cache.get(gz_url) is None

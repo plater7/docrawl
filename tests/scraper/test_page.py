@@ -1,10 +1,10 @@
-"""Unit tests for PagePool (PR 1.2) in src/scraper/page.py."""
+"""Unit tests for PagePool (PR 1.2) and PageScraper resource cleanup in src/scraper/page.py."""
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.scraper.page import PagePool
+from src.scraper.page import PagePool, PageScraper
 
 
 def _make_page(broken: bool = False) -> AsyncMock:
@@ -167,3 +167,69 @@ class TestPagePoolClose:
 
         # Should not raise
         await pool.close()
+
+
+class TestPageScraperResourceCleanup:
+    """Tests verifying PageScraper stores and releases the playwright context (issue #63)."""
+
+    async def test_start_stores_playwright_context(self):
+        """start() must store the playwright instance so stop() can release it."""
+        mock_browser = AsyncMock()
+        mock_playwright = AsyncMock()
+        mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
+
+        with patch(
+            "src.scraper.page.async_playwright",
+            return_value=MagicMock(start=AsyncMock(return_value=mock_playwright)),
+        ):
+            scraper = PageScraper()
+            await scraper.start()
+
+            assert scraper._playwright is mock_playwright
+            assert scraper._browser is mock_browser
+
+    async def test_stop_calls_playwright_stop(self):
+        """stop() must call playwright.stop() to release the underlying context."""
+        mock_browser = AsyncMock()
+        mock_playwright = AsyncMock()
+        mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
+
+        with patch(
+            "src.scraper.page.async_playwright",
+            return_value=MagicMock(start=AsyncMock(return_value=mock_playwright)),
+        ):
+            scraper = PageScraper()
+            await scraper.start()
+            await scraper.stop()
+
+            mock_playwright.stop.assert_awaited_once()
+            assert scraper._playwright is None
+            assert scraper._browser is None
+
+    async def test_start_stops_playwright_if_browser_launch_fails(self):
+        """If chromium.launch() raises, start() must stop playwright before re-raising."""
+        mock_playwright = AsyncMock()
+        mock_playwright.chromium.launch = AsyncMock(
+            side_effect=RuntimeError("launch failed")
+        )
+
+        with patch(
+            "src.scraper.page.async_playwright",
+            return_value=MagicMock(start=AsyncMock(return_value=mock_playwright)),
+        ):
+            scraper = PageScraper()
+
+            with pytest.raises(RuntimeError, match="launch failed"):
+                await scraper.start()
+
+            # Playwright context must have been cleaned up
+            mock_playwright.stop.assert_awaited_once()
+            # Scraper state must remain unset
+            assert scraper._playwright is None
+            assert scraper._browser is None
+
+    async def test_stop_is_idempotent_when_not_started(self):
+        """stop() should not raise when called before start()."""
+        scraper = PageScraper()
+        # Should not raise
+        await scraper.stop()

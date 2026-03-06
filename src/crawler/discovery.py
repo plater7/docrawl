@@ -7,8 +7,11 @@ import os
 import random
 import defusedxml.ElementTree as ET  # XXE-safe replacement — closes CONS-010 / issue #64
 from xml.etree.ElementTree import ParseError as XMLParseError
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from urllib.parse import urljoin, urlparse, urlunparse
+
+if TYPE_CHECKING:
+    from src.scraper.cache import PageCache
 
 import httpx
 from bs4 import BeautifulSoup
@@ -272,54 +275,55 @@ async def try_nav_parse(base_url: str) -> list[str]:
 
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
+            async with await p.chromium.launch(headless=True) as browser:
+                async with await browser.new_page() as page:
+                    logger.debug("Loading page for nav parsing...")
+                    await page.goto(
+                        base_url, wait_until="domcontentloaded", timeout=10000
+                    )
 
-            logger.debug("Loading page for nav parsing...")
-            await page.goto(base_url, wait_until="domcontentloaded", timeout=10000)
-
-            # Try each selector with limit
-            for selector in NAV_SELECTORS:
-                if len(discovered_urls) >= MAX_NAV_URLS:
-                    logger.info(f"Hit nav URL cap ({MAX_NAV_URLS}), stopping")
-                    break
-
-                try:
-                    links = await page.query_selector_all(selector)
-                    logger.debug(f"Selector '{selector}' found {len(links)} links")
-
-                    for link in links:
+                    # Try each selector with limit
+                    for selector in NAV_SELECTORS:
                         if len(discovered_urls) >= MAX_NAV_URLS:
+                            logger.info(f"Hit nav URL cap ({MAX_NAV_URLS}), stopping")
                             break
 
-                        href = await link.get_attribute("href")
-                        if not href:
-                            continue
-
-                        # Skip anchors and non-http links
-                        if href.startswith("#") or href.startswith("javascript:"):
-                            continue
-
-                        absolute_url = urljoin(base_url, href)
-                        parsed = urlparse(absolute_url)
-
-                        # Same domain only
-                        if parsed.netloc == base_domain and parsed.scheme in [
-                            "http",
-                            "https",
-                        ]:
-                            clean_url = (
-                                f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                        try:
+                            links = await page.query_selector_all(selector)
+                            logger.debug(
+                                f"Selector '{selector}' found {len(links)} links"
                             )
-                            if parsed.query:
-                                clean_url += f"?{parsed.query}"
-                            discovered_urls.add(normalize_url(clean_url))
 
-                except Exception as e:
-                    logger.debug(f"Selector '{selector}' failed: {e}")
-                    continue
+                            for link in links:
+                                if len(discovered_urls) >= MAX_NAV_URLS:
+                                    break
 
-            await browser.close()
+                                href = await link.get_attribute("href")
+                                if not href:
+                                    continue
+
+                                # Skip anchors and non-http links
+                                if href.startswith("#") or href.startswith(
+                                    "javascript:"
+                                ):
+                                    continue
+
+                                absolute_url = urljoin(base_url, href)
+                                parsed = urlparse(absolute_url)
+
+                                # Same domain only
+                                if parsed.netloc == base_domain and parsed.scheme in [
+                                    "http",
+                                    "https",
+                                ]:
+                                    clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+                                    if parsed.query:
+                                        clean_url += f"?{parsed.query}"
+                                    discovered_urls.add(normalize_url(clean_url))
+
+                        except Exception as e:
+                            logger.debug(f"Selector '{selector}' failed: {e}")
+                            continue
 
     except PlaywrightTimeout:
         msg = f"Nav parsing timeout after 10s on {base_url}"
@@ -336,7 +340,11 @@ async def try_nav_parse(base_url: str) -> list[str]:
     return result
 
 
-async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
+async def try_sitemap(
+    base_url: str,
+    filter_by_path: bool = True,
+    sitemap_cache: "PageCache | None" = None,
+) -> list[str]:
     """
     Try to parse sitemap.xml and robots.txt.
 
@@ -348,6 +356,9 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
     Args:
         base_url: Base URL of the site
         filter_by_path: If True, filter URLs to only include those under the base URL's path
+        sitemap_cache: Optional PageCache for sitemap HTTP responses. When provided,
+                       sitemap XML is cached on first fetch and reused on repeat crawls,
+                       avoiding redundant HTTP requests. Gzipped sitemaps (.gz) are not cached.
 
     Returns:
         List of URLs found in sitemaps
@@ -371,21 +382,37 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
     async def parse_sitemap_xml(url: str, client: httpx.AsyncClient) -> set[str]:
         """Parse a sitemap XML file with robust error handling."""
         urls: set[str] = set()
+        is_gz = url.endswith(".gz")
 
         try:
-            response = await client.get(url, timeout=10.0)
+            content: bytes | None = None
 
-            # Skip 404s gracefully
-            if response.status_code == 404:
-                logger.debug(f"Sitemap not found (404): {url}")
-                return urls
-            elif response.status_code != 200:
-                logger.debug(
-                    f"Non-200 status {response.status_code} for sitemap: {url}"
-                )
-                return urls
+            # Check cache first (non-gzipped only — binary .gz can't round-trip through str)
+            if sitemap_cache and not is_gz:
+                cached = sitemap_cache.get(url)
+                if cached is not None:
+                    logger.debug(f"Sitemap cache HIT: {url}")
+                    content = cached.encode("utf-8")
 
-            content = response.content
+            if content is None:
+                response = await client.get(url, timeout=10.0)
+
+                # Skip 404s gracefully
+                if response.status_code == 404:
+                    logger.debug(f"Sitemap not found (404): {url}")
+                    return urls
+                elif response.status_code != 200:
+                    logger.debug(
+                        f"Non-200 status {response.status_code} for sitemap: {url}"
+                    )
+                    return urls
+
+                content = response.content
+
+                # Cache successful non-gzipped responses
+                if sitemap_cache and not is_gz:
+                    logger.debug(f"Sitemap cache MISS, storing: {url}")
+                    sitemap_cache.put(url, response.text)
 
             # Handle gzipped sitemaps
             if url.endswith(".gz"):
@@ -487,7 +514,10 @@ async def try_sitemap(base_url: str, filter_by_path: bool = True) -> list[str]:
 
 
 async def discover_urls(
-    base_url: str, max_depth: int = 5, filter_by_path: bool = True
+    base_url: str,
+    max_depth: int = 5,
+    filter_by_path: bool = True,
+    sitemap_cache: "PageCache | None" = None,
 ) -> list[str]:
     """
     Discover URLs using cascade strategy — stops at first success:
@@ -499,6 +529,7 @@ async def discover_urls(
         base_url: Base URL to discover
         max_depth: Maximum depth for recursive crawl
         filter_by_path: If True, filter sitemap URLs to only include those under base URL's path
+        sitemap_cache: Optional PageCache instance for sitemap HTTP responses (PR 2.4).
 
     Returns deduplicated, normalized URLs. Never returns empty list.
     """
@@ -515,7 +546,7 @@ async def discover_urls(
     logger.info(msg)
 
     try:
-        sitemap_urls = await try_sitemap(base_url, filter_by_path)
+        sitemap_urls = await try_sitemap(base_url, filter_by_path, sitemap_cache)
         if sitemap_urls:
             all_urls.update(sitemap_urls)
             msg = f"✓ Sitemap success: {len(sitemap_urls)} URLs found"
