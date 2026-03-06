@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pipeline Mode** — `use_pipeline_mode: true` activa productor/consumidor con `asyncio.Queue(maxsize=20)` y backpressure; dedup + LLM cleanup en paralelo al scraping — PR 3.3 ([#134](https://github.com/plater7/docrawl/pull/134))
 - **Converter Plugins** — `MarkdownConverter` Protocol + registro estático; `GET /api/converters`; campo `converter` en `JobRequest`; `MarkdownifyConverter` como default — PR 3.4 ([#135](https://github.com/plater7/docrawl/pull/135))
 - **Test Coverage** — cobertura aumentada de ~55% a ~60%; nuevos test files para `exceptions`, `routes`, `llm/client`, `llm/cleanup`, `scraper/markdown`, `scraper/structured` ([#146](https://github.com/plater7/docrawl/pull/146))
+- **feat(discovery): add sitemap_cache param to enable future sitemap caching** ([#152](https://github.com/plater7/docrawl/pull/152))
 
 ## [v0.9.9] - 2026-03-03
 
