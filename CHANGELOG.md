@@ -7,24 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v1.0.0] - unreleased
-
+## [v0.9.10] - 2026-03-04
 ### Added
 - **fix(ui): send phase_change before scraping loop** ([#151](https://github.com/plater7/docrawl/pull/151))
-
----
 - **feat(ui): two-column layout - job history panel** ([#153](https://github.com/plater7/docrawl/pull/153))
-
-## [v0.9.10] - unreleased
-
-### Added
 - **Pause/Resume** — `POST /jobs/{id}/pause` pausa el job después de la página actual; `POST /jobs/{id}/resume` lo reanuda en el mismo proceso; `asyncio.Event` interno (set=running, clear=paused) — PR 3.1 ([#131](https://github.com/plater7/docrawl/pull/131))
 - **State Checkpoint** — al pausar se escribe `{output_path}/.job_state.json` (atomic write) con URLs completadas/fallidas/pendientes + `JobRequest` serializado — PR 3.1
 - **Resume from State** — `POST /api/jobs/resume-from-state` crea un nuevo job procesando solo las URLs pendientes del checkpoint; protección path traversal (solo bajo `/data`) — PR 3.1
 - **Structured Output** — `output_format: "json"` devuelve `StructuredPage` con 7 tipos de `ContentBlock` (heading, paragraph, code, table, list, blockquote, image) — PR 3.2 ([#133](https://github.com/plater7/docrawl/pull/133))
 - **Pipeline Mode** — `use_pipeline_mode: true` activa productor/consumidor con `asyncio.Queue(maxsize=20)` y backpressure; dedup + LLM cleanup en paralelo al scraping — PR 3.3 ([#134](https://github.com/plater7/docrawl/pull/134))
-
----
+- **Converter Plugins** — `MarkdownConverter` Protocol + registro estático; `GET /api/converters`; campo `converter` en `JobRequest`; `MarkdownifyConverter` como default — PR 3.4 ([#135](https://github.com/plater7/docrawl/pull/135))
+- **Test Coverage** — cobertura aumentada de ~55% a ~60%; nuevos test files para `exceptions`, `routes`, `llm/client`, `llm/cleanup`, `scraper/markdown`, `scraper/structured` ([#146](https://github.com/plater7/docrawl/pull/146))
 
 ## [v0.9.9] - 2026-03-03
 

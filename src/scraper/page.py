@@ -150,19 +150,32 @@ class PageScraper:
 
     def __init__(self) -> None:
         self._browser: Browser | None = None
+        self._playwright: object | None = None  # async_playwright context
 
     async def start(self) -> None:
-        """Start the browser."""
+        """Start the browser.
+
+        Stores the playwright context so it can be properly stopped in stop(),
+        preventing resource leaks if browser launch or subsequent operations fail.
+        """
         playwright = await async_playwright().start()
-        self._browser = await playwright.chromium.launch(headless=True)
+        try:
+            self._browser = await playwright.chromium.launch(headless=True)
+        except Exception:
+            await playwright.stop()
+            raise
+        self._playwright = playwright
         logger.info("Browser started")
 
     async def stop(self) -> None:
-        """Stop the browser."""
+        """Stop the browser and the underlying playwright context."""
         if self._browser:
             await self._browser.close()
             self._browser = None
             logger.info("Browser stopped")
+        if self._playwright is not None:
+            await self._playwright.stop()  # type: ignore[union-attr,attr-defined]
+            self._playwright = None
 
     async def _remove_noise(self, page: Page) -> None:
         """Remove noise elements from the DOM before extraction."""

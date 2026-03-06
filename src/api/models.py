@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, HttpUrl, Field, field_validator
+from pydantic import BaseModel, HttpUrl, Field, field_validator, model_validator
 
 from src.utils.security import validate_url_not_ssrf
 
@@ -30,6 +30,9 @@ class JobRequest(BaseModel):
         "markdown"  # PR 3.2: structured JSON output opt-in
     )
     use_pipeline_mode: bool = False  # PR 3.3: opt-in producer/consumer pipeline
+    converter: str | None = Field(
+        default=None, pattern=r"^[\w-]{1,50}$"
+    )  # PR 3.4: converter plugin name (None = default)
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
 
@@ -53,6 +56,20 @@ class JobRequest(BaseModel):
             raise ValueError("markdown_proxy_url must use HTTPS")
         validate_url_not_ssrf(str(v))
         return v
+
+    @model_validator(mode="after")
+    def validate_converter(self) -> "JobRequest":
+        """Validate converter name exists in registry (PR 3.4 fix)."""
+        if self.converter is None:
+            return self
+        from src.scraper.converters import available_converters
+
+        available = available_converters()
+        if self.converter not in available:
+            raise ValueError(
+                f"Converter '{self.converter}' not found. Available: {available}"
+            )
+        return self
 
 
 class ResumeFromStateRequest(BaseModel):
