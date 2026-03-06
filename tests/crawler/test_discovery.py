@@ -604,7 +604,9 @@ class TestSitemapCache:
         mock_client2.__aenter__ = AsyncMock(return_value=mock_client2)
         mock_client2.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("src.crawler.discovery.httpx.AsyncClient", return_value=mock_client2):
+        with patch(
+            "src.crawler.discovery.httpx.AsyncClient", return_value=mock_client2
+        ):
             result = await try_sitemap("https://example.com/", sitemap_cache=cache)
 
         assert "https://example.com/page1" in result
