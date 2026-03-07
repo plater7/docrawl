@@ -73,9 +73,9 @@
             z-index: -1;
         }
 
-        .container { 
-            max-width: 1200px; 
-            margin: 0 auto; 
+        .container {
+            max-width: min(1600px, calc(100vw - 48px));
+            margin: 0 auto;
             position: relative;
             z-index: 1001;
         }
@@ -83,8 +83,8 @@
         /* Two-column layout */
         .two-columns {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
+            grid-template-columns: 65% 35%;
+            gap: 32px;
             align-items: start;
         }
 
@@ -100,6 +100,10 @@
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 1.5rem;
+            position: sticky;
+            top: 16px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
         }
 
         /* Job History Panel */
@@ -196,6 +200,12 @@
         /* Right column execute button */
         .right-column .buttons {
             margin-bottom: 1rem;
+        }
+
+        /* Wide layout reverts to single column below 1100px */
+        @media (max-width: 1100px) {
+            .two-columns { grid-template-columns: 1fr; }
+            .right-column { position: static; max-height: none; overflow-y: visible; }
         }
 
         /* Responsive: stack on mobile */
