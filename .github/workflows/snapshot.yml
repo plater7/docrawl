@@ -6,10 +6,13 @@ on:
     paths:
       - "src/**"
       - "requirements.txt"
+      - "requirements-dev.txt"
       - "Dockerfile"
+      - "docker/**"
       - "docker-compose.yml"
       - "docker-compose.yaml"
       - "pyproject.toml"
+      - "scripts/generate_snapshot.py"
 
   # Allow manual trigger from Actions tab
   workflow_dispatch:
@@ -36,14 +39,17 @@ jobs:
       - name: Check for changes
         id: diff
         run: |
-          git diff --quiet SNAPSHOT.md && echo "changed=false" >> "$GITHUB_OUTPUT" \
-            || echo "changed=true" >> "$GITHUB_OUTPUT"
+          git add SNAPSHOT.md
+          if git diff --cached --quiet SNAPSHOT.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Commit updated snapshot
         if: steps.diff.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add SNAPSHOT.md
           git commit -m "docs: auto-update SNAPSHOT.md [skip ci]"
           git push

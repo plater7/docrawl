@@ -26,13 +26,17 @@ SRC_DIR = ROOT / "src"
 OUTPUT_DEFAULT = ROOT / "SNAPSHOT.md"
 
 # Files outside src/ to include (relative to repo root).
-# Add entries here if you want requirements.txt, Dockerfile, etc.
+# Supports glob-like patterns — checks existence at runtime.
 EXTRA_FILES: list[str] = [
     "requirements.txt",
+    "requirements-dev.txt",
     "Dockerfile",
+    "docker/Dockerfile",
     "docker-compose.yml",
     "docker-compose.yaml",
     "pyproject.toml",
+    "pytest.ini",
+    ".env.example",
 ]
 
 # Patterns to always skip
