@@ -108,6 +108,7 @@
 
         /* Job History Panel */
         .job-history-panel {
+            min-height: 0;
             margin-bottom: 1.5rem;
         }
 
@@ -195,11 +196,6 @@
         .job-history-stop:hover {
             background: #ef4444;
             color: white;
-        }
-
-        /* Right column execute button */
-        .right-column .buttons {
-            margin-bottom: 1rem;
         }
 
         /* Wide layout reverts to single column below 1100px */
@@ -1317,12 +1313,6 @@
                     </div>
                 </div>
 
-                <!-- Execute Button for Right Column -->
-                <div class="buttons">
-                    <button type="button" class="btn-primary" id="startBtnRight">▶ EXECUTE CRAWL</button>
-                    <button type="button" class="btn-danger" id="cancelBtnRight">■ ABORT</button>
-                </div>
-
                 <div class="phase-banner" id="phaseBanner">
                     <span class="phase-dot" id="phaseDot"></span>
                     <span class="phase-name" id="phaseName">INIT</span>
@@ -1369,9 +1359,6 @@
         const form = document.getElementById('crawlForm');
         const startBtn = document.getElementById('startBtn');
         const cancelBtn = document.getElementById('cancelBtn');
-        // Right column buttons
-        const startBtnRight = document.getElementById('startBtnRight');
-        const cancelBtnRight = document.getElementById('cancelBtnRight');
         const logDiv = document.getElementById('log');
         const summaryDiv = document.getElementById('summary');
         const phaseBanner = document.getElementById('phaseBanner');
@@ -1441,14 +1428,6 @@
                 updateJobHistoryUI();
             }
         }
-
-        // Sync right column buttons with left
-        startBtnRight.addEventListener('click', () => form.dispatchEvent(new Event('submit')));
-        cancelBtnRight.addEventListener('click', () => {
-            if (currentJobId) {
-                stopJob(currentJobId);
-            }
-        });
 
         function getModelCategory(modelName, modelSize) {
             const name = modelName.toLowerCase();
