@@ -470,7 +470,12 @@ async def run_job(
                     if markdown is None:
                         for _attempt in range(MAX_SCRAPE_RETRIES + 1):
                             try:
-                                html = await scraper.get_html(url, pool=page_pool)
+                                html = await scraper.get_html(
+                                    url,
+                                    pool=page_pool,
+                                    content_selectors=request.content_selectors,
+                                    noise_selectors=request.noise_selectors,
+                                )
                                 break
                             except asyncio.CancelledError:
                                 raise
@@ -991,7 +996,12 @@ async def _run_pipeline_mode(
                 if markdown is None:
                     for _attempt in range(MAX_SCRAPE_RETRIES + 1):
                         try:
-                            html = await scraper.get_html(url, pool=page_pool)
+                            html = await scraper.get_html(
+                                url,
+                                pool=page_pool,
+                                content_selectors=request.content_selectors,
+                                noise_selectors=request.noise_selectors,
+                            )
                             break
                         except asyncio.CancelledError:
                             raise
