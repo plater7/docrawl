@@ -177,9 +177,18 @@ class PageScraper:
             await self._playwright.stop()  # type: ignore[union-attr,attr-defined]
             self._playwright = None
 
-    async def _remove_noise(self, page: Page) -> None:
-        """Remove noise elements from the DOM before extraction."""
-        selector_list = ", ".join(NOISE_SELECTORS)
+    async def _remove_noise(
+        self, page: Page, extra_selectors: list[str] | None = None
+    ) -> None:
+        """Remove noise elements from the DOM before extraction.
+
+        Args:
+            page: Playwright page to clean.
+            extra_selectors: Additional CSS selectors to remove, prepended before
+                the DocRawl defaults so user selectors are tried first.
+        """
+        selectors = list(extra_selectors or []) + NOISE_SELECTORS
+        selector_list = ", ".join(selectors)
         removed = await page.evaluate(f"""() => {{
             const els = document.querySelectorAll(`{selector_list}`);
             let count = 0;
@@ -189,9 +198,18 @@ class PageScraper:
         if removed:
             logger.debug(f"Removed {removed} noise elements from DOM")
 
-    async def _extract_content(self, page: Page) -> str:
-        """Extract main content HTML, trying specific selectors before body fallback."""
-        for selector in CONTENT_SELECTORS:
+    async def _extract_content(
+        self, page: Page, extra_selectors: list[str] | None = None
+    ) -> str:
+        """Extract main content HTML, trying specific selectors before body fallback.
+
+        Args:
+            page: Playwright page to extract from.
+            extra_selectors: Additional CSS selectors to try first, prepended before
+                the DocRawl defaults so user selectors take priority.
+        """
+        selectors = list(extra_selectors or []) + CONTENT_SELECTORS
+        for selector in selectors:
             try:
                 el = await page.query_selector(selector)
                 if el:
@@ -210,11 +228,23 @@ class PageScraper:
         return html
 
     async def get_html(
-        self, url: str, timeout: int = 30000, pool: "PagePool | None" = None
+        self,
+        url: str,
+        timeout: int = 30000,
+        pool: "PagePool | None" = None,
+        content_selectors: list[str] | None = None,
+        noise_selectors: list[str] | None = None,
     ) -> str:
         """Navigate to URL, clean DOM, and extract content HTML.
 
-        pool: if provided, borrows a page from the pool instead of creating one (PR 1.2).
+        Args:
+            url: Page URL to scrape.
+            timeout: Navigation timeout in milliseconds.
+            pool: If provided, borrows a page from the pool instead of creating one (PR 1.2).
+            content_selectors: Per-job CSS selectors prepended to DocRawl defaults for
+                content extraction.
+            noise_selectors: Per-job CSS selectors prepended to DocRawl defaults for
+                noise removal.
         """
         if not self._browser and pool is None:
             raise RuntimeError("Browser not started")
@@ -225,15 +255,15 @@ class PageScraper:
         if pool is not None:
             async with pool.acquire() as page:
                 await page.goto(url, timeout=timeout, wait_until="networkidle")
-                await self._remove_noise(page)
-                return await self._extract_content(page)
+                await self._remove_noise(page, extra_selectors=noise_selectors)
+                return await self._extract_content(page, extra_selectors=content_selectors)
 
         assert self._browser is not None  # guarded by RuntimeError above
         page = await self._browser.new_page()
         try:
             await page.goto(url, timeout=timeout, wait_until="networkidle")
-            await self._remove_noise(page)
-            html = await self._extract_content(page)
+            await self._remove_noise(page, extra_selectors=noise_selectors)
+            html = await self._extract_content(page, extra_selectors=content_selectors)
             return html
         finally:
             await page.close()
