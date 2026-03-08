@@ -38,6 +38,8 @@ from src.scraper.converters.base import MarkdownConverter
 
 logger = logging.getLogger(__name__)
 
+MAX_SCRAPE_RETRIES = int(_os.environ.get("SCRAPE_MAX_RETRIES", "2"))
+
 
 async def validate_models(
     crawl_model: str, pipeline_model: str, reasoning_model: str
@@ -464,9 +466,26 @@ async def run_job(
                                 },
                             )
 
-                    # Fall back to Playwright (pass pool if available — PR 1.2)
+                    # Fall back to Playwright with retries (pass pool if available — PR 1.2)
                     if markdown is None:
-                        html = await scraper.get_html(url, pool=page_pool)
+                        for _attempt in range(MAX_SCRAPE_RETRIES + 1):
+                            try:
+                                html = await scraper.get_html(url, pool=page_pool)
+                                break
+                            except asyncio.CancelledError:
+                                raise
+                            except Exception as _e:
+                                if job.is_cancelled:
+                                    raise asyncio.CancelledError()
+                                if _attempt < MAX_SCRAPE_RETRIES:
+                                    _wait = 2 ** _attempt
+                                    logger.warning(
+                                        f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
+                                        f"failed for {url}: {_e}. Retrying in {_wait}s..."
+                                    )
+                                    await asyncio.sleep(_wait)
+                                else:
+                                    raise
                         raw_html = html  # PR 3.2: keep for structured output
                         load_time = time.monotonic() - page_start
                         markdown = _converter.convert(html)  # PR 3.4
@@ -758,6 +777,11 @@ async def run_job(
                     "message": "Job completed",
                 },
             )
+            logger.info(
+                f"[{job.id[:8]}] Fetch methods: {pages_native_md} native, "
+                f"{pages_proxy_md} proxy, {pages_http_fast} http_fast, "
+                f"{pages_playwright} playwright"
+            )
             await _log(
                 job,
                 "job_done",
@@ -963,9 +987,26 @@ async def _run_pipeline_mode(
                         async with _counter_lock:
                             c["http_fast"] += 1
 
-                # Playwright fallback
+                # Playwright fallback with retries
                 if markdown is None:
-                    html = await scraper.get_html(url, pool=page_pool)
+                    for _attempt in range(MAX_SCRAPE_RETRIES + 1):
+                        try:
+                            html = await scraper.get_html(url, pool=page_pool)
+                            break
+                        except asyncio.CancelledError:
+                            raise
+                        except Exception as _e:
+                            if job.is_cancelled:
+                                raise asyncio.CancelledError()
+                            if _attempt < MAX_SCRAPE_RETRIES:
+                                _wait = 2 ** _attempt
+                                logger.warning(
+                                    f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
+                                    f"failed for {url}: {_e}. Retrying in {_wait}s..."
+                                )
+                                await asyncio.sleep(_wait)
+                            else:
+                                raise
                     raw_html = html
                     markdown = converter.convert(html)  # PR 3.4
                     async with _counter_lock:
