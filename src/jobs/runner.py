@@ -466,7 +466,12 @@ async def run_job(
 
                     # Fall back to Playwright (pass pool if available — PR 1.2)
                     if markdown is None:
-                        html = await scraper.get_html(url, pool=page_pool)
+                        html = await scraper.get_html(
+                            url,
+                            pool=page_pool,
+                            content_selectors=request.content_selectors,
+                            noise_selectors=request.noise_selectors,
+                        )
                         raw_html = html  # PR 3.2: keep for structured output
                         load_time = time.monotonic() - page_start
                         markdown = _converter.convert(html)  # PR 3.4
@@ -965,7 +970,12 @@ async def _run_pipeline_mode(
 
                 # Playwright fallback
                 if markdown is None:
-                    html = await scraper.get_html(url, pool=page_pool)
+                    html = await scraper.get_html(
+                        url,
+                        pool=page_pool,
+                        content_selectors=request.content_selectors,
+                        noise_selectors=request.noise_selectors,
+                    )
                     raw_html = html
                     markdown = converter.convert(html)  # PR 3.4
                     async with _counter_lock:

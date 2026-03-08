@@ -35,6 +35,33 @@ class JobRequest(BaseModel):
     )  # PR 3.4: converter plugin name (None = default)
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
+    content_selectors: list[str] | None = Field(
+        default=None,
+        description=(
+            "CSS selectors to try for main content extraction (prepended before DocRawl defaults). "
+            "Each selector max 200 chars, list max 20 items."
+        ),
+    )
+    noise_selectors: list[str] | None = Field(
+        default=None,
+        description=(
+            "CSS selectors for noise elements to remove before extraction (prepended before DocRawl defaults). "
+            "Each selector max 200 chars, list max 20 items."
+        ),
+    )
+
+    @field_validator("content_selectors", "noise_selectors")
+    @classmethod
+    def validate_selectors(cls, v: list[str] | None) -> list[str] | None:
+        """Validate per-job CSS selector lists."""
+        if v is None:
+            return v
+        if len(v) > 20:
+            raise ValueError("Selector list max 20 items")
+        for sel in v:
+            if len(sel) > 200:
+                raise ValueError(f"Selector too long (max 200 chars): {sel[:50]}...")
+        return v
 
     @field_validator("output_path")
     @classmethod
