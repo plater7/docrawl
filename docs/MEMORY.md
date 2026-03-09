@@ -99,7 +99,7 @@ Documentation
   docs/MEMORY.md (5KB)
   docs/PROJECT_STATUS.md (4KB)
   docs/SETUP.md (6KB)
-  docs/TROUBLESHOOTING.md (7KB)
+  docs/TROUBLESHOOTING.md (11KB)
   docs/UI_TWO_COLUMN_LAYOUT.md (2KB)
   docs/adr/ (3 ADRs)
   SNAPSHOT.md (164KB, auto-generated)
@@ -125,4 +125,4 @@ Approach & patterns
   Governance: Nebula for automation/monitoring, Claude Code for implementation, Notion for project planning
 
 ---
-<!-- content-hash: fe1cb3065bea098de978cb6da8fe362526252fa9ca60328ed3ba5c0b92265535 -->
+<!-- content-hash: bb12e323771f33fd752604252745fb7c0e3b30c6fe09b39a92078d180b24dce3 -->
