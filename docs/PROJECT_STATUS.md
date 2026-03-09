@@ -1,10 +1,10 @@
 # Project Status
 
-> DocRawl v0.9.10 — Last updated: 2026-03-08
+> DocRawl v0.9.10 -- Last updated: 2026-03-09
 
 ## Current State
 
-DocRawl is a **functional documentation crawler** in late beta. The core pipeline (discovery → filter → scrape → cleanup → output) is stable and handles production workloads. The project has mature CI/CD (11 GitHub Actions workflows), structured logging, security hardening, and a web UI.
+DocRawl is a **functional documentation crawler** in late beta. The core pipeline (discovery -> filter -> scrape -> cleanup -> output) is stable and handles production workloads. The project has mature CI/CD (13 GitHub Actions workflows), structured logging, security hardening, and a web UI.
 
 ### What Works
 
@@ -30,19 +30,20 @@ DocRawl is a **functional documentation crawler** in late beta. The core pipelin
 
 ### CI/CD Pipeline
 
-12 workflows covering:
-- **lint.yml** — ruff linting on push/PR
-- **test.yml** — pytest with coverage (fail-under: 50%, target: 65%)
-- **security.yml** — pip-audit + Snyk vulnerability scanning
-- **codeql.yml** — GitHub CodeQL static analysis
-- **docker-build.yml** — Docker image build validation
-- **docker-publish.yml** — Publish to GHCR on release
-- **release.yml** — Create GitHub release with changelog
-- **auto-tag.yml** — Auto-tag on version bump in main.py
-- **update-snapshot.yml** — Regenerate SNAPSHOT.md
-- **update-docs-on-merge.yml** — Auto-update docs on merge
-- **stale.yml** — Close stale issues/PRs
-- **update-memory.yml** — Auto-regenerate docs/Memory.md
+13 workflows covering:
+- **lint.yml** -- ruff linting on push/PR
+- **test.yml** -- pytest with coverage (fail-under: 60%, target: 65%)
+- **security.yml** -- pip-audit + Snyk vulnerability scanning
+- **codeql.yml** -- GitHub CodeQL static analysis
+- **docker-build.yml** -- Docker image build validation
+- **docker-publish.yml** -- Publish to GHCR on release
+- **release.yml** -- Create GitHub release with changelog
+- **auto-tag.yml** -- Auto-tag on version bump in main.py
+- **update-snapshot.yml** -- Regenerate SNAPSHOT.md
+- **update-docs-on-merge.yml** -- Auto-update docs on merge
+- **stale.yml** -- Close stale issues/PRs
+- **update-memory.yml** -- Auto-regenerate docs/MEMORY.md
+- **update-changelog.yml** -- Auto-update CHANGELOG.md on PR merge
 
 All workflow actions use pinned SHA versions. Concurrency groups prevent duplicate runs.
 
@@ -52,65 +53,45 @@ All workflow actions use pinned SHA versions. Concurrency groups prevent duplica
 |-------|----------|-------|
 | robots.txt parser ignores `Allow:` directive | Low | Over-blocks some valid URLs. Fix planned. |
 | `reasoning_model` parameter unused | Low | Passed through but not used in any pipeline stage yet. Reserved for future site structure analysis. |
-| Coverage threshold (50%) below actual (~60%) | Low | Threshold needs bump to match reality. |
 | No automatic resume on server restart | Medium | User must manually call resume endpoint after crash. |
 | Cloud provider error handling not unified | Low | Timeout behavior and rate limit responses differ per provider. |
-| Single converter registered (markdownify) | Low | Plugin system exists but only default converter is available. |
-| No WebSocket support for real-time events | Low | SSE works but WebSocket would reduce overhead for high-frequency updates. |
+| Only markdown converter registered | Low | Plugin system works and accepts new converters, but only markdown is implemented. PDF/HTML planned. |
 
-## Test Coverage
+## Architecture Overview
 
 ```
-Module                          Coverage
-──────────────────────────────────────────
- src/api/                        Good
- src/crawler/                    Good
- src/jobs/                       Partial (runner.py needs more)
- src/llm/                        Good
- src/scraper/                    Partial
- src/utils/                      Good
-──────────────────────────────────────────
-Overall:                         ~60%
-Threshold (pytest.ini):          50% (needs bump)
-Target:                          65%
+CLI / Web UI / REST API
+        |
+   JobManager  (queue + state machine)
+        |
+   JobRunner   (orchestrates pipeline)
+        |
+   +---+---+---+---+
+   |   |   |   |   |
+  Disc Filt Scrp Cln Out
+        |       |
+     robots  PagePool + HTTP fast-path
+              |
+           LLM client (multi-provider)
 ```
 
-## Roadmap (Tentative)
+### Key Design Decisions
 
-### v0.10 — Stability & Testing
-- [ ] Bump coverage threshold to 60%, target 65%
-- [ ] Add tests for `runner.py` core paths
-- [ ] Support `Allow:` directive in robots.txt parser
-- [ ] Unified error handling across LLM providers
+1. **Fallback chain over single strategy** -- 5-level scraping ensures content extraction even on difficult sites
+2. **LLM as cleanup, not extraction** -- LLM cleans noisy HTML; structured extraction uses deterministic parsers
+3. **Checkpoint-first** -- Every stage writes state so jobs survive restarts
+4. **Security by default** -- SSRF protection, CSP headers, rate limiting, API key auth all enabled out of the box
 
-### v1.0 — Production Ready
-- [ ] Use `reasoning_model` for site structure analysis
-- [ ] Additional converter plugins (html2text, trafilatura)
+## Roadmap
+
+### v0.9.11 (next)
+- [ ] robots.txt `Allow:` directive support
+- [ ] PDF converter plugin
+- [ ] Unified cloud provider error handling
+
+### v1.0.0
+- [ ] HTML converter plugin
 - [ ] Automatic resume on server restart
-- [ ] WebSocket event stream option
-- [ ] API documentation (OpenAPI schema is auto-generated, needs narrative docs)
-
-### Future
-- [ ] Multi-site batch jobs
-- [ ] Incremental re-crawl (only process changed pages)
-- [ ] Output to external stores (S3, GCS)
-- [ ] Distributed crawling (worker pool)
-
-## Documentation
-
-| Document | Purpose |
-|----------|--------|
-| [README.md](../README.md) | Project overview, quick start, configuration |
-| [ARCHITECTURE.md](../ARCHITECTURE.md) | System design, pipeline diagram, module map |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | Development workflow, commit conventions |
-| [CHANGELOG.md](../CHANGELOG.md) | Version history (Keep a Changelog format) |
-| [SECURITY.md](../SECURITY.md) | Security policy and reporting |
-| [docs/SETUP.md](SETUP.md) | Detailed setup instructions |
-| [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions |
-| [docs/adr/](adr/) | Architecture Decision Records |
-| [docs/Memory.md](Memory.md) | Claude Code memory file (auto-generated) |
-| [SNAPSHOT.md](../SNAPSHOT.md) | Full code snapshot (auto-generated) |
-
----
-
-*This document is manually maintained. For auto-generated files, see `SNAPSHOT.md` (code) and `docs/Memory.md` (Claude Code memory).*
+- [ ] Multi-site batch mode
+- [ ] Public documentation site
+- [ ] PyPI package publication
