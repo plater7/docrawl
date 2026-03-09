@@ -97,7 +97,7 @@ Documentation
   LICENSE (1KB)
   docs/CODE_QUALITY_FIXES.md (1KB)
   docs/MEMORY.md (5KB)
-  docs/PROJECT_STATUS.md (5KB)
+  docs/PROJECT_STATUS.md (4KB)
   docs/SETUP.md (6KB)
   docs/TROUBLESHOOTING.md (11KB)
   docs/UI_TWO_COLUMN_LAYOUT.md (2KB)
@@ -125,4 +125,4 @@ Approach & patterns
   Governance: Nebula for automation/monitoring, Claude Code for implementation, Notion for project planning
 
 ---
-<!-- content-hash: 287a676fbc9a576c65603032786de442f05920b6d1f61879a265d1c91e8bc7f7 -->
+<!-- content-hash: d51e63f51d1687dfd41c56ed009a8b507c01aeab729e01326663bfdaa99c5cfd -->
