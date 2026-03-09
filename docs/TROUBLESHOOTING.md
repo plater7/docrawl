@@ -1,16 +1,19 @@
 # Troubleshooting Guide
 
-> 🤖 Generated with AI assistance by DocCrawler 🕷️ (model: qwen3-coder:free) and human review.
+> Generated with AI assistance by DocCrawler (model: qwen3-coder:free) and human review.
 
 Common issues and solutions for Docrawl.
 
 ## Table of Contents
 
 - [Ollama Issues](#ollama-issues)
+- [LM Studio Issues](#lm-studio-issues)
 - [Docker Issues](#docker-issues)
 - [Permission Issues](#permission-issues)
 - [Network Issues](#network-issues)
 - [Performance Issues](#performance-issues)
+- [Page Cache Issues](#page-cache-issues)
+- [Pause / Resume Issues](#pause--resume-issues)
 
 ---
 
@@ -29,7 +32,6 @@ Common issues and solutions for Docrawl.
 ollama list
 
 # If command not found, install Ollama:
-# macOS/Linux:
 curl -fsSL https://ollama.ai/install.sh | sh
 
 # 2. Start Ollama service (if not running)
@@ -59,10 +61,7 @@ ollama list
 
 2. **On Linux, add OLLAMA_HOST**:
    ```bash
-   # In your .bashrc or .zshrc
    export OLLAMA_HOST=0.0.0.0
-
-   # Restart Ollama
    pkill ollama
    ollama serve &
    ```
@@ -81,12 +80,66 @@ ollama list
 
 **Solution**:
 ```bash
-# Pull the missing model
 ollama pull <model-name>
-
-# Example:
-ollama pull mistral:7b
 ```
+
+---
+
+## LM Studio Issues
+
+> Added in v0.9.10 (PR #154)
+
+### Models not appearing in dropdown
+
+**Symptoms**: LM Studio selected as provider but model list is empty.
+
+**Causes & Solutions**:
+
+1. **LM Studio server not running**: Open LM Studio and click "Start Server" in the Local Server tab.
+
+2. **Wrong port**: Default is `1234`. Verify with:
+   ```bash
+   curl http://localhost:1234/v1/models
+   ```
+   If using a custom port, update `LMSTUDIO_URL` in `.env`.
+
+3. **No model loaded**: LM Studio must have at least one model loaded before starting the server.
+
+4. **Docker networking**: When running Docrawl in Docker, use `host.docker.internal`:
+   ```env
+   LMSTUDIO_URL=http://host.docker.internal:1234/v1
+   ```
+
+### "Connection refused" to LM Studio
+
+**Symptoms**: Error connecting to LM Studio endpoint.
+
+**Solutions**:
+
+1. **Check the server is running**:
+   ```bash
+   curl http://localhost:1234/v1/models
+   ```
+
+2. **Check firewall**: LM Studio binds to `localhost` by default. If running in a VM or WSL, ensure port 1234 is forwarded.
+
+3. **API key mismatch**: If you set a custom API key in LM Studio, update `.env`:
+   ```env
+   LMSTUDIO_API_KEY=your-custom-key
+   ```
+
+### Model prefix issues
+
+**Symptoms**: Model runs on wrong provider or `model not found` errors.
+
+**Solution**: Prefix model names with `lmstudio/` to ensure correct routing:
+```json
+{
+  "crawl_model": "lmstudio/mistral-7b-instruct"
+}
+```
+
+Bare model names (without prefix) default to Ollama.
 
 ---
 
@@ -99,14 +152,11 @@ ollama pull mistral:7b
 **Solution**:
 
 ```bash
-# Check logs for the error
 docker compose logs docrawl
 
 # Common fixes:
-
 # 1. Port 8002 already in use
 lsof -i :8002
-# Kill the process or change port in docker-compose.yml
 
 # 2. Missing data directory
 mkdir -p ./data
@@ -124,121 +174,88 @@ docker compose up
 **Solution**:
 
 ```bash
-# Fix ownership of data directory
 sudo chown -R $(id -u):$(id -g) ./data
-
-# Or for Docker on Linux, add your user to docker group
-sudo usermod -aG docker $USER
-# Log out and back in
 ```
 
 ### Playwright browser fails to start
 
-**Symptoms**: `browser.new_page: browser closed unexpectedly`
+**Symptoms**: `browserType.launch: Executable doesn't exist` or similar Playwright errors.
 
 **Solution**:
 
 ```bash
-# Ensure Docker has enough shared memory
-# Add to docker-compose.yml under docrawl service:
-shm_size: '2gb'
-
-# Or run with:
-docker compose run --shm-size=2gb docrawl
-```
-
-### Out of memory (OOM) errors
-
-**Symptoms**: Container killed, slow performance, crashes during large crawls.
-
-**Solution**:
-
-```bash
-# Increase Docker memory limit (Docker Desktop)
-# Settings > Resources > Memory: at least 4GB
-
-# For docker-compose, add resource limits:
-# (Already included in docker-compose.yml)
+pip install playwright
+playwright install chromium
+playwright install-deps
 ```
 
 ---
 
 ## Permission Issues
 
-### Cannot write to /data
+### Cannot write to data directory
 
-**Symptoms**: `PermissionError: [Errno 13] Permission denied: '/data/output'`
-
-**Solutions**:
-
-```bash
-# Option 1: Fix ownership
-sudo chown -R $USER:$USER ./data
-
-# Option 2: Fix permissions (less secure)
-chmod -R 777 ./data
-
-# Option 3: Run Docker with your user ID
-docker compose run --user $(id -u):$(id -g) docrawl
-```
-
-### Cannot write to output path
-
-**Symptoms**: Job fails with permission error on specific output path.
+**Symptoms**: `PermissionError` when saving crawl results.
 
 **Solution**:
 
 ```bash
-# The output path must be under /data (the mounted volume)
-# Correct: /data/output/example.com
-# Wrong:   /home/user/output
-
-# In the UI, ensure output path starts with /data/
+mkdir -p ./data
+chmod 755 ./data
+docker compose down
+sudo chown -R $(id -u):$(id -g) ./data
+docker compose up
 ```
+
+### API returns 403 Forbidden
+
+**Symptoms**: API calls return `403 Forbidden` responses.
+
+**Solutions**:
+
+1. **Check robots.txt**: The target site may block crawlers
+2. **Add delay between requests**: Use the `delay` parameter
+3. **Use a custom User-Agent**: Some sites block default Python user agents
 
 ---
 
 ## Network Issues
 
-### "Connection refused" to target website
+### Timeout errors during crawling
 
-**Symptoms**: `Failed to connect to docs.example.com`
-
-**Solutions**:
-
-1. **Check your network**:
-   ```bash
-   curl -I https://docs.example.com
-   ```
-
-2. **DNS issues** - Try a different DNS or check `/etc/resolv.conf`
-
-3. **Proxy required** - Set environment variables:
-   ```bash
-   export HTTP_PROXY=http://proxy.company.com:8080
-   export HTTPS_PROXY=http://proxy.company.com:8080
-   ```
-
-### Timeout errors during crawl
-
-**Symptoms**: `TimeoutError: page.goto: Timeout 30000ms exceeded`
+**Symptoms**: `TimeoutError` or `Navigation timeout of 30000 ms exceeded`
 
 **Solutions**:
 
-1. **Increase request delay** - Set delay to 1000ms or more in UI
-2. **Reduce concurrency** - Set max concurrent to 1 or 2
-3. **Check target site status** - Site may be slow or blocking requests
+1. **Increase timeout**: Set a higher timeout value (60s or 120s)
+2. **Check network connectivity**:
+   ```bash
+   docker exec -it docrawl curl -I https://example.com
+   ```
+3. **Check if the site is blocking you**:
+   ```bash
+   curl -I -A "Mozilla/5.0" https://target-site.com
+   ```
 
-### robots.txt blocking all URLs
+### DNS resolution failures
 
-**Symptoms**: All or most URLs filtered out by robots.txt
+**Symptoms**: `Error: getaddrinfo ENOTFOUND`
 
-**Solution**:
+**Solutions**:
 
-Uncheck "Respect robots.txt" in the UI, or verify the site's policy:
+1. **Check Docker DNS settings** in `/etc/docker/daemon.json`
+2. **Restart Docker**: `sudo systemctl restart docker`
+
+### SSL/TLS certificate errors
+
+**Symptoms**: `SSL: CERTIFICATE_VERIFY_FAILED`
+
+**Solution** (development only):
 ```bash
-curl https://docs.example.com/robots.txt
+export PYTHONHTTPSVERIFY=0
 ```
+
+> **Warning**: Disabling SSL verification is a security risk.
 
 ---
 
@@ -248,73 +265,100 @@ curl https://docs.example.com/robots.txt
 
 **Solutions**:
 
-1. **Use a smaller crawl model** (3B-8B parameters):
-   - `mistral:7b`, `qwen2.5:7b`, `phi3:mini`
-
-2. **Reduce max depth** - Start with 3 instead of 5
-
-3. **Increase delay is counterproductive** - If site allows, reduce delay to 200ms
-
-4. **Check Ollama performance**:
-   ```bash
-   # Ensure GPU is being used (if available)
-   nvidia-smi
-
-   # Check Ollama is not CPU-bound
-   htop
+1. **Use a smaller/faster model** (`mistral:7b` over `qwen2.5:14b`)
+2. **Reduce page limit**: Start with fewer pages
+3. **Check system resources**: `docker stats docrawl`
+4. **Use GPU acceleration**: `nvidia-smi` to verify
+5. **Enable pipeline mode** for large sites:
+   ```env
+   use_pipeline_mode=true
    ```
+   Pipeline mode uses producer/consumer pattern with `asyncio.Queue`.
 
-### High memory usage
+### Out of memory errors
+
+**Symptoms**: Container killed or `OOMKilled` in Docker.
 
 **Solutions**:
 
-1. **Use quantized models** (q4, q5, q8 suffix):
-   ```bash
-   ollama pull mistral:7b-q4
-   ```
+1. **Increase Docker memory limit** (4G minimum)
+2. **Use a smaller model**: 7B models use ~4GB RAM
+3. **Reduce concurrent pages**
 
-2. **Reduce concurrent pages** in UI to 1-2
+### High disk usage
 
-3. **Limit crawl depth** to avoid queue overflow
-
-### UI not responding during large crawl
-
-**Symptoms**: UI freezes, logs stop updating.
-
-**Cause**: Browser memory issues with too many log entries.
-
-**Solution**: Refresh the page. Job continues running in background. Check status with:
 ```bash
-curl http://localhost:8002/api/jobs
+du -sh ./data
+rm -rf ./data/old-crawl-*
+docker system prune -f
 ```
 
 ---
 
-## Debug Mode
+## Page Cache Issues
 
-Enable verbose logging for troubleshooting:
+> Added in v0.9.5 (PR #130)
 
+### Stale content being served
+
+**Symptoms**: Crawl results don't reflect recent changes on the target site.
+
+**Cause**: Page cache (24h TTL) is returning cached content.
+
+**Solutions**:
+
+1. **Disable cache for this job**: `use_cache=false`
+2. **Clear the cache**: `rm -rf ./data/.page_cache/`
+3. **Wait for TTL expiry**: Cache entries expire after 24 hours.
+
+### Cache HIT/MISS in logs
+
+**Info**: When cache is enabled, logs show `[CACHE HIT]` or `[CACHE MISS]` per page. This is normal. High HIT ratio = site unchanged; high MISS ratio = fresh content being fetched.
+
+---
+
+## Pause / Resume Issues
+
+> Added in v0.9.6 (PR #132)
+
+### Pause returns 409 Conflict
+
+**Symptoms**: `POST /api/jobs/{id}/pause` returns `409 Conflict`.
+
+**Cause**: Job is not in a pausable state. Only `running` jobs can be paused.
+
+**Solution**: Check job status first:
 ```bash
-# Run with debug logs
-LOG_LEVEL=DEBUG docker compose up
-
-# Or in .env:
-LOG_LEVEL=DEBUG
+curl http://localhost:8002/api/jobs/{id}/status
 ```
 
-Check container health:
+### Resume fails or restarts from beginning
+
+**Symptoms**: Resumed job re-scrapes already-completed pages.
+
+**Cause**: Checkpoint file `.job_state.json` is missing or corrupted.
+
+**Solutions**:
+
+1. **Check checkpoint exists**: `ls -la ./data/{job_id}/.job_state.json`
+2. **Verify checkpoint content**: Should contain `completed_urls`, `current_phase`, `progress`
+3. **If checkpoint is lost**: Enable `use_cache=true` to skip re-scraping cached pages.
+
+### Job state not persisted after crash
+
+**Cause**: Automatic resume on server restart is not yet implemented (Roadmap v1.0.0).
+
+**Workaround**: After restarting, manually call:
 ```bash
-curl http://localhost:8002/api/health/ready
+POST /api/jobs/{job_id}/resume
 ```
 
 ---
 
-## Getting Help
+## Still Having Issues?
 
-1. Check this guide first
-2. Search [GitHub Issues](https://github.com/plater7/docrawl/issues)
-3. Open a new issue with:
-   - `docker compose logs docrawl` output
-   - Your docker-compose.yml
-   - Steps to reproduce
-   - `curl http://localhost:8002/api/health/ready` output
+1. **Check the logs**: `docker compose logs -f docrawl`
+2. **Open an issue**: [GitHub Issues](https://github.com/plater7/docrawl/issues)
+3. **Check existing issues**: Your problem may already have a solution
+
+> **Tip**: When reporting issues, include your OS, Docker version, error message, and steps to reproduce.
