@@ -190,7 +190,7 @@ FastAPI app with:
 - `PAGE_POOL_SIZE` env var controls browser page pool (default: 5, 0 = disabled)
 - `/data` volume for output files and cache
 
-### CI/CD (11 GitHub Actions workflows)
+### CI/CD (13 GitHub Actions workflows)
 - **Quality**: lint (ruff), test (pytest + coverage), security (pip-audit + Snyk), CodeQL
 - **Build**: Docker build + publish to GHCR
 - **Release**: auto-tag on version bump, changelog generation, SNAPSHOT regeneration
@@ -205,6 +205,57 @@ FastAPI app with:
 - XML input wrapping for LLM prompts (prompt injection mitigation)
 - defusedxml for sitemap parsing (XXE prevention)
 - Sanitized error responses (never expose stack traces)
+
+## Structured JSON Output
+
+> Added in v0.9.6 (PR #128)
+
+When `output_format=json` is set, the output module produces a 7-block structured JSON instead of flat markdown:
+
+| Block | Content |
+|-------|---------|
+| `metadata` | URL, title, crawl timestamp, model used |
+| `navigation` | Extracted nav structure (TOC) |
+| `content` | Main body as clean markdown |
+| `code_blocks` | All code snippets with language tags |
+| `tables` | Extracted tables as structured data |
+| `links` | Internal/external link inventory |
+| `media` | Images/videos with alt text and URLs |
+
+## Page Cache
+
+> Added in v0.9.5 (PR #125)
+
+Opt-in page cache (`use_cache=true`) stores scrape results with a 24-hour TTL. On subsequent crawls of the same URL:
+
+1. SHA-256 hash of the page content is compared
+2. If unchanged, cached result is returned (skips Playwright + LLM)
+3. If changed, full re-scrape is performed and cache is updated
+
+Cache storage: in-memory dict (lost on container restart). Planned: Redis backend for persistence.
+
+## Pause / Resume
+
+> Added in v0.9.6 (PR #132)
+
+Jobs support checkpoint-based pause/resume:
+
+- **Pause**: `POST /api/jobs/{id}/pause` — writes state to `.job_state.json`
+- **Resume**: `POST /api/jobs/{id}/resume` — reads checkpoint, skips completed pages
+- **State file**: Contains completed URLs, current phase, discovery results, partial output
+
+Limitation: No automatic resume on server restart (must manually call resume endpoint).
+
+## LM Studio Provider
+
+> Added in v0.9.10 (PR #154)
+
+LM Studio is the 4th LLM provider, using the OpenAI-compatible API path:
+
+- **Endpoint**: `LMSTUDIO_URL` (default: `http://localhost:1234/v1`)
+- **Auth**: Optional Bearer token via `LMSTUDIO_API_KEY`
+- **Detection**: Model prefix `lmstudio/` routes to this provider
+- **Health**: `/api/health/lmstudio` endpoint for monitoring
 
 ---
 
