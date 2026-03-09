@@ -27,7 +27,7 @@ Model lists are cached for 60 seconds (`MODEL_CACHE_TTL`) to avoid repeated API 
 
 **Positive:**
 - Users can mix local and cloud models per job (e.g., cheap local model for URL filtering, quality cloud model for cleanup)
-- No vendor lock-in — switching providers requires only changing the model name string
+- No vendor lock-in -- switching providers requires only changing the model name string
 - Model validation happens at job start, failing fast before any crawling begins
 
 **Negative:**
@@ -37,4 +37,39 @@ Model lists are cached for 60 seconds (`MODEL_CACHE_TTL`) to avoid repeated API 
 
 **Risks:**
 - Cloud provider API changes could break compatibility silently
-- Model name prefix convention is implicit — no validation that a model actually exists on the detected provider until runtime
+- Model name prefix convention is implicit -- no validation that a model actually exists on the detected provider until runtime
+
+---
+
+## Addendum: LM Studio (v0.9.10, PR #154)
+
+**Date:** 2026-03-09  
+**Status:** Accepted
+
+### Context
+
+LM Studio provides an OpenAI-compatible local inference server, popular among users who prefer its GUI-based model management over Ollama's CLI approach. Adding LM Studio as a 4th provider was requested to support users already running it.
+
+### Decision
+
+Add LM Studio as a new provider in the existing multi-provider architecture:
+
+- **Endpoint**: Configurable via `LMSTUDIO_URL` (default: `http://localhost:1234/v1`)
+- **Auth**: Optional Bearer token via `LMSTUDIO_API_KEY` (default: `lm-studio`)
+- **Detection**: Model names prefixed with `lmstudio/` route to LM Studio
+- **API**: Uses the same OpenAI-compatible code path as OpenRouter/OpenCode
+- **Health check**: New `/api/health/lmstudio` endpoint added
+- **UI**: Provider selector updated with LM Studio option + status dot
+
+### Consequences
+
+**Positive:**
+- Minimal code change -- LM Studio reuses the OpenAI-compatible client path
+- Users get a GUI-based local alternative to Ollama
+- Health check endpoint enables monitoring
+
+**Negative:**
+- LM Studio's `localhost:1234` default conflicts with some development setups
+- When running in Docker, requires `host.docker.internal` mapping (same as Ollama)
+
+**No new risks** beyond those already identified for the multi-provider architecture.
