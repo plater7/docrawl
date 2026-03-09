@@ -30,7 +30,7 @@ DocRawl is a **functional documentation crawler** in late beta. The core pipelin
 
 ### CI/CD Pipeline
 
-11 workflows covering:
+12 workflows covering:
 - **lint.yml** — ruff linting on push/PR
 - **test.yml** — pytest with coverage (fail-under: 50%, target: 65%)
 - **security.yml** — pip-audit + Snyk vulnerability scanning
@@ -42,6 +42,7 @@ DocRawl is a **functional documentation crawler** in late beta. The core pipelin
 - **update-snapshot.yml** — Regenerate SNAPSHOT.md
 - **update-docs-on-merge.yml** — Auto-update docs on merge
 - **stale.yml** — Close stale issues/PRs
+- **update-memory.yml** — Auto-regenerate docs/Memory.md
 
 All workflow actions use pinned SHA versions. Concurrency groups prevent duplicate runs.
 
@@ -107,8 +108,9 @@ Target:                          65%
 | [docs/SETUP.md](SETUP.md) | Detailed setup instructions |
 | [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions |
 | [docs/adr/](adr/) | Architecture Decision Records |
+| [docs/Memory.md](Memory.md) | Claude Code memory file (auto-generated) |
 | [SNAPSHOT.md](../SNAPSHOT.md) | Full code snapshot (auto-generated) |
 
 ---
 
-*This document is manually maintained. For the auto-generated code snapshot, see `SNAPSHOT.md`.*
+*This document is manually maintained. For auto-generated files, see `SNAPSHOT.md` (code) and `docs/Memory.md` (Claude Code memory).*
