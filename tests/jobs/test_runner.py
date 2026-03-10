@@ -405,17 +405,20 @@ class TestRunJobHappyPath:
         job.emit_event = AsyncMock()
         scraper, converter, robots = self._make_scraper_and_deps()
 
+        def _unique_html(url, **kwargs):
+            return f"# Page content for {url}"
+
         with patch("src.jobs.runner.validate_models", return_value=[]):
             with patch("src.jobs.runner.PageScraper", return_value=scraper):
                 with patch("src.jobs.runner.get_converter", return_value=converter):
                     with patch("src.jobs.runner.RobotsParser", return_value=robots):
                         with patch(
                             "src.jobs.runner.fetch_html_fast",
-                            return_value="# Page content",
+                            side_effect=_unique_html,
                         ):
                             with patch(
                                 "src.jobs.runner.chunk_markdown",
-                                return_value=["# Page content"],
+                                side_effect=lambda md, **kw: [md],
                             ):
                                 with patch(
                                     "src.jobs.runner.needs_llm_cleanup",
