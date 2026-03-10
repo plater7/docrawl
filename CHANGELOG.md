@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.9.99] - unreleased
+
+### Added
+- **refactor(routes): replace __import__('os') anti-pattern with top-level import — v0.9.99** ([#147](https://github.com/plater7/docrawl/pull/147))
+
+---
+
 ## [v1.0.0] - unreleased
 
 ### Fixed
