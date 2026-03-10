@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 - **fix(runner): _generate_index uses / separator for correct relative links — v1.0.0** ([#148](https://github.com/plater7/docrawl/pull/148))
+- **fix(cleanup): raise RuntimeError after max retries so pages_partial counter works — v1.0.0** ([#149](https://github.com/plater7/docrawl/pull/149))
 
 ## [v0.9.10] - 2026-03-04
 ### Added
