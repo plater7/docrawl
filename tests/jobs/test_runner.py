@@ -21,6 +21,7 @@ from src.jobs.runner import (
 
 def _make_request(**overrides) -> JobRequest:
     """Minimal valid JobRequest that skips all optional fetch paths by default."""
+    from pathlib import Path
     base: dict = {
         "url": "https://example.com",
         "crawl_model": "ollama/mistral:7b",
@@ -34,6 +35,10 @@ def _make_request(**overrides) -> JobRequest:
         "use_cache": False,
         "output_format": "markdown",
     }
+    if "tmp_dir" in overrides:
+        tmp_dir = overrides.pop("tmp_dir")
+        output_path = overrides.get("output_path", "test-output")
+        base["output_path"] = str(tmp_dir / output_path)
     base.update(overrides)
     return JobRequest(**base)
 
@@ -328,11 +333,11 @@ class TestRunJobHappyPath:
 
         return scraper, converter, robots
 
-    async def test_job_status_completed(self):
+    async def test_job_status_completed(self, tmp_path):
         urls = ["https://example.com/page1", "https://example.com/page2"]
-        # output_path="test-runner-status" resolves to /data/test-runner-status (valid in Docker)
         request = _make_request(
             output_path="test-runner-status",
+            tmp_dir=tmp_path,
             use_http_fast_path=True,
         )
         job = _make_job(request)
@@ -360,10 +365,11 @@ class TestRunJobHappyPath:
 
         assert job.status == "completed"
 
-    async def test_job_done_event_has_completed_status(self):
+    async def test_job_done_event_has_completed_status(self, tmp_path):
         urls = ["https://example.com/page1"]
         request = _make_request(
             output_path="test-runner-event",
+            tmp_dir=tmp_path,
             use_http_fast_path=True,
         )
         job = _make_job(request)
@@ -395,10 +401,11 @@ class TestRunJobHappyPath:
         assert len(done_events) == 1
         assert done_events[0].args[1]["status"] == "completed"
 
-    async def test_output_files_created_for_each_url(self):
+    async def test_output_files_created_for_each_url(self, tmp_path):
         urls = ["https://example.com/page1", "https://example.com/page2"]
         request = _make_request(
             output_path="test-runner-files",
+            tmp_dir=tmp_path,
             use_http_fast_path=True,
         )
         job = _make_job(request)
@@ -431,10 +438,11 @@ class TestRunJobHappyPath:
         assert (out / "page1.md").exists()
         assert (out / "page2.md").exists()
 
-    async def test_index_file_created(self):
+    async def test_index_file_created(self, tmp_path):
         urls = ["https://example.com/page1"]
         request = _make_request(
             output_path="test-runner-index",
+            tmp_dir=tmp_path,
             use_http_fast_path=True,
         )
         job = _make_job(request)
