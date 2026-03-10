@@ -21,7 +21,6 @@ from src.jobs.runner import (
 
 def _make_request(**overrides) -> JobRequest:
     """Minimal valid JobRequest that skips all optional fetch paths by default."""
-    from pathlib import Path
     base: dict = {
         "url": "https://example.com",
         "crawl_model": "ollama/mistral:7b",
