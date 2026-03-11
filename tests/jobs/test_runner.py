@@ -21,25 +21,27 @@ from src.jobs.runner import (
 
 def _make_request(**overrides) -> JobRequest:
     """Minimal valid JobRequest that skips all optional fetch paths by default."""
-    base: dict = {
-        "url": "https://example.com",
-        "crawl_model": "ollama/mistral:7b",
-        "pipeline_model": "ollama/qwen3:14b",
-        "reasoning_model": "ollama/deepseek-r1:32b",
-        "use_native_markdown": False,
-        "use_markdown_proxy": False,
-        "use_http_fast_path": False,
-        "use_pipeline_mode": False,
-        "respect_robots_txt": False,
-        "use_cache": False,
-        "output_format": "markdown",
-    }
-    if "tmp_dir" in overrides:
-        tmp_dir = overrides.pop("tmp_dir")
-        output_path = overrides.get("output_path", "test-output")
-        base["output_path"] = str(tmp_dir / output_path)
-    base.update(overrides)
-    return JobRequest(**base)
+    return JobRequest.model_construct(
+        url="https://example.com",
+        crawl_model="ollama/mistral:7b",
+        pipeline_model="ollama/qwen3:14b",
+        reasoning_model="ollama/deepseek-r1:32b",
+        output_path="/data/output",
+        delay_ms=500,
+        max_concurrent=3,
+        max_depth=5,
+        respect_robots_txt=False,
+        use_native_markdown=False,
+        use_markdown_proxy=False,
+        use_http_fast_path=False,
+        use_cache=False,
+        output_format="markdown",
+        use_pipeline_mode=False,
+        converter=None,
+        language="en",
+        filter_sitemap_by_path=True,
+        **overrides,
+    )
 
 
 def _make_job(request=None) -> Job:
@@ -335,8 +337,7 @@ class TestRunJobHappyPath:
     async def test_job_status_completed(self, tmp_path):
         urls = ["https://example.com/page1", "https://example.com/page2"]
         request = _make_request(
-            output_path="test-runner-status",
-            tmp_dir=tmp_path,
+            output_path=str(tmp_path / "test-runner-status"),
             use_http_fast_path=True,
         )
         job = _make_job(request)
@@ -367,8 +368,7 @@ class TestRunJobHappyPath:
     async def test_job_done_event_has_completed_status(self, tmp_path):
         urls = ["https://example.com/page1"]
         request = _make_request(
-            output_path="test-runner-event",
-            tmp_dir=tmp_path,
+            output_path=str(tmp_path / "test-runner-event"),
             use_http_fast_path=True,
         )
         job = _make_job(request)
@@ -403,8 +403,7 @@ class TestRunJobHappyPath:
     async def test_output_files_created_for_each_url(self, tmp_path):
         urls = ["https://example.com/page1", "https://example.com/page2"]
         request = _make_request(
-            output_path="test-runner-files",
-            tmp_dir=tmp_path,
+            output_path=str(tmp_path / "test-runner-files"),
             use_http_fast_path=True,
         )
         job = _make_job(request)
@@ -440,8 +439,7 @@ class TestRunJobHappyPath:
     async def test_index_file_created(self, tmp_path):
         urls = ["https://example.com/page1"]
         request = _make_request(
-            output_path="test-runner-index",
-            tmp_dir=tmp_path,
+            output_path=str(tmp_path / "test-runner-index"),
             use_http_fast_path=True,
         )
         job = _make_job(request)
