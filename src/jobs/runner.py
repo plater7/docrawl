@@ -212,6 +212,8 @@ async def run_job(
             delay_s = request.delay_ms / 1000
 
         # PR 3.1: skip discovery/filtering when resuming from saved state
+        before_llm: float = 0.0
+        llm_duration: float = 0.0
         if resume_urls is not None:
             urls = resume_urls
             await _log(
