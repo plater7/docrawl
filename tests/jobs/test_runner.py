@@ -21,7 +21,7 @@ from src.jobs.runner import (
 
 def _make_request(**overrides) -> JobRequest:
     """Minimal valid JobRequest that skips all optional fetch paths by default."""
-    return JobRequest.model_construct(
+    defaults = dict(
         url="https://example.com",
         crawl_model="ollama/mistral:7b",
         pipeline_model="ollama/qwen3:14b",
@@ -40,8 +40,9 @@ def _make_request(**overrides) -> JobRequest:
         converter=None,
         language="en",
         filter_sitemap_by_path=True,
-        **overrides,
     )
+    defaults.update(overrides)
+    return JobRequest.model_construct(**defaults)
 
 
 def _make_job(request=None) -> Job:
