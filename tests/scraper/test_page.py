@@ -281,7 +281,7 @@ class TestPageScraperCustomSelectors:
         mock_el.inner_html = AsyncMock(return_value="<p>content</p>")
         mock_page.query_selector = AsyncMock(side_effect=[None, None, mock_el])
 
-        result = await scraper._extract_content(
+        await scraper._extract_content(
             mock_page, content_selectors=[".custom-main", "#doc-content"]
         )
 
