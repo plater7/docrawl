@@ -208,12 +208,15 @@ class PageScraper:
         try:
             from readability import Document
             from markdownify import markdownify as md_convert
+
             full_html = await page.content()
             doc = Document(full_html)
             summary_html = doc.summary()
             markdown = md_convert(summary_html, heading_style="ATX")
             if len(markdown) >= MIN_CONTENT_LENGTH:
-                logger.debug(f"Extracted content via readability-lxml ({len(markdown)} chars)")
+                logger.debug(
+                    f"Extracted content via readability-lxml ({len(markdown)} chars)"
+                )
                 return summary_html
         except Exception as e:
             logger.debug(f"readability-lxml fallback failed: {e}")
