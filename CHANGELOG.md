@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **feat(scraper): add readability-lxml fallback extraction** ([#158](https://github.com/plater7/docrawl/pull/158))
 - **feat(runner): add scrape-level retries for Playwright fallback** ([#159](https://github.com/plater7/docrawl/pull/159))
 - **feat(api,scraper): add per-job custom CSS selectors for extraction** ([#160](https://github.com/plater7/docrawl/pull/160))
+- **feat(jobs): track and expose scrape retry count in SSE and status API** ([#161](https://github.com/plater7/docrawl/pull/161))
 
 ## [v0.9.9] - 2026-03-03
 
