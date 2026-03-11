@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v0.10.0] - unreleased
+
+### Added
+- **feat(api,runner): document HTTP fallback chain and log fetch method summary** ([#157](https://github.com/plater7/docrawl/pull/157))
+
+---
+
 ## [v0.9.99] - unreleased
 
 ### Added
