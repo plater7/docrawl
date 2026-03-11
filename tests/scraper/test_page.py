@@ -233,3 +233,131 @@ class TestPageScraperResourceCleanup:
         scraper = PageScraper()
         # Should not raise
         await scraper.stop()
+
+
+class TestPageScraperCustomSelectors:
+    """Tests for custom content_selectors and noise_selectors parameters."""
+
+    async def test_remove_noise_with_custom_selectors(self):
+        """_remove_noise() should use custom noise selectors in addition to defaults."""
+        scraper = PageScraper()
+        await scraper.start()
+
+        mock_page = AsyncMock()
+        mock_page.evaluate = AsyncMock(return_value=2)
+
+        await scraper._remove_noise(mock_page, noise_selectors=[".custom-nav", "#popup"])
+
+        call_args = mock_page.evaluate.call_args[0][0]
+        assert ".custom-nav" in call_args
+        assert "#popup" in call_args
+
+        await scraper.stop()
+
+    async def test_remove_noise_without_custom_selectors(self):
+        """_remove_noise() should use only default selectors when none provided."""
+        scraper = PageScraper()
+        await scraper.start()
+
+        mock_page = AsyncMock()
+        mock_page.evaluate = AsyncMock(return_value=1)
+
+        await scraper._remove_noise(mock_page)
+
+        call_args = mock_page.evaluate.call_args[0][0]
+        assert "script" in call_args
+        assert "style" in call_args
+        assert ".custom-nav" not in call_args
+
+        await scraper.stop()
+
+    async def test_extract_content_with_custom_selectors(self):
+        """_extract_content() should try custom selectors before defaults."""
+        scraper = PageScraper()
+        await scraper.start()
+
+        mock_page = AsyncMock()
+        mock_el = AsyncMock()
+        mock_el.inner_html = AsyncMock(return_value="<p>content</p>")
+        mock_page.query_selector = AsyncMock(side_effect=[None, None, mock_el])
+
+        result = await scraper._extract_content(
+            mock_page, content_selectors=[".custom-main", "#doc-content"]
+        )
+
+        calls = mock_page.query_selector.call_args_list
+        assert calls[0][0][0] == ".custom-main"
+        assert calls[1][0][0] == "#doc-content"
+
+        await scraper.stop()
+
+    async def test_extract_content_falls_back_to_body(self):
+        """_extract_content() should fall back to body when no selectors match."""
+        scraper = PageScraper()
+        await scraper.start()
+
+        mock_page = AsyncMock()
+        mock_page.query_selector = AsyncMock(return_value=None)
+        mock_page.inner_html = AsyncMock(return_value="<body>fallback</body>")
+
+        result = await scraper._extract_content(mock_page)
+
+        assert result == "<body>fallback</body>"
+        mock_page.inner_html.assert_called_once_with("body")
+
+        await scraper.stop()
+
+    async def test_get_html_accepts_custom_selectors(self):
+        """get_html() should accept and pass content_selectors and noise_selectors."""
+        scraper = PageScraper()
+        await scraper.start()
+
+        mock_browser = AsyncMock()
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock()
+        mock_page.query_selector = AsyncMock(return_value=None)
+        mock_page.inner_html = AsyncMock(return_value="<body>content</body>")
+        mock_page.evaluate = AsyncMock(return_value=0)
+        mock_browser.new_page = AsyncMock(return_value=mock_page)
+        scraper._browser = mock_browser
+
+        result = await scraper.get_html(
+            "https://example.com",
+            content_selectors=[".custom-content"],
+            noise_selectors=[".ad-banner"],
+        )
+
+        assert result == "<body>content</body>"
+        mock_page.query_selector.assert_called()
+        mock_page.evaluate.assert_called()
+
+        await scraper.stop()
+
+    async def test_get_html_with_pool_uses_custom_selectors(self):
+        """get_html() with pool should pass custom selectors to internal methods."""
+        scraper = PageScraper()
+        await scraper.start()
+
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock()
+        mock_page.query_selector = AsyncMock(return_value=None)
+        mock_page.inner_html = AsyncMock(return_value="<body>content</body>")
+        mock_page.evaluate = AsyncMock(return_value=0)
+
+        mock_pool = AsyncMock()
+        mock_acquire_cm = AsyncMock()
+        mock_acquire_cm.__aenter__ = AsyncMock(return_value=mock_page)
+        mock_acquire_cm.__aexit__ = AsyncMock()
+        mock_pool.acquire = MagicMock(return_value=mock_acquire_cm)
+
+        result = await scraper.get_html(
+            "https://example.com",
+            pool=mock_pool,
+            content_selectors=[".custom-content"],
+            noise_selectors=[".ad-banner"],
+        )
+
+        assert result == "<body>content</body>"
+        mock_page.query_selector.assert_called()
+
+        await scraper.stop()
