@@ -4,7 +4,7 @@ Usage::
 
     from src.scraper.converters import get_converter, register_converter, available_converters
 
-    converter = get_converter()           # default "markdownify"
+    converter = get_converter()          # default "markdownify"
     converter = get_converter("markdownify")
     md = converter.convert(html)
 
@@ -12,7 +12,7 @@ Usage::
     register_converter("my_converter", MyConverter())
 
     # List all registered converters
-    names = available_converters()  # ["markdownify", "readerlm", "readerlm-v1"]
+    names = available_converters()  # ["markdownify"]
 """
 
 import logging
@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING
 
 from src.scraper.converters.base import MarkdownConverter
 from src.scraper.converters.markdownify_converter import MarkdownifyConverter
-from src.scraper.converters.readerlm_converter import ReaderLMConverter
 
 if TYPE_CHECKING:
     pass
@@ -30,8 +29,6 @@ logger = logging.getLogger(__name__)
 # Static registry — dynamic loading deferred to a future PR
 _REGISTRY: dict[str, MarkdownConverter] = {
     "markdownify": MarkdownifyConverter(),
-    "readerlm": ReaderLMConverter(),
-    "readerlm-v1": ReaderLMConverter(model="milkey/reader-lm:latest"),
 }
 
 _DEFAULT_CONVERTER = "markdownify"
