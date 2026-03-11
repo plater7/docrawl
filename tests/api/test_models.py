@@ -421,7 +421,11 @@ class TestValidateSelectors:
                 content_selectors=[".custom-docs", "#main-content", "article.docs"]
             )
         )
-        assert req.content_selectors == [".custom-docs", "#main-content", "article.docs"]
+        assert req.content_selectors == [
+            ".custom-docs",
+            "#main-content",
+            "article.docs",
+        ]
 
     def test_noise_selectors_valid_list(self):
         """A valid list of noise selectors should be accepted."""
@@ -446,9 +450,7 @@ class TestValidateSelectors:
         """More than 20 noise selectors should be rejected."""
         with pytest.raises(ValidationError) as exc_info:
             JobRequest(
-                **_minimal_request(
-                    noise_selectors=[f".selector{i}" for i in range(21)]
-                )
+                **_minimal_request(noise_selectors=[f".selector{i}" for i in range(21)])
             )
         assert "max 20 items" in str(exc_info.value)
 
@@ -456,20 +458,12 @@ class TestValidateSelectors:
         """A selector longer than 200 chars should be rejected."""
         long_selector = ".custom-" + "x" * 200
         with pytest.raises(ValidationError) as exc_info:
-            JobRequest(
-                **_minimal_request(
-                    content_selectors=[long_selector]
-                )
-            )
+            JobRequest(**_minimal_request(content_selectors=[long_selector]))
         assert "too long" in str(exc_info.value)
 
     def test_noise_selector_max_200_chars(self):
         """A noise selector longer than 200 chars should be rejected."""
         long_selector = ".noise-" + "x" * 200
         with pytest.raises(ValidationError) as exc_info:
-            JobRequest(
-                **_minimal_request(
-                    noise_selectors=[long_selector]
-                )
-            )
+            JobRequest(**_minimal_request(noise_selectors=[long_selector]))
         assert "too long" in str(exc_info.value)
