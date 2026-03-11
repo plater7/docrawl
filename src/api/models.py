@@ -24,7 +24,13 @@ class JobRequest(BaseModel):
     use_native_markdown: bool = True
     use_markdown_proxy: bool = False
     markdown_proxy_url: str | None = Field(default=None)
-    use_http_fast_path: bool = True  # PR 1.3: try plain HTTP before Playwright
+    use_http_fast_path: bool = Field(
+        default=True,
+        description=(
+            "Enable HTTP fast-path before Playwright. "
+            "Fallback chain: native_markdown → http_fast → playwright."
+        ),
+    )
     use_cache: bool = False  # PR 2.4: opt-in disk cache (24h TTL)
     output_format: Literal["markdown", "json"] = (
         "markdown"  # PR 3.2: structured JSON output opt-in

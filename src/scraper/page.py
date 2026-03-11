@@ -178,16 +178,16 @@ class PageScraper:
             self._playwright = None
 
     async def _remove_noise(
-        self, page: Page, extra_selectors: list[str] | None = None
+        self, page: Page, noise_selectors: list[str] | None = None
     ) -> None:
         """Remove noise elements from the DOM before extraction.
 
         Args:
             page: Playwright page to clean.
-            extra_selectors: Additional CSS selectors to remove, prepended before
+            noise_selectors: Additional CSS selectors to remove, prepended before
                 the DocRawl defaults so user selectors are tried first.
         """
-        selectors = list(extra_selectors or []) + NOISE_SELECTORS
+        selectors = list(noise_selectors or []) + NOISE_SELECTORS
         selector_list = ", ".join(selectors)
         removed = await page.evaluate(f"""() => {{
             const els = document.querySelectorAll(`{selector_list}`);
@@ -199,16 +199,16 @@ class PageScraper:
             logger.debug(f"Removed {removed} noise elements from DOM")
 
     async def _extract_content(
-        self, page: Page, extra_selectors: list[str] | None = None
+        self, page: Page, content_selectors: list[str] | None = None
     ) -> str:
         """Extract main content HTML, trying specific selectors before body fallback.
 
         Args:
             page: Playwright page to extract from.
-            extra_selectors: Additional CSS selectors to try first, prepended before
+            content_selectors: Additional CSS selectors to try first, prepended before
                 the DocRawl defaults so user selectors take priority.
         """
-        selectors = list(extra_selectors or []) + CONTENT_SELECTORS
+        selectors = list(content_selectors or []) + CONTENT_SELECTORS
         for selector in selectors:
             try:
                 el = await page.query_selector(selector)
@@ -221,6 +221,23 @@ class PageScraper:
                         return html
             except Exception:
                 continue
+
+        # readability-lxml fallback — extracts main content via Mozilla Readability algorithm
+        try:
+            from readability import Document
+            from markdownify import markdownify as md_convert
+
+            full_html = await page.content()
+            doc = Document(full_html)
+            summary_html = doc.summary()
+            markdown = md_convert(summary_html, heading_style="ATX")
+            if len(markdown) >= MIN_CONTENT_LENGTH:
+                logger.debug(
+                    f"Extracted content via readability-lxml ({len(markdown)} chars)"
+                )
+                return summary_html
+        except Exception as e:
+            logger.debug(f"readability-lxml fallback failed: {e}")
 
         # Fallback to body
         html = await page.inner_html("body")
@@ -241,10 +258,8 @@ class PageScraper:
             url: Page URL to scrape.
             timeout: Navigation timeout in milliseconds.
             pool: If provided, borrows a page from the pool instead of creating one (PR 1.2).
-            content_selectors: Per-job CSS selectors prepended to DocRawl defaults for
-                content extraction.
-            noise_selectors: Per-job CSS selectors prepended to DocRawl defaults for
-                noise removal.
+            content_selectors: Custom content selectors to try before defaults
+            noise_selectors: Custom noise selectors to remove before extraction
         """
         if not self._browser and pool is None:
             raise RuntimeError("Browser not started")
@@ -255,15 +270,15 @@ class PageScraper:
         if pool is not None:
             async with pool.acquire() as page:
                 await page.goto(url, timeout=timeout, wait_until="networkidle")
-                await self._remove_noise(page, extra_selectors=noise_selectors)
-                return await self._extract_content(page, extra_selectors=content_selectors)
+                await self._remove_noise(page, noise_selectors)
+                return await self._extract_content(page, content_selectors)
 
         assert self._browser is not None  # guarded by RuntimeError above
         page = await self._browser.new_page()
         try:
             await page.goto(url, timeout=timeout, wait_until="networkidle")
-            await self._remove_noise(page, extra_selectors=noise_selectors)
-            html = await self._extract_content(page, extra_selectors=content_selectors)
+            await self._remove_noise(page, noise_selectors)
+            html = await self._extract_content(page, content_selectors)
             return html
         finally:
             await page.close()
