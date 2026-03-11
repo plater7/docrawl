@@ -198,7 +198,8 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
 
     Uses dynamic timeout based on chunk size. Retries with backoff.
     Selects standard or heavy prompt based on classify_chunk() (PR 2.2).
-    Returns original content if all retries fail.
+    Raises RuntimeError if all retries are exhausted so the caller can
+    handle the failure (e.g. increment pages_partial counter).
     """
     # Wrap content in XML delimiters to isolate scraped data from prompt — closes CONS-006 / issue #58
     wrapped = f"<document>\n{markdown}\n</document>"
@@ -228,5 +229,6 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
             if attempt < MAX_RETRIES - 1:
                 await asyncio.sleep(2**attempt)  # 1s, 2s, 4s
 
-    logger.error("All cleanup attempts failed, returning original")
-    return markdown
+    raise RuntimeError(
+        f"All {MAX_RETRIES} cleanup attempts failed for chunk of {len(markdown)} chars"
+    )

@@ -214,6 +214,8 @@ async def run_job(
             delay_s = request.delay_ms / 1000
 
         # PR 3.1: skip discovery/filtering when resuming from saved state
+        before_llm: float = 0.0
+        llm_duration: float = 0.0
         if resume_urls is not None:
             urls = resume_urls
             await _log(
@@ -470,7 +472,12 @@ async def run_job(
                     if markdown is None:
                         for _attempt in range(MAX_SCRAPE_RETRIES + 1):
                             try:
-                                html = await scraper.get_html(url, pool=page_pool)
+                                html = await scraper.get_html(
+                                    url,
+                                    pool=page_pool,
+                                    content_selectors=request.content_selectors,
+                                    noise_selectors=request.noise_selectors,
+                                )
                                 break
                             except asyncio.CancelledError:
                                 raise
@@ -478,7 +485,7 @@ async def run_job(
                                 if job.is_cancelled:
                                     raise asyncio.CancelledError()
                                 if _attempt < MAX_SCRAPE_RETRIES:
-                                    _wait = 2 ** _attempt
+                                    _wait = 2**_attempt
                                     logger.warning(
                                         f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
                                         f"failed for {url}: {_e}. Retrying in {_wait}s..."
@@ -779,6 +786,11 @@ async def run_job(
                     "message": "Job completed",
                 },
             )
+            logger.info(
+                f"[{job.id[:8]}] Fetch methods: {pages_native_md} native, "
+                f"{pages_proxy_md} proxy, {pages_http_fast} http_fast, "
+                f"{pages_playwright} playwright"
+            )
             await _log(
                 job,
                 "job_done",
@@ -869,7 +881,7 @@ def _generate_index(urls: list[str], output_path: Path) -> None:
         parsed = urlparse(url)
         path = parsed.path.strip("/")
         name = path.split("/")[-1] or "Home"
-        rel_path = path.replace("/", "_") or "index"
+        rel_path = path or "index"
         lines.append(f"- [{name}]({rel_path}.md)")
 
     index_path = output_path / "_index.md"
@@ -989,7 +1001,12 @@ async def _run_pipeline_mode(
                 if markdown is None:
                     for _attempt in range(MAX_SCRAPE_RETRIES + 1):
                         try:
-                            html = await scraper.get_html(url, pool=page_pool)
+                            html = await scraper.get_html(
+                                url,
+                                pool=page_pool,
+                                content_selectors=request.content_selectors,
+                                noise_selectors=request.noise_selectors,
+                            )
                             break
                         except asyncio.CancelledError:
                             raise
@@ -997,7 +1014,7 @@ async def _run_pipeline_mode(
                             if job.is_cancelled:
                                 raise asyncio.CancelledError()
                             if _attempt < MAX_SCRAPE_RETRIES:
-                                _wait = 2 ** _attempt
+                                _wait = 2**_attempt
                                 logger.warning(
                                     f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
                                     f"failed for {url}: {_e}. Retrying in {_wait}s..."

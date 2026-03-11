@@ -73,9 +73,9 @@
             z-index: -1;
         }
 
-        .container { 
-            max-width: 1200px; 
-            margin: 0 auto; 
+        .container {
+            max-width: min(1600px, calc(100vw - 48px));
+            margin: 0 auto;
             position: relative;
             z-index: 1001;
         }
@@ -83,8 +83,8 @@
         /* Two-column layout */
         .two-columns {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
+            grid-template-columns: 65% 35%;
+            gap: 32px;
             align-items: start;
         }
 
@@ -100,10 +100,15 @@
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 1.5rem;
+            position: sticky;
+            top: 16px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
         }
 
         /* Job History Panel */
         .job-history-panel {
+            min-height: 0;
             margin-bottom: 1.5rem;
         }
 
@@ -193,9 +198,10 @@
             color: white;
         }
 
-        /* Right column execute button */
-        .right-column .buttons {
-            margin-bottom: 1rem;
+        /* Wide layout reverts to single column below 1100px */
+        @media (max-width: 1100px) {
+            .two-columns { grid-template-columns: 1fr; }
+            .right-column { position: static; max-height: none; overflow-y: visible; }
         }
 
         /* Responsive: stack on mobile */
@@ -1230,6 +1236,11 @@
                 </div>
             </div>
 
+            <div class="buttons">
+                <button type="submit" class="btn-primary" id="startBtn">▶ EXECUTE CRAWL</button>
+                <button type="button" class="btn-danger" id="cancelBtn">■ ABORT</button>
+            </div>
+
             <div class="checkbox-group">
                 <input type="checkbox" id="respectRobots" checked>
                 <label for="respectRobots">Respect robots.txt Protocol</label>
@@ -1291,10 +1302,6 @@
                 </div>
             </div>
 
-            <div class="buttons">
-                <button type="submit" class="btn-primary" id="startBtn">▶ EXECUTE CRAWL</button>
-                <button type="button" class="btn-danger" id="cancelBtn">■ ABORT</button>
-            </div>
         </form>
             </div>
 
@@ -1305,12 +1312,6 @@
                     <div class="job-history-list" id="jobHistoryList">
                         <div class="job-history-empty">No jobs yet</div>
                     </div>
-                </div>
-
-                <!-- Execute Button for Right Column -->
-                <div class="buttons">
-                    <button type="button" class="btn-primary" id="startBtnRight">▶ EXECUTE CRAWL</button>
-                    <button type="button" class="btn-danger" id="cancelBtnRight">■ ABORT</button>
                 </div>
 
                 <div class="phase-banner" id="phaseBanner">
@@ -1359,9 +1360,6 @@
         const form = document.getElementById('crawlForm');
         const startBtn = document.getElementById('startBtn');
         const cancelBtn = document.getElementById('cancelBtn');
-        // Right column buttons
-        const startBtnRight = document.getElementById('startBtnRight');
-        const cancelBtnRight = document.getElementById('cancelBtnRight');
         const logDiv = document.getElementById('log');
         const summaryDiv = document.getElementById('summary');
         const phaseBanner = document.getElementById('phaseBanner');
@@ -1431,14 +1429,6 @@
                 updateJobHistoryUI();
             }
         }
-
-        // Sync right column buttons with left
-        startBtnRight.addEventListener('click', () => form.dispatchEvent(new Event('submit')));
-        cancelBtnRight.addEventListener('click', () => {
-            if (currentJobId) {
-                stopJob(currentJobId);
-            }
-        });
 
         function getModelCategory(modelName, modelSize) {
             const name = modelName.toLowerCase();
