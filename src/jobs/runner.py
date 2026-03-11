@@ -483,7 +483,7 @@ async def run_job(
                                 if job.is_cancelled:
                                     raise asyncio.CancelledError()
                                 if _attempt < MAX_SCRAPE_RETRIES:
-                                    _wait = 2 ** _attempt
+                                    _wait = 2**_attempt
                                     logger.warning(
                                         f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
                                         f"failed for {url}: {_e}. Retrying in {_wait}s..."
@@ -1009,7 +1009,7 @@ async def _run_pipeline_mode(
                             if job.is_cancelled:
                                 raise asyncio.CancelledError()
                             if _attempt < MAX_SCRAPE_RETRIES:
-                                _wait = 2 ** _attempt
+                                _wait = 2**_attempt
                                 logger.warning(
                                     f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
                                     f"failed for {url}: {_e}. Retrying in {_wait}s..."
