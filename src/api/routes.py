@@ -142,6 +142,7 @@ async def get_job_status(job_id: str) -> JobStatus:
         pages_completed=job.pages_completed,
         pages_total=job.pages_total,
         current_url=job.current_url,
+        pages_retried=job.pages_retried,
     )
 
 

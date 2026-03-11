@@ -37,6 +37,7 @@ class Job:
     completed_at: float | None = None  # PR 1.5: wall-clock time at completion
     pages_skipped: int = 0  # PR 2.3: dedup skips
     pages_blocked: int = 0  # PR 2.3: bot-check pages
+    pages_retried: int = 0  # PR 4: scrape-level retry count
     # PR 3.1: pause/resume via asyncio.Event (set=running, clear=paused)
     _paused: bool = False
     _pause_event: asyncio.Event = field(default_factory=lambda: _make_running_event())
