@@ -210,6 +210,23 @@ class PageScraper:
             except Exception:
                 continue
 
+        # readability-lxml fallback — extracts main content via Mozilla Readability algorithm
+        try:
+            from readability import Document
+            from markdownify import markdownify as md_convert
+
+            full_html = await page.content()
+            doc = Document(full_html)
+            summary_html = doc.summary()
+            markdown = md_convert(summary_html, heading_style="ATX")
+            if len(markdown) >= MIN_CONTENT_LENGTH:
+                logger.debug(
+                    f"Extracted content via readability-lxml ({len(markdown)} chars)"
+                )
+                return summary_html
+        except Exception as e:
+            logger.debug(f"readability-lxml fallback failed: {e}")
+
         # Fallback to body
         html = await page.inner_html("body")
         logger.debug(f"Fallback to body extraction ({len(html)} chars)")
