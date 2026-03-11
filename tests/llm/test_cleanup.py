@@ -5,9 +5,10 @@ Tests cover:
 - needs_llm_cleanup(): noise indicators, code block density, length threshold
 - _cleanup_options(): num_predict formula, num_ctx hardcoded value
 - _calculate_timeout(): small content → BASE_TIMEOUT, large → MAX_TIMEOUT cap
-- cleanup_markdown(): success, empty response retries and falls back, all retries fail
+- cleanup_markdown(): success, empty response retries then raises, all retries raise RuntimeError
 """
 
+import pytest
 from unittest.mock import patch, AsyncMock
 
 from src.llm.cleanup import (
@@ -17,6 +18,7 @@ from src.llm.cleanup import (
     cleanup_markdown,
     BASE_TIMEOUT,
     MAX_TIMEOUT,
+    MAX_RETRIES,
 )
 
 
@@ -160,8 +162,8 @@ class TestCleanupMarkdown:
 
         assert result == cleaned
 
-    async def test_empty_response_retries(self):
-        """Empty response triggers retry; fallback to original after all retries."""
+    async def test_empty_response_retries_then_raises(self):
+        """Empty response triggers all retries then raises RuntimeError."""
         original = "Some content."
 
         with patch(
@@ -169,27 +171,26 @@ class TestCleanupMarkdown:
             new_callable=AsyncMock,
             return_value="   ",  # whitespace-only = falsy after strip
         ) as mock_gen:
-            result = await cleanup_markdown(original, "mistral:7b")
+            with pytest.raises(RuntimeError, match="cleanup attempts failed"):
+                await cleanup_markdown(original, "mistral:7b")
 
-        # All retries exhausted → returns original
-        assert result == original
         # Should have been called MAX_RETRIES times (3)
         assert mock_gen.call_count == 3
 
-    async def test_exception_retries_and_falls_back(self):
-        """Exception on every attempt causes fallback to original markdown."""
+    async def test_exception_retries_then_raises(self):
+        """Exception on every attempt raises RuntimeError after MAX_RETRIES."""
         original = "Important documentation content."
 
         with patch(
             "src.llm.cleanup.generate",
             new_callable=AsyncMock,
-            side_effect=RuntimeError("LLM down"),
+            side_effect=Exception("LLM down"),
         ) as mock_gen:
             # Speed up retry backoff for tests
             with patch("src.llm.cleanup.asyncio.sleep", new_callable=AsyncMock):
-                result = await cleanup_markdown(original, "mistral:7b")
+                with pytest.raises(RuntimeError, match="cleanup attempts failed"):
+                    await cleanup_markdown(original, "mistral:7b")
 
-        assert result == original
         assert mock_gen.call_count == 3  # MAX_RETRIES = 3
 
     async def test_first_attempt_fails_second_succeeds(self):
@@ -235,3 +236,25 @@ class TestCleanupMarkdown:
             result = await cleanup_markdown("original", "mistral:7b")
 
         assert result == "Cleaned docs."
+
+    async def test_raises_runtime_error_after_max_retries(self):
+        """cleanup_markdown raises RuntimeError after all MAX_RETRIES are exhausted.
+
+        This ensures pages_partial counter in runner.py is properly incremented
+        when LLM cleanup fails (fixes issue #73).
+        """
+        markdown = "Some documentation content that will fail cleanup."
+
+        with patch(
+            "src.llm.cleanup.generate",
+            new_callable=AsyncMock,
+            side_effect=Exception("Ollama unavailable"),
+        ) as mock_gen:
+            with patch("src.llm.cleanup.asyncio.sleep", new_callable=AsyncMock):
+                with pytest.raises(RuntimeError) as exc_info:
+                    await cleanup_markdown(markdown, "mistral:7b")
+
+        error_msg = str(exc_info.value)
+        assert str(MAX_RETRIES) in error_msg
+        assert str(len(markdown)) in error_msg
+        assert mock_gen.call_count == MAX_RETRIES

@@ -1,0 +1,57 @@
+name: Update Memory
+
+# Regenerates docs/MEMORY.md whenever code is pushed to main.
+# Follows the same pattern as update-docs-on-merge.yml:
+#   1. Checks out the repo
+#   2. Runs scripts/generate_memory.py
+#   3. Commits the updated MEMORY.md with [skip ci]
+#
+# The script reads metadata from src/, docs/, pytest.ini, requirements.txt,
+# .github/workflows/, etc. and renders a Claude Code CLI memory file.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/MEMORY.md'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-memory-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-memory:
+    runs-on: ubuntu-latest
+    # Skip if the commit message contains [skip ci] to avoid loops
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate MEMORY.md
+        run: python scripts/generate_memory.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/MEMORY.md
+          # Only commit if there are changes
+          if git diff --cached --quiet; then
+            echo "No changes to docs/MEMORY.md"
+          else
+            git commit -m "docs: auto-update MEMORY.md [skip ci]"
+            git push
+          fi

@@ -177,9 +177,12 @@ class PageScraper:
             await self._playwright.stop()  # type: ignore[union-attr,attr-defined]
             self._playwright = None
 
-    async def _remove_noise(self, page: Page) -> None:
+    async def _remove_noise(
+        self, page: Page, noise_selectors: list[str] | None = None
+    ) -> None:
         """Remove noise elements from the DOM before extraction."""
-        selector_list = ", ".join(NOISE_SELECTORS)
+        selectors = (noise_selectors or []) + NOISE_SELECTORS
+        selector_list = ", ".join(selectors)
         removed = await page.evaluate(f"""() => {{
             const els = document.querySelectorAll(`{selector_list}`);
             let count = 0;
@@ -189,9 +192,12 @@ class PageScraper:
         if removed:
             logger.debug(f"Removed {removed} noise elements from DOM")
 
-    async def _extract_content(self, page: Page) -> str:
+    async def _extract_content(
+        self, page: Page, content_selectors: list[str] | None = None
+    ) -> str:
         """Extract main content HTML, trying specific selectors before body fallback."""
-        for selector in CONTENT_SELECTORS:
+        selectors = (content_selectors or []) + CONTENT_SELECTORS
+        for selector in selectors:
             try:
                 el = await page.query_selector(selector)
                 if el:
@@ -224,11 +230,21 @@ class PageScraper:
         return html
 
     async def get_html(
-        self, url: str, timeout: int = 30000, pool: "PagePool | None" = None
+        self,
+        url: str,
+        timeout: int = 30000,
+        pool: "PagePool | None" = None,
+        content_selectors: list[str] | None = None,
+        noise_selectors: list[str] | None = None,
     ) -> str:
         """Navigate to URL, clean DOM, and extract content HTML.
 
-        pool: if provided, borrows a page from the pool instead of creating one (PR 1.2).
+        Args:
+            url: URL to scrape
+            timeout: Navigation timeout in milliseconds
+            pool: If provided, borrows a page from the pool instead of creating one (PR 1.2).
+            content_selectors: Custom content selectors to try before defaults
+            noise_selectors: Custom noise selectors to remove before extraction
         """
         if not self._browser and pool is None:
             raise RuntimeError("Browser not started")
@@ -239,15 +255,15 @@ class PageScraper:
         if pool is not None:
             async with pool.acquire() as page:
                 await page.goto(url, timeout=timeout, wait_until="networkidle")
-                await self._remove_noise(page)
-                return await self._extract_content(page)
+                await self._remove_noise(page, noise_selectors)
+                return await self._extract_content(page, content_selectors)
 
         assert self._browser is not None  # guarded by RuntimeError above
         page = await self._browser.new_page()
         try:
             await page.goto(url, timeout=timeout, wait_until="networkidle")
-            await self._remove_noise(page)
-            html = await self._extract_content(page)
+            await self._remove_noise(page, noise_selectors)
+            html = await self._extract_content(page, content_selectors)
             return html
         finally:
             await page.close()

@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.9.10
 
-> Auto-generated on 2026-03-07 04:22 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-03-11 13:38 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -256,12 +256,9 @@ async def list_providers():
                     p_id == "ollama"
                     or (
                         p_id == "openrouter"
-                        and bool(__import__("os").environ.get("OPENROUTER_API_KEY"))
+                        and bool(os.environ.get("OPENROUTER_API_KEY"))
                     )
-                    or (
-                        p_id == "opencode"
-                        and bool(__import__("os").environ.get("OPENCODE_API_KEY"))
-                    )
+                    or (p_id == "opencode" and bool(os.environ.get("OPENCODE_API_KEY")))
                     or False
                 ),
                 "requires_api_key": config["requires_api_key"],
@@ -1736,7 +1733,7 @@ class JobManager:
 
 ## `src/jobs/runner.py`
 
-*File truncated: showing first 500 of 1102 lines.*
+*File truncated: showing first 500 of 1104 lines.*
 
 ```python
 """Job execution orchestration."""
@@ -1953,6 +1950,8 @@ async def run_job(
             delay_s = request.delay_ms / 1000
 
         # PR 3.1: skip discovery/filtering when resuming from saved state
+        before_llm: float = 0.0
+        llm_duration: float = 0.0
         if resume_urls is not None:
             urls = resume_urls
             await _log(
@@ -2237,8 +2236,6 @@ async def run_job(
                     # PR 2.3: content dedup — skip near-identical pages
                     h = content_hash(markdown)
                     async with _hash_lock:
-                        if h in seen_hashes:
-                            async with _counter_lock:
 # ... truncated ...
 ```
 
@@ -2548,7 +2545,8 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
 
     Uses dynamic timeout based on chunk size. Retries with backoff.
     Selects standard or heavy prompt based on classify_chunk() (PR 2.2).
-    Returns original content if all retries fail.
+    Raises RuntimeError if all retries are exhausted so the caller can
+    handle the failure (e.g. increment pages_partial counter).
     """
     # Wrap content in XML delimiters to isolate scraped data from prompt — closes CONS-006 / issue #58
     wrapped = f"<document>\n{markdown}\n</document>"
@@ -2578,8 +2576,9 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
             if attempt < MAX_RETRIES - 1:
                 await asyncio.sleep(2**attempt)  # 1s, 2s, 4s
 
-    logger.error("All cleanup attempts failed, returning original")
-    return markdown
+    raise RuntimeError(
+        f"All {MAX_RETRIES} cleanup attempts failed for chunk of {len(markdown)} chars"
+    )
 ```
 
 ---
@@ -4430,7 +4429,7 @@ def validate_url_not_ssrf(url: str) -> None:
 
 ## `src/ui/index.html`
 
-*File truncated: showing first 500 of 1883 lines.*
+*File truncated: showing first 500 of 1873 lines.*
 
 ```html
 <!DOCTYPE html>
@@ -4508,9 +4507,9 @@ def validate_url_not_ssrf(url: str) -> None:
             z-index: -1;
         }
 
-        .container { 
-            max-width: 1200px; 
-            margin: 0 auto; 
+        .container {
+            max-width: min(1600px, calc(100vw - 48px));
+            margin: 0 auto;
             position: relative;
             z-index: 1001;
         }
@@ -4518,8 +4517,8 @@ def validate_url_not_ssrf(url: str) -> None:
         /* Two-column layout */
         .two-columns {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
+            grid-template-columns: 65% 35%;
+            gap: 32px;
             align-items: start;
         }
 
@@ -4535,10 +4534,15 @@ def validate_url_not_ssrf(url: str) -> None:
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 1.5rem;
+            position: sticky;
+            top: 16px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
         }
 
         /* Job History Panel */
         .job-history-panel {
+            min-height: 0;
             margin-bottom: 1.5rem;
         }
 
@@ -4628,9 +4632,10 @@ def validate_url_not_ssrf(url: str) -> None:
             color: white;
         }
 
-        /* Right column execute button */
-        .right-column .buttons {
-            margin-bottom: 1rem;
+        /* Wide layout reverts to single column below 1100px */
+        @media (max-width: 1100px) {
+            .two-columns { grid-template-columns: 1fr; }
+            .right-column { position: static; max-height: none; overflow-y: visible; }
         }
 
         /* Responsive: stack on mobile */
@@ -4927,12 +4932,6 @@ def validate_url_not_ssrf(url: str) -> None:
 
         .hint-icon { color: #4a4a6a; flex-shrink: 0; }
 
-        @media (max-width: 640px) {
-            .model-row { flex-direction: column; }
-            .model-hint { padding-top: 0; max-width: 100%; }
-        }
-
-        /* Buttons */
 # ... truncated ...
 ```
 
@@ -5085,6 +5084,7 @@ python_functions = test_*
 asyncio_mode = auto
 
 # Coverage settings
+# Current threshold: 60% | Target: 65% (see docs/PROJECT_STATUS.md)
 addopts =
     --verbose
     --color=yes
@@ -5092,7 +5092,7 @@ addopts =
     --cov-report=term-missing
     --cov-report=html
     --cov-branch
-    --cov-fail-under=50
+    --cov-fail-under=60
     -ra
 
 # Markers for categorizing tests
