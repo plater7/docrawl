@@ -394,3 +394,82 @@ class TestJobStatusDefaults:
         assert status.current_url == "https://example.com/page5"
         assert status.pages_completed == 5
         assert status.pages_total == 100
+
+
+# ---------------------------------------------------------------------------
+# validate_selectors (content_selectors, noise_selectors)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateSelectors:
+    """Tests for JobRequest.validate_selectors."""
+
+    def test_content_selectors_none_default(self):
+        """content_selectors should default to None."""
+        req = JobRequest(**_minimal_request())
+        assert req.content_selectors is None
+
+    def test_noise_selectors_none_default(self):
+        """noise_selectors should default to None."""
+        req = JobRequest(**_minimal_request())
+        assert req.noise_selectors is None
+
+    def test_content_selectors_valid_list(self):
+        """A valid list of content selectors should be accepted."""
+        req = JobRequest(
+            **_minimal_request(
+                content_selectors=[".custom-docs", "#main-content", "article.docs"]
+            )
+        )
+        assert req.content_selectors == [".custom-docs", "#main-content", "article.docs"]
+
+    def test_noise_selectors_valid_list(self):
+        """A valid list of noise selectors should be accepted."""
+        req = JobRequest(
+            **_minimal_request(
+                noise_selectors=[".advertisement", "#popup", ".cookie-banner"]
+            )
+        )
+        assert req.noise_selectors == [".advertisement", "#popup", ".cookie-banner"]
+
+    def test_content_selectors_max_20_items(self):
+        """More than 20 content selectors should be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(
+                **_minimal_request(
+                    content_selectors=[f".selector{i}" for i in range(21)]
+                )
+            )
+        assert "max 20 items" in str(exc_info.value)
+
+    def test_noise_selectors_max_20_items(self):
+        """More than 20 noise selectors should be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(
+                **_minimal_request(
+                    noise_selectors=[f".selector{i}" for i in range(21)]
+                )
+            )
+        assert "max 20 items" in str(exc_info.value)
+
+    def test_content_selector_max_200_chars(self):
+        """A selector longer than 200 chars should be rejected."""
+        long_selector = ".custom-" + "x" * 200
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(
+                **_minimal_request(
+                    content_selectors=[long_selector]
+                )
+            )
+        assert "too long" in str(exc_info.value)
+
+    def test_noise_selector_max_200_chars(self):
+        """A noise selector longer than 200 chars should be rejected."""
+        long_selector = ".noise-" + "x" * 200
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(
+                **_minimal_request(
+                    noise_selectors=[long_selector]
+                )
+            )
+        assert "too long" in str(exc_info.value)
