@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **feat(discovery): add sitemap_cache param to enable future sitemap caching** ([#152](https://github.com/plater7/docrawl/pull/152))
 - **fix(ui): 1920x1080 layout — wider container, 65/35 grid, sticky panel, button reorder** ([#156](https://github.com/plater7/docrawl/pull/156))
 - **feat(scraper): add readability-lxml fallback extraction** ([#158](https://github.com/plater7/docrawl/pull/158))
+- **feat(runner): add scrape-level retries for Playwright fallback** ([#159](https://github.com/plater7/docrawl/pull/159))
 
 ## [v0.9.9] - 2026-03-03
 
