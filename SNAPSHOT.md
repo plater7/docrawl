@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.9.10
 
-> Auto-generated on 2026-03-11 12:52 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-03-11 13:27 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -3446,7 +3446,7 @@ Usage::
 
     from src.scraper.converters import get_converter, register_converter, available_converters
 
-    converter = get_converter()           # default "markdownify"
+    converter = get_converter()          # default "markdownify"
     converter = get_converter("markdownify")
     md = converter.convert(html)
 
@@ -3454,7 +3454,7 @@ Usage::
     register_converter("my_converter", MyConverter())
 
     # List all registered converters
-    names = available_converters()  # ["markdownify", "readerlm", "readerlm-v1"]
+    names = available_converters()  # ["markdownify"]
 """
 
 import logging
@@ -3462,7 +3462,6 @@ from typing import TYPE_CHECKING
 
 from src.scraper.converters.base import MarkdownConverter
 from src.scraper.converters.markdownify_converter import MarkdownifyConverter
-from src.scraper.converters.readerlm_converter import ReaderLMConverter
 
 if TYPE_CHECKING:
     pass
@@ -3472,8 +3471,6 @@ logger = logging.getLogger(__name__)
 # Static registry — dynamic loading deferred to a future PR
 _REGISTRY: dict[str, MarkdownConverter] = {
     "markdownify": MarkdownifyConverter(),
-    "readerlm": ReaderLMConverter(),
-    "readerlm-v1": ReaderLMConverter(model="milkey/reader-lm:latest"),
 }
 
 _DEFAULT_CONVERTER = "markdownify"
@@ -3591,7 +3588,7 @@ class MarkdownifyConverter:
 
 Drop-in replacement for MarkdownifyConverter. Uses Ollama's /api/chat
 endpoint to call a locally-hosted ReaderLM model trained specifically
-for HTML-to-Markdown translation -- no markdownify + LLM cleanup needed.
+for HTML-to-Markdown translation — no markdownify + LLM cleanup needed.
 
 Usage (via registry)::
 
@@ -3604,7 +3601,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import threading
 
 import httpx
 
@@ -3615,7 +3611,7 @@ _SYSTEM_PROMPT = (
     "Remove all navigation menus, footers, cookie banners, sidebars, and ads. "
     "Preserve code blocks with correct fencing, tables, nested lists, "
     "and inline formatting exactly. "
-    "Return only the Markdown -- no explanation, no preamble."
+    "Return only the Markdown — no explanation, no preamble."
 )
 
 # Adaptive context window: ~3 chars per token for HTML, plus headroom
@@ -3654,30 +3650,37 @@ class ReaderLMConverter:
     def convert(self, html: str) -> str:
         """Convert HTML to clean Markdown using ReaderLM.
 
-        Runs _convert_async in a fresh thread+event-loop so it works
-        whether called from sync or async contexts.
+        Schedules the async implementation on the running event loop.
         Raises on HTTP or model errors so the runner can degrade gracefully.
         """
-        result_holder: list[str] = []
-        exc_holder: list[BaseException] = []
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # We're inside an async context (the runner) — use run_coroutine_threadsafe
+            import concurrent.futures
+            import threading
 
-        def _thread_target() -> None:
-            new_loop = asyncio.new_event_loop()
-            try:
-                result_holder.append(
-                    new_loop.run_until_complete(self._convert_async(html))
-                )
-            except Exception as exc:  # noqa: BLE001
-                exc_holder.append(exc)
-            finally:
-                new_loop.close()
+            result_holder: list[str] = []
+            exc_holder: list[BaseException] = []
 
-        t = threading.Thread(target=_thread_target, daemon=True)
-        t.start()
-        t.join(timeout=self.timeout + 5)
-        if exc_holder:
-            raise exc_holder[0]
-        return result_holder[0] if result_holder else ""
+            def _thread_target() -> None:
+                new_loop = asyncio.new_event_loop()
+                try:
+                    result_holder.append(
+                        new_loop.run_until_complete(self._convert_async(html))
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    exc_holder.append(exc)
+                finally:
+                    new_loop.close()
+
+            t = threading.Thread(target=_thread_target, daemon=True)
+            t.start()
+            t.join(timeout=self.timeout + 5)
+            if exc_holder:
+                raise exc_holder[0]
+            return result_holder[0] if result_holder else ""
+        else:
+            return loop.run_until_complete(self._convert_async(html))
 
     def supports_tables(self) -> bool:
         return True
@@ -3690,7 +3693,7 @@ class ReaderLMConverter:
     # ------------------------------------------------------------------
 
     async def _convert_async(self, html: str) -> str:
-        """POST to Ollama /api/chat and return the model response content."""
+        """POST to Ollama /api/chat and return the model's response."""
         num_ctx = min(
             len(html) // _CHARS_PER_TOKEN + _CTX_HEADROOM,
             _CTX_MAX,
