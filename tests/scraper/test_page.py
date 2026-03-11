@@ -246,7 +246,9 @@ class TestPageScraperCustomSelectors:
         mock_page = AsyncMock()
         mock_page.evaluate = AsyncMock(return_value=2)
 
-        await scraper._remove_noise(mock_page, noise_selectors=[".custom-nav", "#popup"])
+        await scraper._remove_noise(
+            mock_page, noise_selectors=[".custom-nav", "#popup"]
+        )
 
         call_args = mock_page.evaluate.call_args[0][0]
         assert ".custom-nav" in call_args
