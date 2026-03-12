@@ -554,7 +554,13 @@ async def run_job(
                     cleaned_chunks: list[str] = []
                     chunks_failed = 0
 
-                    if request.output_format == "json":
+                    # Skip when the converter already produces clean Markdown (ReaderLM)
+                    # or when the caller explicitly opts out via skip_llm_cleanup.
+                    _READERLM_CONVERTERS = {"readerlm", "readerlm-v1"}
+                    _skip_cleanup = getattr(request, "skip_llm_cleanup", False) or (
+                        request.converter in _READERLM_CONVERTERS
+                    )
+                    if request.output_format == "json" or _skip_cleanup:
                         # PR 3.2: skip LLM cleanup entirely for JSON output
                         cleaned_chunks = list(chunks)
                     else:
@@ -625,7 +631,7 @@ async def run_job(
                     # Save sub-phase
                     md_file_path = _url_to_filepath(url, base_url, output_path)
 
-                    if request.output_format == "json":
+                    if request.output_format == "json" or _skip_cleanup:
                         # PR 3.2: structured JSON output — no LLM cleanup
                         if raw_html is not None:
                             structured_page = html_to_structured(url, raw_html)
@@ -1081,7 +1087,11 @@ async def _run_pipeline_mode(
 
                 file_path = _url_to_filepath(url, base_url, output_path)
 
-                if request.output_format == "json":
+                _READERLM_CONVERTERS = {"readerlm", "readerlm-v1"}
+                _skip_cleanup = getattr(request, "skip_llm_cleanup", False) or (
+                    request.converter in _READERLM_CONVERTERS
+                )
+                if request.output_format == "json" or _skip_cleanup:  # noqa: F821
                     # PR 3.2: structured JSON — no LLM, skip chunking entirely
                     if page.raw_html is not None:
                         structured_page = html_to_structured(url, page.raw_html)

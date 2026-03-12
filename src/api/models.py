@@ -39,6 +39,15 @@ class JobRequest(BaseModel):
     converter: str | None = Field(
         default=None, pattern=r"^[\w-]{1,50}$"
     )  # PR 3.4: converter plugin name (None = default)
+    skip_llm_cleanup: bool = Field(
+        default=False,
+        description=(
+            "Skip the LLM cleanup step after HTML->Markdown conversion. "
+            "Set to True when using a converter that already produces clean "
+            "Markdown (e.g. converter='readerlm'). Has no effect when "
+            "converter is markdownify and content has no noise."
+        ),
+    )
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
     content_selectors: list[str] | None = Field(
