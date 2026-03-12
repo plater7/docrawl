@@ -14,14 +14,16 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - OPENCODE_API_KEY=${OPENCODE_API_KEY:-}
-      - API_KEY=${API_KEY:-}
-      - CORS_ORIGINS=${CORS_ORIGINS:-}
-      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-5}
-      - LMSTUDIO_URL=${LMSTUDIO_URL:-}
-      - LMSTUDIO_API_KEY=${LMSTUDIO_API_KEY:-}
+       - OLLAMA_URL=http://host.docker.internal:11434
+       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+       - OPENCODE_API_KEY=${OPENCODE_API_KEY:-}
+       - API_KEY=${API_KEY:-}
+       - CORS_ORIGINS=${CORS_ORIGINS:-}
+       - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-5}
+       - LMSTUDIO_URL=${LMSTUDIO_URL:-}
+       - LMSTUDIO_API_KEY=${LMSTUDIO_API_KEY:-}
+       - LLAMACPP_URL=${LLAMACPP_URL:-}
+       - LLAMACPP_API_KEY=${LLAMACPP_API_KEY:-}
     restart: unless-stopped
     # Shared memory for Playwright - prevents crashes on large pages
     shm_size: '2gb'
