@@ -7,18 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v0.10.0] - unreleased
+## [v0.10.0] - 2026-03-14
 
 ### Added
 - **feat(api,runner): document HTTP fallback chain and log fetch method summary** ([#157](https://github.com/plater7/docrawl/pull/157))
+- **feat(scraper): ReaderLM converter — single-pass HTML→Markdown without LLM cleanup** ([#171](https://github.com/plater7/docrawl/pull/171))
+- **feat(llm): add llama.cpp server support as new LLM provider** ([#172](https://github.com/plater7/docrawl/pull/172))
 
 ---
-- **feat(scraper): ReaderLM converter — single-pass HTML→Markdown without LLM cleanup** ([#171](https://github.com/plater7/docrawl/pull/171))
 
-## [v0.9.99] - unreleased
+## [v0.9.99] - 2026-03-14
 
 ### Added
 - **refactor(routes): replace __import__('os') anti-pattern with top-level import — v0.9.99** ([#147](https://github.com/plater7/docrawl/pull/147))
+
+---
+
+## [v0.9.50] - 2026-03-14
+
+### Added
+- **fix(ui): 1920x1080 layout — wider container, 65/35 grid, sticky panel, button reorder** ([#156](https://github.com/plater7/docrawl/pull/156))
+
+---
+
+## [v0.9.11] - 2026-03-14
+
+### Added
+- **test(runner): increase coverage from 26% to ≥70%** ([#155](https://github.com/plater7/docrawl/pull/155))
 
 ---
 
@@ -42,9 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Structured Output** — `output_format: "json"` devuelve `StructuredPage` con 7 tipos de `ContentBlock` (heading, paragraph, code, table, list, blockquote, image) — PR 3.2 ([#133](https://github.com/plater7/docrawl/pull/133))
 - **Pipeline Mode** — `use_pipeline_mode: true` activa productor/consumidor con `asyncio.Queue(maxsize=20)` y backpressure; dedup + LLM cleanup en paralelo al scraping — PR 3.3 ([#134](https://github.com/plater7/docrawl/pull/134))
 - **Converter Plugins** — `MarkdownConverter` Protocol + registro estático; `GET /api/converters`; campo `converter` en `JobRequest`; `MarkdownifyConverter` como default — PR 3.4 ([#135](https://github.com/plater7/docrawl/pull/135))
-- **Test Coverage** — cobertura aumentada de ~55% a ~60%; nuevos test files para `exceptions`, `routes`, `llm/client`, `llm/cleanup`, `scraper/markdown`, `scraper/structured` ([#146](https://github.com/plater7/docrawl/pull/146))
 - **feat(discovery): add sitemap_cache param to enable future sitemap caching** ([#152](https://github.com/plater7/docrawl/pull/152))
-- **fix(ui): 1920x1080 layout — wider container, 65/35 grid, sticky panel, button reorder** ([#156](https://github.com/plater7/docrawl/pull/156))
 - **feat(scraper): add readability-lxml fallback extraction** ([#158](https://github.com/plater7/docrawl/pull/158))
 - **feat(runner): add scrape-level retries for Playwright fallback** ([#159](https://github.com/plater7/docrawl/pull/159))
 - **feat(api,scraper): add per-job custom CSS selectors for extraction** ([#160](https://github.com/plater7/docrawl/pull/160))
