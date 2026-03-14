@@ -508,6 +508,8 @@ async def run_job(
                                         f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
                                         f"failed for {url}: {_e}. Retrying in {_wait}s..."
                                     )
+                                    async with _counter_lock:
+                                        job.pages_retried += 1
                                     await asyncio.sleep(_wait)
                                 else:
                                     raise
@@ -822,6 +824,7 @@ async def run_job(
                     "pages_ok": pages_ok,
                     "pages_partial": pages_partial,
                     "pages_failed": pages_failed,
+                    "pages_retried": job.pages_retried,
                     "pages_native_md": pages_native_md,
                     "pages_proxy_md": pages_proxy_md,
                     "pages_http_fast": pages_http_fast,
@@ -1041,6 +1044,8 @@ async def _run_pipeline_mode(
                                     f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
                                     f"failed for {url}: {_e}. Retrying in {_wait}s..."
                                 )
+                                async with _counter_lock:
+                                    job.pages_retried += 1
                                 await asyncio.sleep(_wait)
                             else:
                                 raise

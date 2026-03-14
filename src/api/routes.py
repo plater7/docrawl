@@ -145,6 +145,7 @@ async def get_job_status(job_id: str) -> JobStatus:
         pages_total=job.pages_total,
         current_url=job.current_url,
         converter=job.request.converter if job.request else None,
+        pages_retried=job.pages_retried,
     )
 
 

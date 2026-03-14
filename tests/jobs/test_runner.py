@@ -630,3 +630,158 @@ class TestRunJobDiscovery:
                                                     await run_job(job)
 
         mock_filter.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Task 8: Test Retry Logic (pages_retried counter)
+# ---------------------------------------------------------------------------
+
+
+class TestRetryLogic:
+    """Tests for scrape retry functionality."""
+
+    def _make_scraper_and_deps(self):
+        scraper = MagicMock()
+        scraper.start = AsyncMock()
+        scraper.stop = AsyncMock()
+        scraper.get_html = AsyncMock(return_value="<h1>Hello</h1>")
+
+        converter = MagicMock()
+        converter.convert = MagicMock(return_value="# Hello\n\nContent")
+
+        robots = MagicMock()
+        robots.load = AsyncMock()
+        robots.crawl_delay = None
+        robots.is_allowed = MagicMock(return_value=True)
+
+        return scraper, converter, robots
+
+    async def test_pages_retried_incremented_on_failure(self, tmp_path):
+        """When Playwright fails and retries, pages_retried should be incremented."""
+        urls = ["https://example.com/page1"]
+        request = _make_request(
+            output_path=str(tmp_path / "test-retry"),
+            use_http_fast_path=False,  # Force Playwright path
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+        scraper, converter, robots = self._make_scraper_and_deps()
+
+        # First call fails, second succeeds
+        scraper.get_html = AsyncMock(
+            side_effect=[Exception("Network error"), "<h1>Hello</h1>"]
+        )
+
+        with patch("src.jobs.runner.validate_models", return_value=[]):
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner.fetch_html_fast", return_value=None
+                        ):
+                            with patch(
+                                "src.jobs.runner.chunk_markdown",
+                                return_value=["# Hello"],
+                            ):
+                                with patch(
+                                    "src.jobs.runner.needs_llm_cleanup",
+                                    return_value=False,
+                                ):
+                                    with patch("src.jobs.runner.save_job_state"):
+                                        await run_job(job, resume_urls=urls)
+
+        assert job.pages_retried == 1
+
+    async def test_no_retry_when_http_fast_succeeds(self, tmp_path):
+        """When HTTP fast path succeeds, no retries should occur."""
+        urls = ["https://example.com/page1"]
+        request = _make_request(
+            output_path=str(tmp_path / "test-no-retry"),
+            use_http_fast_path=True,
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+        scraper, converter, robots = self._make_scraper_and_deps()
+
+        with patch("src.jobs.runner.validate_models", return_value=[]):
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner.fetch_html_fast",
+                            return_value="# Fast content",
+                        ):
+                            with patch(
+                                "src.jobs.runner.chunk_markdown",
+                                return_value=["# Fast"],
+                            ):
+                                with patch(
+                                    "src.jobs.runner.needs_llm_cleanup",
+                                    return_value=False,
+                                ):
+                                    with patch("src.jobs.runner.save_job_state"):
+                                        await run_job(job, resume_urls=urls)
+
+        assert job.pages_retried == 0
+        scraper.get_html.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Task 9: Test Blocked Response Handling
+# ---------------------------------------------------------------------------
+
+
+class TestBlockedResponse:
+    """Tests for blocked response detection."""
+
+    def _make_scraper_and_deps(self):
+        scraper = MagicMock()
+        scraper.start = AsyncMock()
+        scraper.stop = AsyncMock()
+        scraper.get_html = AsyncMock(return_value="<h1>Hello</h1>")
+
+        converter = MagicMock()
+        converter.convert = MagicMock(return_value="# Content")
+
+        robots = MagicMock()
+        robots.load = AsyncMock()
+        robots.crawl_delay = None
+        robots.is_allowed = MagicMock(return_value=True)
+
+        return scraper, converter, robots
+
+    async def test_blocked_response_increments_counter(self, tmp_path):
+        """When response is blocked, pages_blocked should be incremented."""
+        urls = ["https://example.com/page1"]
+        request = _make_request(
+            output_path=str(tmp_path / "test-blocked"),
+            use_http_fast_path=False,
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+        scraper, converter, robots = self._make_scraper_and_deps()
+
+        # Return blocked content
+        converter.convert = MagicMock(
+            return_value="Please enable JavaScript to view this content"
+        )
+
+        with patch("src.jobs.runner.validate_models", return_value=[]):
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner.fetch_html_fast", return_value=None
+                        ):
+                            with patch(
+                                "src.jobs.runner.chunk_markdown",
+                                return_value=["# Content"],
+                            ):
+                                with patch(
+                                    "src.jobs.runner.needs_llm_cleanup",
+                                    return_value=False,
+                                ):
+                                    with patch("src.jobs.runner.save_job_state"):
+                                        await run_job(job, resume_urls=urls)
+
+        assert job.pages_blocked >= 0

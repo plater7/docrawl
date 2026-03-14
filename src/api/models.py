@@ -159,6 +159,7 @@ class JobStatus(BaseModel):
     pages_total: int = 0
     current_url: str | None = None
     converter: str | None = None  # PR 3.5: show converter in job status
+    pages_retried: int = 0  # PR 4: scrape-level retry count
 
 
 class OllamaModel(BaseModel):

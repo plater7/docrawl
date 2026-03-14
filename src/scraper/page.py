@@ -180,8 +180,14 @@ class PageScraper:
     async def _remove_noise(
         self, page: Page, noise_selectors: list[str] | None = None
     ) -> None:
-        """Remove noise elements from the DOM before extraction."""
-        selectors = (noise_selectors or []) + NOISE_SELECTORS
+        """Remove noise elements from the DOM before extraction.
+
+        Args:
+            page: Playwright page to clean.
+            noise_selectors: Additional CSS selectors to remove, prepended before
+                the DocRawl defaults so user selectors are tried first.
+        """
+        selectors = list(noise_selectors or []) + NOISE_SELECTORS
         selector_list = ", ".join(selectors)
         removed = await page.evaluate(f"""() => {{
             const els = document.querySelectorAll(`{selector_list}`);
@@ -195,8 +201,14 @@ class PageScraper:
     async def _extract_content(
         self, page: Page, content_selectors: list[str] | None = None
     ) -> str:
-        """Extract main content HTML, trying specific selectors before body fallback."""
-        selectors = (content_selectors or []) + CONTENT_SELECTORS
+        """Extract main content HTML, trying specific selectors before body fallback.
+
+        Args:
+            page: Playwright page to extract from.
+            content_selectors: Additional CSS selectors to try first, prepended before
+                the DocRawl defaults so user selectors take priority.
+        """
+        selectors = list(content_selectors or []) + CONTENT_SELECTORS
         for selector in selectors:
             try:
                 el = await page.query_selector(selector)
@@ -243,8 +255,8 @@ class PageScraper:
         """Navigate to URL, clean DOM, and extract content HTML.
 
         Args:
-            url: URL to scrape
-            timeout: Navigation timeout in milliseconds
+            url: Page URL to scrape.
+            timeout: Navigation timeout in milliseconds.
             pool: If provided, borrows a page from the pool instead of creating one (PR 1.2).
             content_selectors: Custom content selectors to try before defaults
             noise_selectors: Custom noise selectors to remove before extraction
