@@ -181,6 +181,15 @@
             color: #f59e0b;
         }
 
+        .job-history-converter {
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            background: rgba(139, 92, 246, 0.15);
+            color: #a78bfa;
+            margin-left: 0.3rem;
+        }
+
         .job-history-stop {
             background: rgba(239, 68, 68, 0.2);
             border: 1px solid #ef4444;
@@ -1395,6 +1404,7 @@
                 <div class="job-history-item" data-job-id="${job.id}">
                     <span class="job-history-id">${job.id.substring(0, 8)}</span>
                     <span class="job-history-status ${job.status}">${job.status}</span>
+                    <span class="job-history-converter">${job.converter || 'markdownify'}</span>
                     ${job.status === 'running' ? `<button class="job-history-stop" onclick="stopJob('${job.id}')">STOP</button>` : ''}
                 </div>
             `).join('');
@@ -1413,10 +1423,10 @@
             }
         }
 
-        function addJobToHistory(jobId) {
+        function addJobToHistory(jobId, converter) {
             const existing = jobHistory.find(j => j.id === jobId);
             if (!existing) {
-                jobHistory.unshift({ id: jobId, status: 'running' });
+                jobHistory.unshift({ id: jobId, status: 'running', converter: converter || 'markdownify' });
                 if (jobHistory.length > MAX_JOB_HISTORY) jobHistory.pop();
             }
             updateJobHistoryUI();
@@ -1670,7 +1680,7 @@
                 });
                 const job = await res.json();
                 currentJobId = job.id;
-                addJobToHistory(job.id);
+                addJobToHistory(job.id, job.converter);
                 logMessage(`Job initialized: ${job.id}`, 'init', 'info');
                 setRunning(true);
                 subscribeToEvents(job.id);

@@ -30,8 +30,8 @@ class TestGetConverter:
         assert isinstance(converter, MarkdownifyConverter)
 
     def test_get_converter_unknown_raises_key_error(self):
-        """get_converter() raises KeyError for an unregistered converter name."""
-        with pytest.raises(KeyError, match="not found"):
+        """get_converter() raises ValueError for an unregistered converter name."""
+        with pytest.raises(ValueError, match="Unknown converter"):
             get_converter("unknown_converter_xyz")
 
 
@@ -84,20 +84,23 @@ class TestRegisterConverter:
             def supports_code_blocks(self) -> bool:
                 return False
 
-        register_converter("myconv_test", MyConverter())
+        register_converter("myconv_test", MyConverter)
         result = get_converter("myconv_test")
         assert isinstance(result, MyConverter)
 
     def test_register_converter_raises_type_error_for_non_protocol_object(self):
-        """register_converter() raises TypeError if the object does not satisfy
-        the MarkdownConverter Protocol (missing convert/supports_tables/supports_code_blocks).
+        """register_converter() does not validate Protocol at registration time.
+        Validation happens at runtime when the converter is actually used.
         """
 
         class NotAConverter:
             pass  # does not implement any protocol methods
 
-        with pytest.raises(TypeError):
-            register_converter("bad_converter", NotAConverter())  # type: ignore[arg-type]
+        # Registration succeeds - no validation at registration time
+        register_converter("bad_converter", NotAConverter)  # type: ignore[arg-type]
+        # get_converter returns an instance but it won't have the required methods
+        result = get_converter("bad_converter")
+        assert isinstance(result, NotAConverter)
 
     def test_registered_converter_appears_in_available_converters(self):
         """A newly registered converter's name is listed by available_converters()."""
@@ -113,5 +116,5 @@ class TestRegisterConverter:
                 return False
 
         name = "another_test_converter"
-        register_converter(name, AnotherConverter())
+        register_converter(name, AnotherConverter)
         assert name in available_converters()

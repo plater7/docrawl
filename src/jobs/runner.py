@@ -42,11 +42,11 @@ MAX_SCRAPE_RETRIES = int(_os.environ.get("SCRAPE_MAX_RETRIES", "2"))
 
 
 async def validate_models(
-    crawl_model: str, pipeline_model: str, reasoning_model: str
+    crawl_model: str | None, pipeline_model: str | None, reasoning_model: str | None
 ) -> list[str]:
     """Validate that all required models are available.
 
-    Returns list of errors, empty if all valid.
+    Returns list of errors, empty if all valid.  None values are skipped.
     """
     errors = []
     models_to_check = [
@@ -56,6 +56,8 @@ async def validate_models(
     ]
 
     for field, model in models_to_check:
+        if model is None:
+            continue
         provider = get_provider_for_model(model)
 
         try:
@@ -144,9 +146,21 @@ async def run_job(
             },
         )
 
-        # Validate models before starting
-        validation_errors = await validate_models(
-            request.crawl_model, request.pipeline_model, request.reasoning_model
+        # Validate models before starting (skip when all models are None — e.g. readerlm + skip_llm_cleanup)
+        _any_model = any(
+            m is not None
+            for m in (
+                request.crawl_model,
+                request.pipeline_model,
+                request.reasoning_model,
+            )
+        )
+        validation_errors = (
+            await validate_models(
+                request.crawl_model, request.pipeline_model, request.reasoning_model
+            )
+            if _any_model
+            else []
         )
         if validation_errors:
             error_msg = "; ".join(validation_errors)
@@ -294,31 +308,35 @@ async def run_job(
                         },
                     )
 
-            # FILTERING phase — LLM
+            # FILTERING phase — LLM (skipped when crawl_model is None)
             before_llm = len(urls)
+            if request.crawl_model is not None:
+                await _log(
+                    job,
+                    "phase_change",
+                    {
+                        "phase": "filtering",
+                        "active_model": request.crawl_model,
+                        "message": f"LLM filtering with {request.crawl_model}...",
+                    },
+                )
+
+                llm_start = time.monotonic()
+                urls = await filter_urls_with_llm(urls, request.crawl_model)
+                llm_duration = time.monotonic() - llm_start
+            else:
+                llm_duration = 0.0
+
+        if request.crawl_model is not None:
             await _log(
                 job,
-                "phase_change",
+                "log",
                 {
                     "phase": "filtering",
                     "active_model": request.crawl_model,
-                    "message": f"LLM filtering with {request.crawl_model}...",
+                    "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
                 },
             )
-
-            llm_start = time.monotonic()
-            urls = await filter_urls_with_llm(urls, request.crawl_model)
-            llm_duration = time.monotonic() - llm_start
-
-        await _log(
-            job,
-            "log",
-            {
-                "phase": "filtering",
-                "active_model": request.crawl_model,
-                "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
-            },
-        )
         # end else (full discovery/filtering)
 
         job.pages_total = len(urls)
@@ -556,7 +574,16 @@ async def run_job(
                     cleaned_chunks: list[str] = []
                     chunks_failed = 0
 
-                    if request.output_format == "json":
+                    # Skip when the converter already produces clean Markdown (ReaderLM)
+                    # or when the caller explicitly opts out via skip_llm_cleanup.
+                    _READERLM_CONVERTERS = {"readerlm", "readerlm-v1"}
+                    _skip_cleanup = getattr(request, "skip_llm_cleanup", False) or (
+                        request.converter in _READERLM_CONVERTERS
+                    )
+                    # Narrow type for mypy: pipeline_model is non-None when cleanup runs
+                    # (enforced by JobRequest.validate_models_required)
+                    _pipeline_model: str = request.pipeline_model or ""
+                    if request.output_format == "json" or _skip_cleanup:
                         # PR 3.2: skip LLM cleanup entirely for JSON output
                         cleaned_chunks = list(chunks)
                     else:
@@ -594,9 +621,7 @@ async def run_job(
 
                         try:
                             chunk_start = time.monotonic()
-                            cleaned = await cleanup_markdown(
-                                chunk, request.pipeline_model
-                            )
+                            cleaned = await cleanup_markdown(chunk, _pipeline_model)
                             chunk_time = time.monotonic() - chunk_start
                             cleaned_chunks.append(cleaned)
 
@@ -606,7 +631,7 @@ async def run_job(
                                     "log",
                                     {
                                         "phase": "cleanup",
-                                        "active_model": request.pipeline_model,
+                                        "active_model": _pipeline_model,
                                         "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✓ ({chunk_time:.1f}s)",
                                     },
                                 )
@@ -618,7 +643,7 @@ async def run_job(
                                 "log",
                                 {
                                     "phase": "cleanup",
-                                    "active_model": request.pipeline_model,
+                                    "active_model": _pipeline_model,
                                     "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✗ failed, using raw",
                                     "level": "warning",
                                 },
@@ -627,7 +652,7 @@ async def run_job(
                     # Save sub-phase
                     md_file_path = _url_to_filepath(url, base_url, output_path)
 
-                    if request.output_format == "json":
+                    if request.output_format == "json" or _skip_cleanup:
                         # PR 3.2: structured JSON output — no LLM cleanup
                         if raw_html is not None:
                             structured_page = html_to_structured(url, raw_html)
@@ -1086,7 +1111,11 @@ async def _run_pipeline_mode(
 
                 file_path = _url_to_filepath(url, base_url, output_path)
 
-                if request.output_format == "json":
+                _READERLM_CONVERTERS = {"readerlm", "readerlm-v1"}
+                _skip_cleanup = getattr(request, "skip_llm_cleanup", False) or (
+                    request.converter in _READERLM_CONVERTERS
+                )
+                if request.output_format == "json" or _skip_cleanup:  # noqa: F821
                     # PR 3.2: structured JSON — no LLM, skip chunking entirely
                     if page.raw_html is not None:
                         structured_page = html_to_structured(url, page.raw_html)
@@ -1104,6 +1133,9 @@ async def _run_pipeline_mode(
                         job.pages_completed += 1
                     continue
 
+                # Narrow type for mypy: pipeline_model is non-None when cleanup runs
+                # (enforced by JobRequest.validate_models_required)
+                _pipeline_model: str = request.pipeline_model or ""
                 chunks = chunk_markdown(
                     markdown, native_token_count=page.native_token_count
                 )
@@ -1114,9 +1146,7 @@ async def _run_pipeline_mode(
                         break
                     try:
                         if needs_llm_cleanup(chunk):
-                            cleaned = await cleanup_markdown(
-                                chunk, request.pipeline_model
-                            )
+                            cleaned = await cleanup_markdown(chunk, _pipeline_model)
                         else:
                             cleaned = chunk
                         cleaned_chunks.append(cleaned)

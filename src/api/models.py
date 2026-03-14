@@ -13,9 +13,9 @@ class JobRequest(BaseModel):
     """Request to create a new crawl job."""
 
     url: HttpUrl
-    crawl_model: str = Field(pattern=r"^[\w./:@-]{1,100}$")
-    pipeline_model: str = Field(pattern=r"^[\w./:@-]{1,100}$")
-    reasoning_model: str = Field(pattern=r"^[\w./:@-]{1,100}$")
+    crawl_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
+    pipeline_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
+    reasoning_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
     output_path: str = Field(default="/data/output")
     delay_ms: int = Field(default=500, ge=100, le=60000)
     max_concurrent: int = Field(default=3, ge=1, le=10)
@@ -39,6 +39,15 @@ class JobRequest(BaseModel):
     converter: str | None = Field(
         default=None, pattern=r"^[\w-]{1,50}$"
     )  # PR 3.4: converter plugin name (None = default)
+    skip_llm_cleanup: bool = Field(
+        default=False,
+        description=(
+            "Skip the LLM cleanup step after HTML->Markdown conversion. "
+            "Set to True when using a converter that already produces clean "
+            "Markdown (e.g. converter='readerlm'). Has no effect when "
+            "converter is markdownify and content has no noise."
+        ),
+    )
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
     content_selectors: list[str] | None = Field(
@@ -104,6 +113,25 @@ class JobRequest(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def validate_models_required(self) -> "JobRequest":
+        """Require LLM model fields only when they will actually be used.
+
+        When skip_llm_cleanup=True or a ReaderLM converter is selected, the
+        pipeline_model is not needed.  crawl_model is only needed for LLM URL
+        filtering; if absent, the runner skips that step.
+        """
+        _READERLM_CONVERTERS = {"readerlm", "readerlm-v1"}
+        llm_cleanup_needed = not self.skip_llm_cleanup and (
+            self.converter not in _READERLM_CONVERTERS
+        )
+        if llm_cleanup_needed and self.pipeline_model is None:
+            raise ValueError(
+                "pipeline_model is required unless skip_llm_cleanup=True or "
+                "a ReaderLM converter is used (converter='readerlm' / 'readerlm-v1')."
+            )
+        return self
+
 
 class ResumeFromStateRequest(BaseModel):
     """Request to resume a job from a saved .job_state.json file (PR 3.1)."""
@@ -130,6 +158,7 @@ class JobStatus(BaseModel):
     pages_completed: int = 0
     pages_total: int = 0
     current_url: str | None = None
+    converter: str | None = None  # PR 3.5: show converter in job status
     pages_retried: int = 0  # PR 4: scrape-level retry count
 
 
