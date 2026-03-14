@@ -302,14 +302,30 @@ class TestJobRequestValidation:
                 reasoning_model="m",
             )
 
-    def test_missing_required_crawl_model(self):
-        """Missing required crawl_model should fail validation."""
-        with pytest.raises(ValidationError):
-            JobRequest(
-                url="https://example.com",
-                pipeline_model="m",
-                reasoning_model="m",
-            )
+    def test_crawl_model_now_optional(self):
+        """crawl_model is optional; omitting it is valid (LLM URL filtering is skipped)."""
+        # pipeline_model still required when LLM cleanup is needed (default behaviour)
+        job = JobRequest(
+            url="https://example.com",
+            pipeline_model="m",
+            reasoning_model="m",
+        )
+        assert job.crawl_model is None
+
+    def test_missing_pipeline_model_with_llm_cleanup_fails(self):
+        """pipeline_model is required when skip_llm_cleanup is False and no ReaderLM converter."""
+        with pytest.raises(ValidationError, match="pipeline_model is required"):
+            JobRequest(url="https://example.com")
+
+    def test_pipeline_model_not_required_with_skip_llm_cleanup(self):
+        """pipeline_model is NOT required when skip_llm_cleanup=True."""
+        job = JobRequest(url="https://example.com", skip_llm_cleanup=True)
+        assert job.pipeline_model is None
+
+    def test_pipeline_model_not_required_with_readerlm(self):
+        """pipeline_model is NOT required when converter='readerlm'."""
+        job = JobRequest(url="https://example.com", converter="readerlm")
+        assert job.pipeline_model is None
 
 
 # ---------------------------------------------------------------------------
