@@ -54,5 +54,6 @@ jobs:
             echo "No changes to docs/MEMORY.md"
           else
             git commit -m "docs: auto-update MEMORY.md [skip ci]"
+            git pull --rebase origin main
             git push
           fi
