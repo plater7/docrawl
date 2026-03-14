@@ -158,6 +158,7 @@ class JobStatus(BaseModel):
     pages_completed: int = 0
     pages_total: int = 0
     current_url: str | None = None
+    converter: str | None = None  # PR 3.5: show converter in job status
 
 
 class OllamaModel(BaseModel):

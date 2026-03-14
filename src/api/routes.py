@@ -101,6 +101,7 @@ async def create_job(request: Request, job_request: JobRequest) -> JobStatus:
         status=job.status,
         pages_total=0,
         pages_completed=0,
+        converter=job_request.converter,
     )
 
 
@@ -127,6 +128,7 @@ async def cancel_job(job_id: str) -> JobStatus:
         status=job.status,
         pages_completed=job.pages_completed,
         pages_total=job.pages_total,
+        converter=job.request.converter if job.request else None,
     )
 
 
@@ -142,6 +144,7 @@ async def get_job_status(job_id: str) -> JobStatus:
         pages_completed=job.pages_completed,
         pages_total=job.pages_total,
         current_url=job.current_url,
+        converter=job.request.converter if job.request else None,
     )
 
 
@@ -369,6 +372,7 @@ async def resume_from_state(
         id=job.id,
         status=job.status,
         pages_total=len(state.pending_urls),
+        converter=job_request.converter,
     )
 
 
