@@ -574,6 +574,9 @@ async def run_job(
                     _skip_cleanup = getattr(request, "skip_llm_cleanup", False) or (
                         request.converter in _READERLM_CONVERTERS
                     )
+                    # Narrow type for mypy: pipeline_model is non-None when cleanup runs
+                    # (enforced by JobRequest.validate_models_required)
+                    _pipeline_model: str = request.pipeline_model or ""
                     if request.output_format == "json" or _skip_cleanup:
                         # PR 3.2: skip LLM cleanup entirely for JSON output
                         cleaned_chunks = list(chunks)
@@ -613,7 +616,7 @@ async def run_job(
                         try:
                             chunk_start = time.monotonic()
                             cleaned = await cleanup_markdown(
-                                chunk, request.pipeline_model
+                                chunk, _pipeline_model
                             )
                             chunk_time = time.monotonic() - chunk_start
                             cleaned_chunks.append(cleaned)
@@ -624,7 +627,7 @@ async def run_job(
                                     "log",
                                     {
                                         "phase": "cleanup",
-                                        "active_model": request.pipeline_model,
+                                        "active_model": _pipeline_model,
                                         "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✓ ({chunk_time:.1f}s)",
                                     },
                                 )
@@ -636,7 +639,7 @@ async def run_job(
                                 "log",
                                 {
                                     "phase": "cleanup",
-                                    "active_model": request.pipeline_model,
+                                    "active_model": _pipeline_model,
                                     "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✗ failed, using raw",
                                     "level": "warning",
                                 },
@@ -1123,6 +1126,9 @@ async def _run_pipeline_mode(
                         job.pages_completed += 1
                     continue
 
+                # Narrow type for mypy: pipeline_model is non-None when cleanup runs
+                # (enforced by JobRequest.validate_models_required)
+                _pipeline_model: str = request.pipeline_model or ""
                 chunks = chunk_markdown(
                     markdown, native_token_count=page.native_token_count
                 )
@@ -1134,7 +1140,7 @@ async def _run_pipeline_mode(
                     try:
                         if needs_llm_cleanup(chunk):
                             cleaned = await cleanup_markdown(
-                                chunk, request.pipeline_model
+                                chunk, _pipeline_model
                             )
                         else:
                             cleaned = chunk
