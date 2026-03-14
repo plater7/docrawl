@@ -42,11 +42,11 @@ MAX_SCRAPE_RETRIES = int(_os.environ.get("SCRAPE_MAX_RETRIES", "2"))
 
 
 async def validate_models(
-    crawl_model: str, pipeline_model: str, reasoning_model: str
+    crawl_model: str | None, pipeline_model: str | None, reasoning_model: str | None
 ) -> list[str]:
     """Validate that all required models are available.
 
-    Returns list of errors, empty if all valid.
+    Returns list of errors, empty if all valid.  None values are skipped.
     """
     errors = []
     models_to_check = [
@@ -56,6 +56,8 @@ async def validate_models(
     ]
 
     for field, model in models_to_check:
+        if model is None:
+            continue
         provider = get_provider_for_model(model)
 
         try:
@@ -144,9 +146,17 @@ async def run_job(
             },
         )
 
-        # Validate models before starting
-        validation_errors = await validate_models(
-            request.crawl_model, request.pipeline_model, request.reasoning_model
+        # Validate models before starting (skip when all models are None — e.g. readerlm + skip_llm_cleanup)
+        _any_model = any(
+            m is not None
+            for m in (request.crawl_model, request.pipeline_model, request.reasoning_model)
+        )
+        validation_errors = (
+            await validate_models(
+                request.crawl_model, request.pipeline_model, request.reasoning_model
+            )
+            if _any_model
+            else []
         )
         if validation_errors:
             error_msg = "; ".join(validation_errors)
@@ -294,31 +304,35 @@ async def run_job(
                         },
                     )
 
-            # FILTERING phase — LLM
+            # FILTERING phase — LLM (skipped when crawl_model is None)
             before_llm = len(urls)
+            if request.crawl_model is not None:
+                await _log(
+                    job,
+                    "phase_change",
+                    {
+                        "phase": "filtering",
+                        "active_model": request.crawl_model,
+                        "message": f"LLM filtering with {request.crawl_model}...",
+                    },
+                )
+
+                llm_start = time.monotonic()
+                urls = await filter_urls_with_llm(urls, request.crawl_model)
+                llm_duration = time.monotonic() - llm_start
+            else:
+                llm_duration = 0.0
+
+        if request.crawl_model is not None:
             await _log(
                 job,
-                "phase_change",
+                "log",
                 {
                     "phase": "filtering",
                     "active_model": request.crawl_model,
-                    "message": f"LLM filtering with {request.crawl_model}...",
+                    "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
                 },
             )
-
-            llm_start = time.monotonic()
-            urls = await filter_urls_with_llm(urls, request.crawl_model)
-            llm_duration = time.monotonic() - llm_start
-
-        await _log(
-            job,
-            "log",
-            {
-                "phase": "filtering",
-                "active_model": request.crawl_model,
-                "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
-            },
-        )
         # end else (full discovery/filtering)
 
         job.pages_total = len(urls)
