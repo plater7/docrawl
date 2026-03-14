@@ -21,6 +21,8 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 OPENCODE_API_KEY = os.environ.get("OPENCODE_API_KEY", "")
 LMSTUDIO_URL = os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1")
 LMSTUDIO_API_KEY = os.environ.get("LMSTUDIO_API_KEY", "")
+LLAMACPP_URL = os.environ.get("LLAMACPP_URL", "http://localhost:8080/v1")
+LLAMACPP_API_KEY = os.environ.get("LLAMACPP_API_KEY", "")
 
 # Provider configurations
 PROVIDERS = {
@@ -44,6 +46,11 @@ PROVIDERS = {
         "requires_api_key": False,
         "model_format": "model",
     },
+    "llamacpp": {
+        "base_url": LLAMACPP_URL,
+        "requires_api_key": False,
+        "model_format": "model",
+    },
 }
 
 # Known models by provider (for UI selectors)
@@ -59,6 +66,7 @@ PROVIDER_MODELS = {
         "opencode/kimi-k2.5-free",
         "opencode/glm-4.7-free",
     ],
+    "llamacpp": [],  # Dynamic - fetched from llama.cpp API
 }
 
 
@@ -80,6 +88,8 @@ async def get_available_models(provider: str = "ollama") -> list[dict[str, Any]]
         models = _get_opencode_models()
     elif provider == "lmstudio":
         models = await _get_lmstudio_models()
+    elif provider == "llamacpp":
+        models = await _get_llamacpp_models()
     else:
         return []
 
@@ -134,11 +144,39 @@ async def _get_lmstudio_models() -> list[dict[str, Any]]:
         return []
 
 
+async def _get_llamacpp_models() -> list[dict[str, Any]]:
+    """Get list of available llama.cpp server models."""
+    try:
+        headers = {}
+        if LLAMACPP_API_KEY:
+            headers["Authorization"] = f"Bearer {LLAMACPP_API_KEY}"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LLAMACPP_URL}/models", headers=headers, timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            return [
+                {
+                    "name": f"llamacpp/{m['id']}",
+                    "size": None,
+                    "provider": "llamacpp",
+                    "is_free": True,
+                }
+                for m in data.get("data", [])
+            ]
+    except Exception as e:
+        logger.error(f"Failed to get llama.cpp models: {e}")
+        return []
+
+
 def _is_free_model(model_name: str, provider: str) -> bool:
     """Determine if a model is free based on name patterns."""
     if provider == "ollama":
         return True
     if provider == "lmstudio":
+        return True
+    if provider == "llamacpp":
         return True
     if provider == "openrouter":
         return ":free" in model_name
@@ -229,6 +267,8 @@ async def generate(
         return await _generate_opencode(model, prompt, system, timeout, options)
     elif provider == "lmstudio":
         return await _generate_lmstudio(model, prompt, system, timeout, options)
+    elif provider == "llamacpp":
+        return await _generate_llamacpp(model, prompt, system, timeout, options)
     else:
         raise ValueError(f"Unknown provider: {provider}")
 
@@ -391,6 +431,43 @@ async def _generate_lmstudio(
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
     except Exception as e:
         logger.error(f"LM Studio request failed: {e}")
+        raise
+
+
+async def _generate_llamacpp(
+    model: str,
+    prompt: str,
+    system: str | None,
+    timeout: int,
+    options: dict[str, Any] | None,
+) -> str:
+    """Generate text using llama.cpp server."""
+    model_id = model.removeprefix("llamacpp/")
+    payload: dict[str, Any] = {
+        "model": model_id,
+        "messages": [],
+    }
+    if system:
+        payload["messages"].append({"role": "system", "content": system})
+    payload["messages"].append({"role": "user", "content": prompt})
+
+    headers = {"Content-Type": "application/json"}
+    if LLAMACPP_API_KEY:
+        headers["Authorization"] = f"Bearer {LLAMACPP_API_KEY}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LLAMACPP_URL}/chat/completions",
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except Exception as e:
+        logger.error(f"llama.cpp request failed: {e}")
         raise
 
 

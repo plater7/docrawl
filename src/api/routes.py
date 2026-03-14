@@ -21,6 +21,8 @@ from src.llm.client import (
     OLLAMA_URL,
     LMSTUDIO_URL,
     LMSTUDIO_API_KEY,
+    LLAMACPP_URL,
+    LLAMACPP_API_KEY,
 )
 from src.jobs.manager import JobManager
 
@@ -215,6 +217,31 @@ async def health_ready() -> dict:
         checks["lmstudio"] = {"status": "timeout", "url": LMSTUDIO_URL}
     except Exception as e:
         checks["lmstudio"] = {"status": "error", "message": str(e)}
+
+    # Check llama.cpp connectivity
+    try:
+        llama_headers = {}
+        if LLAMACPP_API_KEY:
+            llama_headers["Authorization"] = f"Bearer {LLAMACPP_API_KEY}"
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                f"{LLAMACPP_URL}/models", headers=llama_headers, timeout=5
+            )
+            if r.status_code == 200:
+                data = r.json()
+                checks["llamacpp"] = {
+                    "status": "ok",
+                    "models_count": len(data.get("data", [])),
+                    "url": LLAMACPP_URL,
+                }
+            else:
+                checks["llamacpp"] = {"status": "error", "url": LLAMACPP_URL}
+    except httpx.ConnectError:
+        checks["llamacpp"] = {"status": "unreachable", "url": LLAMACPP_URL}
+    except httpx.TimeoutException:
+        checks["llamacpp"] = {"status": "timeout", "url": LLAMACPP_URL}
+    except Exception as e:
+        checks["llamacpp"] = {"status": "error", "message": str(e)}
 
     # Check disk space
     data_path = Path("/data")
