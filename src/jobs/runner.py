@@ -149,7 +149,11 @@ async def run_job(
         # Validate models before starting (skip when all models are None — e.g. readerlm + skip_llm_cleanup)
         _any_model = any(
             m is not None
-            for m in (request.crawl_model, request.pipeline_model, request.reasoning_model)
+            for m in (
+                request.crawl_model,
+                request.pipeline_model,
+                request.reasoning_model,
+            )
         )
         validation_errors = (
             await validate_models(
@@ -615,9 +619,7 @@ async def run_job(
 
                         try:
                             chunk_start = time.monotonic()
-                            cleaned = await cleanup_markdown(
-                                chunk, _pipeline_model
-                            )
+                            cleaned = await cleanup_markdown(chunk, _pipeline_model)
                             chunk_time = time.monotonic() - chunk_start
                             cleaned_chunks.append(cleaned)
 
@@ -1139,9 +1141,7 @@ async def _run_pipeline_mode(
                         break
                     try:
                         if needs_llm_cleanup(chunk):
-                            cleaned = await cleanup_markdown(
-                                chunk, _pipeline_model
-                            )
+                            cleaned = await cleanup_markdown(chunk, _pipeline_model)
                         else:
                             cleaned = chunk
                         cleaned_chunks.append(cleaned)
