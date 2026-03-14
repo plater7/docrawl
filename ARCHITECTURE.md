@@ -123,7 +123,7 @@ The system runs as a Docker container exposing a REST API + SSE event stream, wi
 |------|---------------|
 | `discovery.py` | 3-strategy URL discovery: `try_sitemap()` (XML parsing, gzip, sitemap index, caching), `try_nav_parse()` (Playwright nav/sidebar extraction), `recursive_crawl()` (parallel BFS, depth-limited). Orchestrated by `discover_urls()`. |
 | `filter.py` | Deterministic URL filtering: extension blocklist, pattern blocklist, language filtering (9 languages), same-domain enforcement. |
-| `robots.py` | Simple robots.txt parser: Disallow rules + crawl-delay. Note: does not support `Allow:` directive yet (known limitation). |
+| `robots.py` | robots.txt parser: Disallow + Allow directives (RFC 9309 specificity precedence) + crawl-delay. |
 
 ### `src/jobs/` — Job Lifecycle
 | File | Responsibility |

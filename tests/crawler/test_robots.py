@@ -26,6 +26,7 @@ class TestRobotsParser:
         """Parser should initialize with empty state."""
         parser = RobotsParser()
         assert parser.disallowed == []
+        assert parser.allowed == []
         assert parser.crawl_delay is None
 
 
@@ -202,6 +203,31 @@ Disallow: /private/
             assert "/private/" in parser.disallowed
 
     @pytest.mark.asyncio
+    async def test_load_populates_allowed(self):
+        """Successful load should populate allowed list from Allow: rules."""
+        parser = RobotsParser()
+        content = """User-agent: *
+Disallow: /docs/
+Allow: /docs/public/
+"""
+        with patch("src.crawler.robots.httpx.AsyncClient") as MockClient:
+            mock_response = AsyncMock()
+            mock_response.status_code = 200
+            mock_response.text = content
+
+            client_instance = AsyncMock()
+            client_instance.get.return_value = mock_response
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+
+            result = await parser.load("https://example.com/")
+            assert result is True
+            assert "/docs/public/" in parser.allowed
+            assert parser.is_allowed("https://example.com/docs/public/guide") is True
+            assert parser.is_allowed("https://example.com/docs/secret") is False
+
+    @pytest.mark.asyncio
     async def test_load_404(self):
         """404 response should return False."""
         parser = RobotsParser()
@@ -315,3 +341,60 @@ class TestEdgeCases:
         parser.disallowed = ["/private/"]
         assert parser.is_allowed("https://example.com:8080/public") is True
         assert parser.is_allowed("https://example.com:8080/private/data") is False
+
+
+class TestAllowDirective:
+    """Test Allow: directive RFC-compliant precedence."""
+
+    def test_parse_allow_directive(self):
+        """Allow: rule should be stored."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nDisallow: /docs/\nAllow: /docs/public/\n")
+        assert "/docs/public/" in parser.allowed
+
+    def test_allow_overrides_disallow_for_more_specific_path(self):
+        """Allow: /docs/public/ beats Disallow: /docs/ (longer match wins)."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nDisallow: /docs/\nAllow: /docs/public/\n")
+        assert parser.is_allowed("https://example.com/docs/public/guide") is True
+
+    def test_disallow_wins_when_more_specific(self):
+        """Disallow: /api/private/ beats Allow: /api/ (longer match wins)."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nAllow: /api/\nDisallow: /api/private/\n")
+        assert parser.is_allowed("https://example.com/api/private/data") is False
+
+    def test_allow_same_length_as_disallow_allows(self):
+        """Equal-length Allow and Disallow: Allow wins (RFC tie-break)."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nDisallow: /docs/\nAllow: /docs/\n")
+        assert parser.is_allowed("https://example.com/docs/guide") is True
+
+    def test_empty_allow_list_preserved(self):
+        """No Allow: directives -> allowed list is empty, behavior unchanged."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nDisallow: /private/\n")
+        assert parser.allowed == []
+        assert parser.is_allowed("https://example.com/private/x") is False
+
+    def test_allow_without_disallow_path_is_parsed(self):
+        """Allow: with no Disallow should be stored in allowed list."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nAllow: /docs/\n")
+        assert "/docs/" in parser.allowed
+        assert parser.is_allowed("https://example.com/docs/guide") is True
+
+    def test_disallow_all_with_allow_exception(self):
+        """Disallow: / + Allow: /public/ -> only /public/ is accessible."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nDisallow: /\nAllow: /public/\n")
+        assert parser.is_allowed("https://example.com/public/page") is True
+        assert parser.is_allowed("https://example.com/private/page") is False
+
+    def test_backward_compat_no_allow_unchanged(self):
+        """Sites without Allow: rules: behavior is identical to before."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nDisallow: /admin/\nCrawl-delay: 2\n")
+        assert parser.is_allowed("https://example.com/public") is True
+        assert parser.is_allowed("https://example.com/admin/secret") is False
+        assert parser.crawl_delay == 2.0
