@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.9.10
 
-> Auto-generated on 2026-03-11 13:38 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-03-14 15:04 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -81,9 +81,9 @@ class JobRequest(BaseModel):
     """Request to create a new crawl job."""
 
     url: HttpUrl
-    crawl_model: str = Field(pattern=r"^[\w./:@-]{1,100}$")
-    pipeline_model: str = Field(pattern=r"^[\w./:@-]{1,100}$")
-    reasoning_model: str = Field(pattern=r"^[\w./:@-]{1,100}$")
+    crawl_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
+    pipeline_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
+    reasoning_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
     output_path: str = Field(default="/data/output")
     delay_ms: int = Field(default=500, ge=100, le=60000)
     max_concurrent: int = Field(default=3, ge=1, le=10)
@@ -92,7 +92,13 @@ class JobRequest(BaseModel):
     use_native_markdown: bool = True
     use_markdown_proxy: bool = False
     markdown_proxy_url: str | None = Field(default=None)
-    use_http_fast_path: bool = True  # PR 1.3: try plain HTTP before Playwright
+    use_http_fast_path: bool = Field(
+        default=True,
+        description=(
+            "Enable HTTP fast-path before Playwright. "
+            "Fallback chain: native_markdown → http_fast → playwright."
+        ),
+    )
     use_cache: bool = False  # PR 2.4: opt-in disk cache (24h TTL)
     output_format: Literal["markdown", "json"] = (
         "markdown"  # PR 3.2: structured JSON output opt-in
@@ -101,8 +107,44 @@ class JobRequest(BaseModel):
     converter: str | None = Field(
         default=None, pattern=r"^[\w-]{1,50}$"
     )  # PR 3.4: converter plugin name (None = default)
+    skip_llm_cleanup: bool = Field(
+        default=False,
+        description=(
+            "Skip the LLM cleanup step after HTML->Markdown conversion. "
+            "Set to True when using a converter that already produces clean "
+            "Markdown (e.g. converter='readerlm'). Has no effect when "
+            "converter is markdownify and content has no noise."
+        ),
+    )
     language: str = Field(default="en", max_length=10)
     filter_sitemap_by_path: bool = True
+    content_selectors: list[str] | None = Field(
+        default=None,
+        description=(
+            "CSS selectors to try for main content extraction (prepended before DocRawl defaults). "
+            "Each selector max 200 chars, list max 20 items."
+        ),
+    )
+    noise_selectors: list[str] | None = Field(
+        default=None,
+        description=(
+            "CSS selectors for noise elements to remove before extraction (prepended before DocRawl defaults). "
+            "Each selector max 200 chars, list max 20 items."
+        ),
+    )
+
+    @field_validator("content_selectors", "noise_selectors")
+    @classmethod
+    def validate_selectors(cls, v: list[str] | None) -> list[str] | None:
+        """Validate per-job CSS selector lists."""
+        if v is None:
+            return v
+        if len(v) > 20:
+            raise ValueError("Selector list max 20 items")
+        for sel in v:
+            if len(sel) > 200:
+                raise ValueError(f"Selector too long (max 200 chars): {sel[:50]}...")
+        return v
 
     @field_validator("output_path")
     @classmethod
@@ -139,6 +181,25 @@ class JobRequest(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def validate_models_required(self) -> "JobRequest":
+        """Require LLM model fields only when they will actually be used.
+
+        When skip_llm_cleanup=True or a ReaderLM converter is selected, the
+        pipeline_model is not needed.  crawl_model is only needed for LLM URL
+        filtering; if absent, the runner skips that step.
+        """
+        _READERLM_CONVERTERS = {"readerlm", "readerlm-v1"}
+        llm_cleanup_needed = not self.skip_llm_cleanup and (
+            self.converter not in _READERLM_CONVERTERS
+        )
+        if llm_cleanup_needed and self.pipeline_model is None:
+            raise ValueError(
+                "pipeline_model is required unless skip_llm_cleanup=True or "
+                "a ReaderLM converter is used (converter='readerlm' / 'readerlm-v1')."
+            )
+        return self
+
 
 class ResumeFromStateRequest(BaseModel):
     """Request to resume a job from a saved .job_state.json file (PR 3.1)."""
@@ -165,6 +226,8 @@ class JobStatus(BaseModel):
     pages_completed: int = 0
     pages_total: int = 0
     current_url: str | None = None
+    converter: str | None = None  # PR 3.5: show converter in job status
+    pages_retried: int = 0  # PR 4: scrape-level retry count
 
 
 class OllamaModel(BaseModel):
@@ -204,6 +267,8 @@ from src.llm.client import (
     OLLAMA_URL,
     LMSTUDIO_URL,
     LMSTUDIO_API_KEY,
+    LLAMACPP_URL,
+    LLAMACPP_API_KEY,
 )
 from src.jobs.manager import JobManager
 
@@ -284,6 +349,7 @@ async def create_job(request: Request, job_request: JobRequest) -> JobStatus:
         status=job.status,
         pages_total=0,
         pages_completed=0,
+        converter=job_request.converter,
     )
 
 
@@ -310,6 +376,7 @@ async def cancel_job(job_id: str) -> JobStatus:
         status=job.status,
         pages_completed=job.pages_completed,
         pages_total=job.pages_total,
+        converter=job.request.converter if job.request else None,
     )
 
 
@@ -325,6 +392,8 @@ async def get_job_status(job_id: str) -> JobStatus:
         pages_completed=job.pages_completed,
         pages_total=job.pages_total,
         current_url=job.current_url,
+        converter=job.request.converter if job.request else None,
+        pages_retried=job.pages_retried,
     )
 
 
@@ -394,6 +463,31 @@ async def health_ready() -> dict:
         checks["lmstudio"] = {"status": "timeout", "url": LMSTUDIO_URL}
     except Exception as e:
         checks["lmstudio"] = {"status": "error", "message": str(e)}
+
+    # Check llama.cpp connectivity
+    try:
+        llama_headers = {}
+        if LLAMACPP_API_KEY:
+            llama_headers["Authorization"] = f"Bearer {LLAMACPP_API_KEY}"
+        async with httpx.AsyncClient() as client:
+            r = await client.get(
+                f"{LLAMACPP_URL}/models", headers=llama_headers, timeout=5
+            )
+            if r.status_code == 200:
+                data = r.json()
+                checks["llamacpp"] = {
+                    "status": "ok",
+                    "models_count": len(data.get("data", [])),
+                    "url": LLAMACPP_URL,
+                }
+            else:
+                checks["llamacpp"] = {"status": "error", "url": LLAMACPP_URL}
+    except httpx.ConnectError:
+        checks["llamacpp"] = {"status": "unreachable", "url": LLAMACPP_URL}
+    except httpx.TimeoutException:
+        checks["llamacpp"] = {"status": "timeout", "url": LLAMACPP_URL}
+    except Exception as e:
+        checks["llamacpp"] = {"status": "error", "message": str(e)}
 
     # Check disk space
     data_path = Path("/data")
@@ -552,6 +646,7 @@ async def resume_from_state(
         id=job.id,
         status=job.status,
         pages_total=len(state.pending_urls),
+        converter=job_request.converter,
     )
 
 
@@ -1480,6 +1575,7 @@ class Job:
     completed_at: float | None = None  # PR 1.5: wall-clock time at completion
     pages_skipped: int = 0  # PR 2.3: dedup skips
     pages_blocked: int = 0  # PR 2.3: bot-check pages
+    pages_retried: int = 0  # PR 4: scrape-level retry count
     # PR 3.1: pause/resume via asyncio.Event (set=running, clear=paused)
     _paused: bool = False
     _pause_event: asyncio.Event = field(default_factory=lambda: _make_running_event())
@@ -1733,7 +1829,7 @@ class JobManager:
 
 ## `src/jobs/runner.py`
 
-*File truncated: showing first 500 of 1104 lines.*
+*File truncated: showing first 500 of 1190 lines.*
 
 ```python
 """Job execution orchestration."""
@@ -1776,13 +1872,15 @@ from src.scraper.converters.base import MarkdownConverter
 
 logger = logging.getLogger(__name__)
 
+MAX_SCRAPE_RETRIES = int(_os.environ.get("SCRAPE_MAX_RETRIES", "2"))
+
 
 async def validate_models(
-    crawl_model: str, pipeline_model: str, reasoning_model: str
+    crawl_model: str | None, pipeline_model: str | None, reasoning_model: str | None
 ) -> list[str]:
     """Validate that all required models are available.
 
-    Returns list of errors, empty if all valid.
+    Returns list of errors, empty if all valid.  None values are skipped.
     """
     errors = []
     models_to_check = [
@@ -1792,6 +1890,8 @@ async def validate_models(
     ]
 
     for field, model in models_to_check:
+        if model is None:
+            continue
         provider = get_provider_for_model(model)
 
         try:
@@ -1880,9 +1980,21 @@ async def run_job(
             },
         )
 
-        # Validate models before starting
-        validation_errors = await validate_models(
-            request.crawl_model, request.pipeline_model, request.reasoning_model
+        # Validate models before starting (skip when all models are None — e.g. readerlm + skip_llm_cleanup)
+        _any_model = any(
+            m is not None
+            for m in (
+                request.crawl_model,
+                request.pipeline_model,
+                request.reasoning_model,
+            )
+        )
+        validation_errors = (
+            await validate_models(
+                request.crawl_model, request.pipeline_model, request.reasoning_model
+            )
+            if _any_model
+            else []
         )
         if validation_errors:
             error_msg = "; ".join(validation_errors)
@@ -2030,31 +2142,35 @@ async def run_job(
                         },
                     )
 
-            # FILTERING phase — LLM
+            # FILTERING phase — LLM (skipped when crawl_model is None)
             before_llm = len(urls)
+            if request.crawl_model is not None:
+                await _log(
+                    job,
+                    "phase_change",
+                    {
+                        "phase": "filtering",
+                        "active_model": request.crawl_model,
+                        "message": f"LLM filtering with {request.crawl_model}...",
+                    },
+                )
+
+                llm_start = time.monotonic()
+                urls = await filter_urls_with_llm(urls, request.crawl_model)
+                llm_duration = time.monotonic() - llm_start
+            else:
+                llm_duration = 0.0
+
+        if request.crawl_model is not None:
             await _log(
                 job,
-                "phase_change",
+                "log",
                 {
                     "phase": "filtering",
                     "active_model": request.crawl_model,
-                    "message": f"LLM filtering with {request.crawl_model}...",
+                    "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
                 },
             )
-
-            llm_start = time.monotonic()
-            urls = await filter_urls_with_llm(urls, request.crawl_model)
-            llm_duration = time.monotonic() - llm_start
-
-        await _log(
-            job,
-            "log",
-            {
-                "phase": "filtering",
-                "active_model": request.crawl_model,
-                "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
-            },
-        )
         # end else (full discovery/filtering)
 
         job.pages_total = len(urls)
@@ -2204,38 +2320,18 @@ async def run_job(
                                 },
                             )
 
-                    # Fall back to Playwright (pass pool if available — PR 1.2)
+                    # Fall back to Playwright with retries (pass pool if available — PR 1.2)
                     if markdown is None:
-                        html = await scraper.get_html(url, pool=page_pool)
-                        raw_html = html  # PR 3.2: keep for structured output
-                        load_time = time.monotonic() - page_start
-                        markdown = _converter.convert(html)  # PR 3.4
-                        async with _counter_lock:
-                            pages_playwright += 1
-                        # PR 2.4: cache the raw HTML (only if not blocked — checked below)
-                        if page_cache is not None:
-                            if not is_blocked_response(markdown):
-                                page_cache.put(url, html)
-
-                    # PR 2.3: check for blocked response (bot-check pages)
-                    if is_blocked_response(markdown):
-                        async with _counter_lock:
-                            job.pages_blocked += 1
-                            job.pages_completed += 1
-                        await _log(
-                            job,
-                            "log",
-                            {
-                                "phase": "scraping",
-                                "message": f"[{i + 1}/{len(urls)}] ⚠ blocked response detected, skipping {url}",
-                                "level": "warning",
-                            },
-                        )
-                        return
-
-                    # PR 2.3: content dedup — skip near-identical pages
-                    h = content_hash(markdown)
-                    async with _hash_lock:
+                        for _attempt in range(MAX_SCRAPE_RETRIES + 1):
+                            try:
+                                html = await scraper.get_html(
+                                    url,
+                                    pool=page_pool,
+                                    content_selectors=request.content_selectors,
+                                    noise_selectors=request.noise_selectors,
+                                )
+                                break
+                            except asyncio.CancelledError:
 # ... truncated ...
 ```
 
@@ -2609,6 +2705,8 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 OPENCODE_API_KEY = os.environ.get("OPENCODE_API_KEY", "")
 LMSTUDIO_URL = os.environ.get("LMSTUDIO_URL", "http://localhost:1234/v1")
 LMSTUDIO_API_KEY = os.environ.get("LMSTUDIO_API_KEY", "")
+LLAMACPP_URL = os.environ.get("LLAMACPP_URL", "http://localhost:8080/v1")
+LLAMACPP_API_KEY = os.environ.get("LLAMACPP_API_KEY", "")
 
 # Provider configurations
 PROVIDERS = {
@@ -2632,6 +2730,11 @@ PROVIDERS = {
         "requires_api_key": False,
         "model_format": "model",
     },
+    "llamacpp": {
+        "base_url": LLAMACPP_URL,
+        "requires_api_key": False,
+        "model_format": "model",
+    },
 }
 
 # Known models by provider (for UI selectors)
@@ -2647,6 +2750,7 @@ PROVIDER_MODELS = {
         "opencode/kimi-k2.5-free",
         "opencode/glm-4.7-free",
     ],
+    "llamacpp": [],  # Dynamic - fetched from llama.cpp API
 }
 
 
@@ -2668,6 +2772,8 @@ async def get_available_models(provider: str = "ollama") -> list[dict[str, Any]]
         models = _get_opencode_models()
     elif provider == "lmstudio":
         models = await _get_lmstudio_models()
+    elif provider == "llamacpp":
+        models = await _get_llamacpp_models()
     else:
         return []
 
@@ -2722,11 +2828,39 @@ async def _get_lmstudio_models() -> list[dict[str, Any]]:
         return []
 
 
+async def _get_llamacpp_models() -> list[dict[str, Any]]:
+    """Get list of available llama.cpp server models."""
+    try:
+        headers = {}
+        if LLAMACPP_API_KEY:
+            headers["Authorization"] = f"Bearer {LLAMACPP_API_KEY}"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LLAMACPP_URL}/models", headers=headers, timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            return [
+                {
+                    "name": f"llamacpp/{m['id']}",
+                    "size": None,
+                    "provider": "llamacpp",
+                    "is_free": True,
+                }
+                for m in data.get("data", [])
+            ]
+    except Exception as e:
+        logger.error(f"Failed to get llama.cpp models: {e}")
+        return []
+
+
 def _is_free_model(model_name: str, provider: str) -> bool:
     """Determine if a model is free based on name patterns."""
     if provider == "ollama":
         return True
     if provider == "lmstudio":
+        return True
+    if provider == "llamacpp":
         return True
     if provider == "openrouter":
         return ":free" in model_name
@@ -2817,6 +2951,8 @@ async def generate(
         return await _generate_opencode(model, prompt, system, timeout, options)
     elif provider == "lmstudio":
         return await _generate_lmstudio(model, prompt, system, timeout, options)
+    elif provider == "llamacpp":
+        return await _generate_llamacpp(model, prompt, system, timeout, options)
     else:
         raise ValueError(f"Unknown provider: {provider}")
 
@@ -2979,6 +3115,43 @@ async def _generate_lmstudio(
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
     except Exception as e:
         logger.error(f"LM Studio request failed: {e}")
+        raise
+
+
+async def _generate_llamacpp(
+    model: str,
+    prompt: str,
+    system: str | None,
+    timeout: int,
+    options: dict[str, Any] | None,
+) -> str:
+    """Generate text using llama.cpp server."""
+    model_id = model.removeprefix("llamacpp/")
+    payload: dict[str, Any] = {
+        "model": model_id,
+        "messages": [],
+    }
+    if system:
+        payload["messages"].append({"role": "system", "content": system})
+    payload["messages"].append({"role": "user", "content": prompt})
+
+    headers = {"Content-Type": "application/json"}
+    if LLAMACPP_API_KEY:
+        headers["Authorization"] = f"Bearer {LLAMACPP_API_KEY}"
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LLAMACPP_URL}/chat/completions",
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except Exception as e:
+        logger.error(f"llama.cpp request failed: {e}")
         raise
 
 
@@ -3440,76 +3613,58 @@ class PageCache:
 ## `src/scraper/converters/__init__.py`
 
 ```python
-"""Converter plugin registry (PR 3.4).
+"""Converter registry for HTML -> Markdown backends."""
 
-Usage::
+from __future__ import annotations
 
-    from src.scraper.converters import get_converter, register_converter, available_converters
+from typing import Protocol, runtime_checkable
 
-    converter = get_converter()          # default "markdownify"
-    converter = get_converter("markdownify")
-    md = converter.convert(html)
 
-    # Register a custom converter
-    register_converter("my_converter", MyConverter())
+@runtime_checkable
+class MarkdownConverter(Protocol):
+    def supports_tables(self) -> bool: ...
+    def supports_code_blocks(self) -> bool: ...
+    def convert(self, html: str) -> str: ...
 
-    # List all registered converters
-    names = available_converters()  # ["markdownify"]
-"""
 
-import logging
-from typing import TYPE_CHECKING
+_REGISTRY: dict[str, type] = {}
 
-from src.scraper.converters.base import MarkdownConverter
-from src.scraper.converters.markdownify_converter import MarkdownifyConverter
 
-if TYPE_CHECKING:
-    pass
-
-logger = logging.getLogger(__name__)
-
-# Static registry — dynamic loading deferred to a future PR
-_REGISTRY: dict[str, MarkdownConverter] = {
-    "markdownify": MarkdownifyConverter(),
-}
-
-_DEFAULT_CONVERTER = "markdownify"
+def register_converter(name: str, cls: type) -> None:
+    _REGISTRY[name] = cls
 
 
 def get_converter(name: str | None = None) -> MarkdownConverter:
-    """Return a converter by name, or the default if name is None.
-
-    Raises KeyError if the named converter is not registered.
-    """
-    key = name or _DEFAULT_CONVERTER
+    key = name or "markdownify"
     if key not in _REGISTRY:
-        raise KeyError(
-            f"Converter '{key}' not found. Available: {list(_REGISTRY.keys())}"
-        )
-    return _REGISTRY[key]
-
-
-def register_converter(name: str, converter: MarkdownConverter) -> None:
-    """Register a converter instance under a name.
-
-    The converter must implement the MarkdownConverter Protocol.
-    Raises TypeError if the protocol is not satisfied.
-
-    Note: Not thread-safe. Concurrent registration during tests should be
-    guarded externally. In production, converters are registered at startup
-    (before async event loop), so this is not a runtime concern.
-    """
-    if not isinstance(converter, MarkdownConverter):
-        raise TypeError(
-            f"'{type(converter).__name__}' does not implement the MarkdownConverter protocol."
-        )
-    _REGISTRY[name] = converter
-    logger.info(f"Registered converter: {name}")
+        raise ValueError(f"Unknown converter: {key!r}. Available: {list(_REGISTRY)}")
+    return _REGISTRY[key]()
 
 
 def available_converters() -> list[str]:
-    """Return names of all registered converters."""
     return list(_REGISTRY.keys())
+
+
+# --- built-in registrations ---
+from .markdownify_converter import MarkdownifyConverter  # noqa: E402
+
+register_converter("markdownify", MarkdownifyConverter)
+
+from .readerlm_converter import ReaderLMConverter  # noqa: E402
+
+register_converter("readerlm", ReaderLMConverter)
+register_converter(
+    "readerlm-v1",
+    type(
+        "ReaderLMV1",
+        (ReaderLMConverter,),
+        {
+            "__init__": lambda self, **kw: ReaderLMConverter.__init__(
+                self, model="milkey/reader-lm:latest", **kw
+            )
+        },
+    ),
+)
 ```
 
 ---
@@ -3577,6 +3732,114 @@ class MarkdownifyConverter:
 
     def supports_code_blocks(self) -> bool:
         return True
+```
+
+---
+
+## `src/scraper/converters/readerlm_converter.py`
+
+```python
+"""ReaderLMConverter: HTML -> Markdown via ReaderLM-v2/v1 (Ollama).
+
+Drop-in replacement for MarkdownifyConverter. Uses Ollama's /api/chat
+endpoint to call a locally-hosted ReaderLM model trained specifically
+for HTML-to-Markdown translation.
+
+Usage (via registry)::
+
+    converter = get_converter("readerlm")    # v2 (1.5B, default)
+    converter = get_converter("readerlm-v1") # v1 (0.5B, CPU-friendly)
+
+Or directly::
+
+    from src.scraper.converters.readerlm_converter import ReaderLMConverter
+    md = ReaderLMConverter().convert(html_string)
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+
+import httpx
+
+logger = logging.getLogger(__name__)
+
+_SYSTEM_PROMPT = (
+    "Convert the following HTML to clean, well-formatted Markdown. "
+    "Remove all navigation menus, footers, cookie banners, and ads. "
+    "Preserve code blocks, tables, lists, and inline formatting exactly."
+)
+
+# Token-budget heuristic: HTML compresses ~3:1 to tokens; add 2 K headroom.
+# Cap at 131 072 (ReaderLM-v2 max context).
+_CTX_HEADROOM = 2048
+_CTX_MAX = 131_072
+
+
+class ReaderLMConverter:
+    """Markdown converter that delegates HTML->MD to a local ReaderLM model.
+
+    Implements the MarkdownConverter protocol expected by the converter
+    registry (supports_tables, supports_code_blocks, convert).
+    """
+
+    def __init__(
+        self,
+        model: str = "milkey/reader-lm-v2:latest",
+        ollama_base_url: str = "http://localhost:11434",
+        timeout: float = 90.0,
+    ) -> None:
+        self.model = model
+        self.base_url = ollama_base_url.rstrip("/")
+        self.timeout = timeout
+
+    # ------------------------------------------------------------------
+    # MarkdownConverter protocol
+    # ------------------------------------------------------------------
+
+    def supports_tables(self) -> bool:
+        return True
+
+    def supports_code_blocks(self) -> bool:
+        return True
+
+    def convert(self, html: str) -> str:
+        """Convert *html* to Markdown synchronously (blocking)."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            # Already inside an async context (e.g. pytest-asyncio).
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(asyncio.run, self._convert_async(html))
+                return future.result()
+        else:
+            return asyncio.run(self._convert_async(html))
+
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
+
+    async def _convert_async(self, html: str) -> str:
+        num_ctx = min(len(html) // 3 + _CTX_HEADROOM, _CTX_MAX)
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": html},
+            ],
+            "stream": False,
+            "options": {"num_ctx": num_ctx},
+        }
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            resp = await client.post(f"{self.base_url}/api/chat", json=payload)
+            resp.raise_for_status()
+            return resp.json()["message"]["content"]
 ```
 
 ---
@@ -4032,9 +4295,18 @@ class PageScraper:
             await self._playwright.stop()  # type: ignore[union-attr,attr-defined]
             self._playwright = None
 
-    async def _remove_noise(self, page: Page) -> None:
-        """Remove noise elements from the DOM before extraction."""
-        selector_list = ", ".join(NOISE_SELECTORS)
+    async def _remove_noise(
+        self, page: Page, noise_selectors: list[str] | None = None
+    ) -> None:
+        """Remove noise elements from the DOM before extraction.
+
+        Args:
+            page: Playwright page to clean.
+            noise_selectors: Additional CSS selectors to remove, prepended before
+                the DocRawl defaults so user selectors are tried first.
+        """
+        selectors = list(noise_selectors or []) + NOISE_SELECTORS
+        selector_list = ", ".join(selectors)
         removed = await page.evaluate(f"""() => {{
             const els = document.querySelectorAll(`{selector_list}`);
             let count = 0;
@@ -4044,9 +4316,18 @@ class PageScraper:
         if removed:
             logger.debug(f"Removed {removed} noise elements from DOM")
 
-    async def _extract_content(self, page: Page) -> str:
-        """Extract main content HTML, trying specific selectors before body fallback."""
-        for selector in CONTENT_SELECTORS:
+    async def _extract_content(
+        self, page: Page, content_selectors: list[str] | None = None
+    ) -> str:
+        """Extract main content HTML, trying specific selectors before body fallback.
+
+        Args:
+            page: Playwright page to extract from.
+            content_selectors: Additional CSS selectors to try first, prepended before
+                the DocRawl defaults so user selectors take priority.
+        """
+        selectors = list(content_selectors or []) + CONTENT_SELECTORS
+        for selector in selectors:
             try:
                 el = await page.query_selector(selector)
                 if el:
@@ -4059,17 +4340,44 @@ class PageScraper:
             except Exception:
                 continue
 
+        # readability-lxml fallback — extracts main content via Mozilla Readability algorithm
+        try:
+            from readability import Document
+            from markdownify import markdownify as md_convert
+
+            full_html = await page.content()
+            doc = Document(full_html)
+            summary_html = doc.summary()
+            markdown = md_convert(summary_html, heading_style="ATX")
+            if len(markdown) >= MIN_CONTENT_LENGTH:
+                logger.debug(
+                    f"Extracted content via readability-lxml ({len(markdown)} chars)"
+                )
+                return summary_html
+        except Exception as e:
+            logger.debug(f"readability-lxml fallback failed: {e}")
+
         # Fallback to body
         html = await page.inner_html("body")
         logger.debug(f"Fallback to body extraction ({len(html)} chars)")
         return html
 
     async def get_html(
-        self, url: str, timeout: int = 30000, pool: "PagePool | None" = None
+        self,
+        url: str,
+        timeout: int = 30000,
+        pool: "PagePool | None" = None,
+        content_selectors: list[str] | None = None,
+        noise_selectors: list[str] | None = None,
     ) -> str:
         """Navigate to URL, clean DOM, and extract content HTML.
 
-        pool: if provided, borrows a page from the pool instead of creating one (PR 1.2).
+        Args:
+            url: Page URL to scrape.
+            timeout: Navigation timeout in milliseconds.
+            pool: If provided, borrows a page from the pool instead of creating one (PR 1.2).
+            content_selectors: Custom content selectors to try before defaults
+            noise_selectors: Custom noise selectors to remove before extraction
         """
         if not self._browser and pool is None:
             raise RuntimeError("Browser not started")
@@ -4080,15 +4388,15 @@ class PageScraper:
         if pool is not None:
             async with pool.acquire() as page:
                 await page.goto(url, timeout=timeout, wait_until="networkidle")
-                await self._remove_noise(page)
-                return await self._extract_content(page)
+                await self._remove_noise(page, noise_selectors)
+                return await self._extract_content(page, content_selectors)
 
         assert self._browser is not None  # guarded by RuntimeError above
         page = await self._browser.new_page()
         try:
             await page.goto(url, timeout=timeout, wait_until="networkidle")
-            await self._remove_noise(page)
-            html = await self._extract_content(page)
+            await self._remove_noise(page, noise_selectors)
+            html = await self._extract_content(page, content_selectors)
             return html
         finally:
             await page.close()
@@ -4429,7 +4737,7 @@ def validate_url_not_ssrf(url: str) -> None:
 
 ## `src/ui/index.html`
 
-*File truncated: showing first 500 of 1873 lines.*
+*File truncated: showing first 500 of 1883 lines.*
 
 ```html
 <!DOCTYPE html>
@@ -4613,6 +4921,15 @@ def validate_url_not_ssrf(url: str) -> None:
         .job-history-status.cancelled {
             background: rgba(245, 158, 11, 0.2);
             color: #f59e0b;
+        }
+
+        .job-history-converter {
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            background: rgba(139, 92, 246, 0.15);
+            color: #a78bfa;
+            margin-left: 0.3rem;
         }
 
         .job-history-stop {
@@ -4923,15 +5240,6 @@ def validate_url_not_ssrf(url: str) -> None:
             max-width: 280px;
             display: flex;
             align-items: flex-start;
-            gap: 0.35rem;
-            padding-top: 1.5rem;
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            line-height: 1.3;
-        }
-
-        .hint-icon { color: #4a4a6a; flex-shrink: 0; }
-
 # ... truncated ...
 ```
 
@@ -4950,6 +5258,7 @@ sse-starlette>=1.8.0
 beautifulsoup4>=4.12.0
 defusedxml>=0.7.1
 slowapi>=0.1.9
+readability-lxml>=0.8.1
 ```
 
 ---
@@ -5034,14 +5343,16 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - OLLAMA_URL=http://host.docker.internal:11434
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
-      - OPENCODE_API_KEY=${OPENCODE_API_KEY:-}
-      - API_KEY=${API_KEY:-}
-      - CORS_ORIGINS=${CORS_ORIGINS:-}
-      - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-5}
-      - LMSTUDIO_URL=${LMSTUDIO_URL:-}
-      - LMSTUDIO_API_KEY=${LMSTUDIO_API_KEY:-}
+       - OLLAMA_URL=http://host.docker.internal:11434
+       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+       - OPENCODE_API_KEY=${OPENCODE_API_KEY:-}
+       - API_KEY=${API_KEY:-}
+       - CORS_ORIGINS=${CORS_ORIGINS:-}
+       - MAX_CONCURRENT_JOBS=${MAX_CONCURRENT_JOBS:-5}
+       - LMSTUDIO_URL=${LMSTUDIO_URL:-}
+       - LMSTUDIO_API_KEY=${LMSTUDIO_API_KEY:-}
+       - LLAMACPP_URL=${LLAMACPP_URL:-}
+       - LLAMACPP_API_KEY=${LLAMACPP_API_KEY:-}
     restart: unless-stopped
     # Shared memory for Playwright - prevents crashes on large pages
     shm_size: '2gb'
@@ -5139,6 +5450,18 @@ OLLAMA_URL=http://localhost:11434
 # Get LM Studio: https://lmstudio.ai
 LMSTUDIO_URL=http://localhost:1234/v1
 LMSTUDIO_API_KEY=
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LLAMA.CPP SERVER (Local LLM — OpenAI-compatible)
+# ─────────────────────────────────────────────────────────────────────────────
+# URL where llama.cpp server is running. Default port is 8080.
+# Start server: ./llama-server -m model.gguf --port 8080
+# Models are referenced as "llamacpp/<alias>" where alias comes from --alias flag
+# or defaults to the GGUF filename without extension.
+#
+# Get llama.cpp: https://github.com/ggml-org/llama.cpp/releases
+LLAMACPP_URL=http://localhost:8080/v1
+LLAMACPP_API_KEY=
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OPENROUTER API (Cloud LLM Provider)
