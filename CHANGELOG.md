@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **feat(api,runner): document HTTP fallback chain and log fetch method summary** ([#157](https://github.com/plater7/docrawl/pull/157))
 
 ---
+- **feat(scraper): ReaderLM converter — single-pass HTML→Markdown without LLM cleanup** ([#171](https://github.com/plater7/docrawl/pull/171))
 
 ## [v0.9.99] - unreleased
 
