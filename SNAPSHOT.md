@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.9.10
 
-> Auto-generated on 2026-03-14 15:28 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-03-14 16:16 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -1373,10 +1373,11 @@ logger = logging.getLogger(__name__)
 
 
 class RobotsParser:
-    """Simple robots.txt parser."""
+    """Simple robots.txt parser supporting Disallow and Allow directives."""
 
     def __init__(self) -> None:
         self.disallowed: list[str] = []
+        self.allowed: list[str] = []
         self.crawl_delay: float | None = None
 
     async def load(self, base_url: str) -> bool:
@@ -1411,6 +1412,10 @@ class RobotsParser:
                     path = line.split(":", 1)[1].strip()
                     if path:
                         self.disallowed.append(path)
+                elif line.startswith("allow:"):
+                    path = line.split(":", 1)[1].strip()
+                    if path:
+                        self.allowed.append(path)
                 elif line.startswith("crawl-delay:"):
                     try:
                         self.crawl_delay = float(line.split(":", 1)[1].strip())
@@ -1418,14 +1423,40 @@ class RobotsParser:
                         pass
 
     def is_allowed(self, url: str) -> bool:
-        """Check if URL is allowed by robots.txt."""
+        """Check if URL is allowed by robots.txt.
+
+        Uses specificity-based precedence: the longest matching rule wins.
+        If Allow and Disallow tie on length, Allow wins (RFC 9309 §2.2.2).
+        """
         parsed = urlparse(url)
         path = parsed.path
 
-        for disallowed in self.disallowed:
-            if path.startswith(disallowed):
-                return False
-        return True
+        best_disallow_len: int | None = None
+        for rule in self.disallowed:
+            if path.startswith(rule):
+                if best_disallow_len is None or len(rule) > best_disallow_len:
+                    best_disallow_len = len(rule)
+
+        best_allow_len: int | None = None
+        for rule in self.allowed:
+            if path.startswith(rule):
+                if best_allow_len is None or len(rule) > best_allow_len:
+                    best_allow_len = len(rule)
+
+        # No rule matched at all -> allowed
+        if best_disallow_len is None and best_allow_len is None:
+            return True
+
+        # Only allow matched -> allowed
+        if best_disallow_len is None:
+            return True
+
+        # Only disallow matched -> blocked
+        if best_allow_len is None:
+            return False
+
+        # Both matched: Allow wins on tie or when more specific
+        return best_allow_len >= best_disallow_len
 ```
 
 ---
@@ -1520,6 +1551,49 @@ class ValidationError(DocrawlError):
         super().__init__(
             message=f"Invalid {field}: {reason}",
             user_hint=f"Check the {field} field in the form",
+        )
+
+
+class LLMProviderError(DocrawlError):
+    """Base class for all LLM provider errors."""
+
+    def __init__(self, message: str, provider: str, user_hint: str | None = None):
+        self.provider = provider
+        super().__init__(message=message, user_hint=user_hint)
+
+
+class LLMConnectionError(LLMProviderError):
+    """Cannot connect to LLM provider."""
+
+    def __init__(self, provider: str, detail: str = ""):
+        super().__init__(
+            message=f"Cannot connect to {provider}" + (f": {detail}" if detail else ""),
+            provider=provider,
+            user_hint=f"Check that {provider} is running and reachable",
+        )
+
+
+class LLMTimeoutError(LLMProviderError):
+    """LLM provider request timed out."""
+
+    def __init__(self, provider: str, timeout_s: int | float = 0):
+        super().__init__(
+            message=f"{provider} request timed out after {timeout_s}s",
+            provider=provider,
+            user_hint="Try increasing the timeout or use a smaller model",
+        )
+
+
+class LLMRateLimitError(LLMProviderError):
+    """LLM provider returned HTTP 429 rate limit."""
+
+    def __init__(self, provider: str, retry_after: int | None = None):
+        self.retry_after = retry_after
+        hint = f"Retry after {retry_after}s" if retry_after else "Wait and retry"
+        super().__init__(
+            message=f"{provider} rate limit exceeded",
+            provider=provider,
+            user_hint=hint,
         )
 ```
 
@@ -2681,6 +2755,8 @@ async def cleanup_markdown(markdown: str, model: str) -> str:
 
 ## `src/llm/client.py`
 
+*File truncated: showing first 500 of 525 lines.*
+
 ```python
 """LLM client supporting multiple providers: Ollama, OpenRouter, OpenCode."""
 
@@ -2692,6 +2768,8 @@ import logging
 from typing import Any
 
 import httpx
+
+from src.exceptions import LLMConnectionError, LLMTimeoutError, LLMRateLimitError
 
 logger = logging.getLogger(__name__)
 
@@ -2995,7 +3073,10 @@ async def _generate_ollama(
             return data.get("response", "")
     except httpx.TimeoutException:
         logger.error(f"Ollama request timed out after {timeout}s")
-        raise
+        raise LLMTimeoutError("ollama", timeout)
+    except httpx.ConnectError as e:
+        logger.error(f"Ollama connection failed: {e}")
+        raise LLMConnectionError("ollama", str(e))
     except Exception as e:
         logger.error(f"Ollama request failed: {e}")
         raise
@@ -3033,9 +3114,23 @@ async def _generate_openrouter(
                 headers=headers,
                 timeout=timeout,
             )
+            if response.status_code == 429:
+                retry_after_str = response.headers.get("retry-after", "")
+                retry_after = (
+                    int(retry_after_str) if retry_after_str.isdigit() else None
+                )
+                raise LLMRateLimitError("openrouter", retry_after)
             response.raise_for_status()
             data = response.json()
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except LLMRateLimitError:
+        raise
+    except httpx.TimeoutException:
+        logger.error(f"OpenRouter request timed out after {timeout}s")
+        raise LLMTimeoutError("openrouter", timeout)
+    except httpx.ConnectError as e:
+        logger.error(f"OpenRouter connection failed: {e}")
+        raise LLMConnectionError("openrouter", str(e))
     except Exception as e:
         logger.error(f"OpenRouter request failed: {e}")
         raise
@@ -3076,6 +3171,12 @@ async def _generate_opencode(
             response.raise_for_status()
             data = response.json()
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except httpx.TimeoutException:
+        logger.error(f"OpenCode request timed out after {timeout}s")
+        raise LLMTimeoutError("opencode", timeout)
+    except httpx.ConnectError as e:
+        logger.error(f"OpenCode connection failed: {e}")
+        raise LLMConnectionError("opencode", str(e))
     except Exception as e:
         logger.error(f"OpenCode request failed: {e}")
         raise
@@ -3113,6 +3214,12 @@ async def _generate_lmstudio(
             response.raise_for_status()
             data = response.json()
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except httpx.TimeoutException:
+        logger.error(f"LM Studio request timed out after {timeout}s")
+        raise LLMTimeoutError("lmstudio", timeout)
+    except httpx.ConnectError as e:
+        logger.error(f"LM Studio connection failed: {e}")
+        raise LLMConnectionError("lmstudio", str(e))
     except Exception as e:
         logger.error(f"LM Studio request failed: {e}")
         raise
@@ -3150,26 +3257,8 @@ async def _generate_llamacpp(
             response.raise_for_status()
             data = response.json()
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
-    except Exception as e:
-        logger.error(f"llama.cpp request failed: {e}")
-        raise
-
-
-# Legacy functions for backwards compatibility
-async def get_available_models_legacy() -> list[dict[str, Any]]:
-    """Legacy: Get list of available Ollama models."""
-    return await get_available_models("ollama")
-
-
-async def generate_legacy(
-    model: str,
-    prompt: str,
-    system: str | None = None,
-    timeout: int = 120,
-    options: dict[str, Any] | None = None,
-) -> str:
-    """Legacy: Generate text using Ollama."""
-    return await generate(model, prompt, system, timeout, options)
+    except httpx.TimeoutException:
+# ... truncated ...
 ```
 
 ---
