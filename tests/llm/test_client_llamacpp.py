@@ -15,8 +15,6 @@ from src.llm.client import (
     get_provider_for_model,
     _get_llamacpp_models,
     _generate_llamacpp,
-    LLAMACPP_URL,
-    LLAMACPP_API_KEY,
 )
 
 
@@ -120,7 +118,9 @@ class TestGenerateLlamaCpp:
 
         with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
             with patch("src.llm.client.LLAMACPP_API_KEY", ""):
-                result = await _generate_llamacpp("llamacpp/mistral", "Hi", None, 60, None)
+                result = await _generate_llamacpp(
+                    "llamacpp/mistral", "Hi", None, 60, None
+                )
 
         assert result == "Hello from llama.cpp"
 
