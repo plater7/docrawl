@@ -86,3 +86,46 @@ class ValidationError(DocrawlError):
             message=f"Invalid {field}: {reason}",
             user_hint=f"Check the {field} field in the form",
         )
+
+
+class LLMProviderError(DocrawlError):
+    """Base class for all LLM provider errors."""
+
+    def __init__(self, message: str, provider: str, user_hint: str | None = None):
+        self.provider = provider
+        super().__init__(message=message, user_hint=user_hint)
+
+
+class LLMConnectionError(LLMProviderError):
+    """Cannot connect to LLM provider."""
+
+    def __init__(self, provider: str, detail: str = ""):
+        super().__init__(
+            message=f"Cannot connect to {provider}" + (f": {detail}" if detail else ""),
+            provider=provider,
+            user_hint=f"Check that {provider} is running and reachable",
+        )
+
+
+class LLMTimeoutError(LLMProviderError):
+    """LLM provider request timed out."""
+
+    def __init__(self, provider: str, timeout_s: int | float = 0):
+        super().__init__(
+            message=f"{provider} request timed out after {timeout_s}s",
+            provider=provider,
+            user_hint="Try increasing the timeout or use a smaller model",
+        )
+
+
+class LLMRateLimitError(LLMProviderError):
+    """LLM provider returned HTTP 429 rate limit."""
+
+    def __init__(self, provider: str, retry_after: int | None = None):
+        self.retry_after = retry_after
+        hint = f"Retry after {retry_after}s" if retry_after else "Wait and retry"
+        super().__init__(
+            message=f"{provider} rate limit exceeded",
+            provider=provider,
+            user_hint=hint,
+        )

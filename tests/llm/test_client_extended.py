@@ -236,7 +236,9 @@ class TestGenerateOpenrouter:
         assert "user" in roles
 
     async def test_exception_propagates(self):
-        """When httpx raises, the exception propagates out."""
+        """When httpx raises TimeoutException, it is wrapped as LLMTimeoutError."""
+        from src.exceptions import LLMTimeoutError
+
         client_instance = AsyncMock()
         client_instance.post.side_effect = httpx.TimeoutException("timeout")
         client_instance.__aenter__ = AsyncMock(return_value=client_instance)
@@ -246,7 +248,7 @@ class TestGenerateOpenrouter:
             with patch(
                 "src.llm.client.httpx.AsyncClient", return_value=client_instance
             ):
-                with pytest.raises(httpx.TimeoutException):
+                with pytest.raises(LLMTimeoutError):
                     await _generate_openrouter(
                         "openrouter/llama", "hello", None, 60, None
                     )

@@ -9,6 +9,8 @@ from typing import Any
 
 import httpx
 
+from src.exceptions import LLMConnectionError, LLMTimeoutError, LLMRateLimitError
+
 logger = logging.getLogger(__name__)
 
 # Model list cache: provider -> (models, timestamp)
@@ -311,7 +313,10 @@ async def _generate_ollama(
             return data.get("response", "")
     except httpx.TimeoutException:
         logger.error(f"Ollama request timed out after {timeout}s")
-        raise
+        raise LLMTimeoutError("ollama", timeout)
+    except httpx.ConnectError as e:
+        logger.error(f"Ollama connection failed: {e}")
+        raise LLMConnectionError("ollama", str(e))
     except Exception as e:
         logger.error(f"Ollama request failed: {e}")
         raise
@@ -349,9 +354,23 @@ async def _generate_openrouter(
                 headers=headers,
                 timeout=timeout,
             )
+            if response.status_code == 429:
+                retry_after_str = response.headers.get("retry-after", "")
+                retry_after = (
+                    int(retry_after_str) if retry_after_str.isdigit() else None
+                )
+                raise LLMRateLimitError("openrouter", retry_after)
             response.raise_for_status()
             data = response.json()
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except LLMRateLimitError:
+        raise
+    except httpx.TimeoutException:
+        logger.error(f"OpenRouter request timed out after {timeout}s")
+        raise LLMTimeoutError("openrouter", timeout)
+    except httpx.ConnectError as e:
+        logger.error(f"OpenRouter connection failed: {e}")
+        raise LLMConnectionError("openrouter", str(e))
     except Exception as e:
         logger.error(f"OpenRouter request failed: {e}")
         raise
@@ -392,6 +411,12 @@ async def _generate_opencode(
             response.raise_for_status()
             data = response.json()
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except httpx.TimeoutException:
+        logger.error(f"OpenCode request timed out after {timeout}s")
+        raise LLMTimeoutError("opencode", timeout)
+    except httpx.ConnectError as e:
+        logger.error(f"OpenCode connection failed: {e}")
+        raise LLMConnectionError("opencode", str(e))
     except Exception as e:
         logger.error(f"OpenCode request failed: {e}")
         raise
@@ -429,6 +454,12 @@ async def _generate_lmstudio(
             response.raise_for_status()
             data = response.json()
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except httpx.TimeoutException:
+        logger.error(f"LM Studio request timed out after {timeout}s")
+        raise LLMTimeoutError("lmstudio", timeout)
+    except httpx.ConnectError as e:
+        logger.error(f"LM Studio connection failed: {e}")
+        raise LLMConnectionError("lmstudio", str(e))
     except Exception as e:
         logger.error(f"LM Studio request failed: {e}")
         raise
@@ -466,6 +497,12 @@ async def _generate_llamacpp(
             response.raise_for_status()
             data = response.json()
             return data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    except httpx.TimeoutException:
+        logger.error(f"llama.cpp request timed out after {timeout}s")
+        raise LLMTimeoutError("llamacpp", timeout)
+    except httpx.ConnectError as e:
+        logger.error(f"llama.cpp connection failed: {e}")
+        raise LLMConnectionError("llamacpp", str(e))
     except Exception as e:
         logger.error(f"llama.cpp request failed: {e}")
         raise

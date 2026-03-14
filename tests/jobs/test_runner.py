@@ -785,3 +785,335 @@ class TestBlockedResponse:
                                         await run_job(job, resume_urls=urls)
 
         assert job.pages_blocked >= 0
+
+
+# ---------------------------------------------------------------------------
+# Task 10: robots.txt respect path (respect_robots_txt=True)
+# ---------------------------------------------------------------------------
+
+
+class TestRunJobRobotsTxtRespect:
+    """run_job loads robots.txt when respect_robots_txt=True."""
+
+    async def test_robots_load_called_when_respect_true(self, tmp_path):
+        """robots.load() is called when respect_robots_txt=True."""
+        robots = MagicMock()
+        robots.load = AsyncMock()
+        robots.crawl_delay = None
+        robots.is_allowed = MagicMock(return_value=True)
+        scraper = MagicMock()
+        scraper.start = AsyncMock()
+        scraper.stop = AsyncMock()
+        converter = MagicMock()
+        converter.convert = MagicMock(return_value="# content")
+
+        request = _make_request(
+            output_path=str(tmp_path / "test-robots-r"),
+            use_http_fast_path=True,
+            respect_robots_txt=True,
+            crawl_model=None,
+            pipeline_model=None,
+            reasoning_model=None,
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+
+        with patch("src.jobs.runner.validate_models", return_value=[]):
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner.fetch_html_fast", return_value="# x"
+                        ):
+                            with patch(
+                                "src.jobs.runner.chunk_markdown", return_value=["# x"]
+                            ):
+                                with patch(
+                                    "src.jobs.runner.needs_llm_cleanup",
+                                    return_value=False,
+                                ):
+                                    with patch("src.jobs.runner.save_job_state"):
+                                        await run_job(
+                                            job, resume_urls=["https://example.com/"]
+                                        )
+
+        robots.load.assert_awaited_once()
+
+    async def test_crawl_delay_from_robots_logged(self, tmp_path):
+        """When robots.crawl_delay is set, it appears in a log event."""
+        robots = MagicMock()
+        robots.load = AsyncMock()
+        robots.crawl_delay = 5.0
+        robots.is_allowed = MagicMock(return_value=True)
+        scraper = MagicMock()
+        scraper.start = AsyncMock()
+        scraper.stop = AsyncMock()
+        converter = MagicMock()
+        converter.convert = MagicMock(return_value="# content")
+
+        request = _make_request(
+            output_path=str(tmp_path / "test-robots-delay"),
+            use_http_fast_path=True,
+            respect_robots_txt=True,
+            crawl_model=None,
+            pipeline_model=None,
+            reasoning_model=None,
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+
+        with patch("src.jobs.runner.validate_models", return_value=[]):
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner.fetch_html_fast", return_value="# x"
+                        ):
+                            with patch(
+                                "src.jobs.runner.chunk_markdown", return_value=["# x"]
+                            ):
+                                with patch(
+                                    "src.jobs.runner.needs_llm_cleanup",
+                                    return_value=False,
+                                ):
+                                    with patch("src.jobs.runner.save_job_state"):
+                                        await run_job(
+                                            job, resume_urls=["https://example.com/"]
+                                        )
+
+        emitted_messages = [
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
+        ]
+        assert any("crawl-delay" in m for m in emitted_messages)
+
+
+# ---------------------------------------------------------------------------
+# Task 11: All-None models skips validate_models
+# ---------------------------------------------------------------------------
+
+
+class TestRunJobNullModels:
+    """run_job skips validate_models entirely when all models are None."""
+
+    async def test_no_model_skips_validation(self, tmp_path):
+        """All-None models means validate_models is never called."""
+        request = _make_request(
+            output_path=str(tmp_path / "test-no-models"),
+            crawl_model=None,
+            pipeline_model=None,
+            reasoning_model=None,
+            use_http_fast_path=True,
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+        scraper = MagicMock()
+        scraper.start = AsyncMock()
+        scraper.stop = AsyncMock()
+        converter = MagicMock()
+        converter.convert = MagicMock(return_value="# content")
+        robots = MagicMock()
+        robots.load = AsyncMock()
+        robots.crawl_delay = None
+        robots.is_allowed = MagicMock(return_value=True)
+
+        with patch("src.jobs.runner.validate_models") as mock_val:
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner.fetch_html_fast", return_value="# x"
+                        ):
+                            with patch(
+                                "src.jobs.runner.chunk_markdown", return_value=["# x"]
+                            ):
+                                with patch(
+                                    "src.jobs.runner.needs_llm_cleanup",
+                                    return_value=False,
+                                ):
+                                    with patch("src.jobs.runner.save_job_state"):
+                                        await run_job(
+                                            job, resume_urls=["https://example.com/"]
+                                        )
+
+        mock_val.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Task 12: use_cache=True initializes PageCache
+# ---------------------------------------------------------------------------
+
+
+class TestRunJobUseCache:
+    """run_job initializes PageCache when use_cache=True."""
+
+    async def test_cache_initialized_when_use_cache_true(self, tmp_path):
+        """PageCache should be initialized when use_cache=True."""
+        request = _make_request(
+            output_path=str(tmp_path / "test-cache"),
+            use_http_fast_path=True,
+            use_cache=True,
+            crawl_model=None,
+            pipeline_model=None,
+            reasoning_model=None,
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+        scraper = MagicMock()
+        scraper.start = AsyncMock()
+        scraper.stop = AsyncMock()
+        converter = MagicMock()
+        converter.convert = MagicMock(return_value="# content")
+        robots = MagicMock()
+        robots.load = AsyncMock()
+        robots.crawl_delay = None
+        robots.is_allowed = MagicMock(return_value=True)
+
+        with patch("src.jobs.runner.validate_models", return_value=[]):
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner.fetch_html_fast", return_value="# x"
+                        ):
+                            with patch(
+                                "src.jobs.runner.chunk_markdown", return_value=["# x"]
+                            ):
+                                with patch(
+                                    "src.jobs.runner.needs_llm_cleanup",
+                                    return_value=False,
+                                ):
+                                    with patch("src.jobs.runner.save_job_state"):
+                                        with patch(
+                                            "src.jobs.runner.PageCache"
+                                        ) as mock_cache_cls:
+                                            mock_cache_cls.return_value = MagicMock()
+                                            await run_job(
+                                                job,
+                                                resume_urls=["https://example.com/"],
+                                            )
+
+        mock_cache_cls.assert_called_once()
+
+    async def test_cache_not_initialized_when_false(self, tmp_path):
+        """PageCache should NOT be initialized when use_cache=False."""
+        request = _make_request(
+            output_path=str(tmp_path / "test-no-cache"),
+            use_http_fast_path=True,
+            use_cache=False,
+            crawl_model=None,
+            pipeline_model=None,
+            reasoning_model=None,
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+        scraper = MagicMock()
+        scraper.start = AsyncMock()
+        scraper.stop = AsyncMock()
+        converter = MagicMock()
+        converter.convert = MagicMock(return_value="# content")
+        robots = MagicMock()
+        robots.load = AsyncMock()
+        robots.crawl_delay = None
+        robots.is_allowed = MagicMock(return_value=True)
+
+        with patch("src.jobs.runner.validate_models", return_value=[]):
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner.fetch_html_fast", return_value="# x"
+                        ):
+                            with patch(
+                                "src.jobs.runner.chunk_markdown", return_value=["# x"]
+                            ):
+                                with patch(
+                                    "src.jobs.runner.needs_llm_cleanup",
+                                    return_value=False,
+                                ):
+                                    with patch("src.jobs.runner.save_job_state"):
+                                        with patch(
+                                            "src.jobs.runner.PageCache"
+                                        ) as mock_cache_cls:
+                                            await run_job(
+                                                job,
+                                                resume_urls=["https://example.com/"],
+                                            )
+
+        mock_cache_cls.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Task 13: Pause/resume mid-scrape
+# ---------------------------------------------------------------------------
+
+
+class TestRunJobPauseResume:
+    """run_job pauses and resumes mid-scrape."""
+
+    async def test_paused_job_resumes_and_completes(self, tmp_path):
+        """A job that is paused then resumed should reach completed status."""
+        import asyncio
+
+        request = _make_request(
+            output_path=str(tmp_path / "test-pause-resume"),
+            use_http_fast_path=True,
+            crawl_model=None,
+            pipeline_model=None,
+            reasoning_model=None,
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+        scraper = MagicMock()
+        scraper.start = AsyncMock()
+        scraper.stop = AsyncMock()
+        converter = MagicMock()
+        converter.convert = MagicMock(return_value="# content")
+        robots = MagicMock()
+        robots.load = AsyncMock()
+        robots.crawl_delay = None
+        robots.is_allowed = MagicMock(return_value=True)
+
+        # Pause after the job is set to "running" by directly manipulating the event
+        # so that wait_if_paused blocks, then resume it shortly after.
+        original_wait = job.wait_if_paused
+        wait_call_count = 0
+
+        async def _patched_wait():
+            nonlocal wait_call_count
+            wait_call_count += 1
+            if wait_call_count == 1:
+                # Simulate a pause: clear the event so it blocks, then schedule resume
+                job._pause_event.clear()
+                job.status = "paused"
+
+                async def _do_resume():
+                    await asyncio.sleep(0.05)
+                    job._pause_event.set()
+                    job.status = "running"
+
+                asyncio.create_task(_do_resume())
+            await original_wait()
+
+        job.wait_if_paused = _patched_wait
+
+        with patch("src.jobs.runner.validate_models", return_value=[]):
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner.fetch_html_fast", return_value="# x"
+                        ):
+                            with patch(
+                                "src.jobs.runner.chunk_markdown", return_value=["# x"]
+                            ):
+                                with patch(
+                                    "src.jobs.runner.needs_llm_cleanup",
+                                    return_value=False,
+                                ):
+                                    with patch("src.jobs.runner.save_job_state"):
+                                        await run_job(
+                                            job,
+                                            resume_urls=["https://example.com/page"],
+                                        )
+
+        assert job.status == "completed"
