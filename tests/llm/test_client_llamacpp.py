@@ -13,8 +13,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.llm.client import (
     get_provider_for_model,
+    get_available_models,
     _get_llamacpp_models,
     _generate_llamacpp,
+    _is_free_model,
 )
 
 
@@ -153,3 +155,36 @@ class TestGenerateLlamaCpp:
         with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
             with pytest.raises(httpx.TimeoutException):
                 await _generate_llamacpp("llamacpp/llama3", "hi", None, 60, None)
+
+
+class TestGetAvailableModelsLlamaCpp:
+    """Test get_available_models for llamacpp provider."""
+
+    async def test_get_available_models_llamacpp(self):
+        """get_available_models routes to _get_llamacpp_models for llamacpp."""
+        fake_data = {"data": [{"id": "model1"}]}
+        mock_response = MagicMock()
+        mock_response.json.return_value = fake_data
+        mock_response.raise_for_status = MagicMock()
+
+        client_instance = AsyncMock()
+        client_instance.get.return_value = mock_response
+        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+        client_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
+            result = await get_available_models("llamacpp")
+
+        assert len(result) == 1
+        assert result[0]["name"] == "llamacpp/model1"
+        assert result[0]["provider"] == "llamacpp"
+
+
+class TestIsFreeModelLlamaCpp:
+    """Test _is_free_model for llamacpp provider."""
+
+    def test_llamacpp_always_free(self):
+        """llamacpp models are always free."""
+        assert _is_free_model("llamacpp/any-model", "llamacpp") is True
+        assert _is_free_model("llamacpp/llama3:8b", "llamacpp") is True
+        assert _is_free_model("llamacpp/test", "llamacpp") is True

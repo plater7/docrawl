@@ -248,6 +248,111 @@ class TestHealthReady:
         )
         assert checks["lmstudio"]["status"] == "timeout"
 
+    def test_llamacpp_ok(self):
+        """Health check reports llamacpp ok with model count when reachable."""
+        llama_response = MagicMock()
+        llama_response.status_code = 200
+        llama_response.json.return_value = {
+            "data": [{"id": "llama"}, {"id": "mistral"}]
+        }
+        llama_response.raise_for_status = MagicMock()
+
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(),  # ollama
+            self._ollama_ok_response(),  # lmstudio (same mock works)
+            llama_response,  # llamacpp
+        )
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        assert response.status_code == 200
+        checks = response.json()["checks"]
+        assert checks["llamacpp"]["status"] == "ok"
+        assert checks["llamacpp"]["models_count"] == 2
+
+    def test_llamacpp_unreachable(self):
+        """Health check reports llamacpp unreachable on ConnectError."""
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(),
+            self._ollama_ok_response(),
+            httpx.ConnectError("refused"),
+        )
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        checks = response.json().get("checks") or response.json().get("detail", {}).get(
+            "checks", {}
+        )
+        assert checks["llamacpp"]["status"] == "unreachable"
+
+    def test_llamacpp_timeout(self):
+        """Health check reports llamacpp timeout on TimeoutException."""
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(),
+            self._ollama_ok_response(),
+            httpx.TimeoutException("timed out"),
+        )
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        checks = response.json().get("checks") or response.json().get("detail", {}).get(
+            "checks", {}
+        )
+        assert checks["llamacpp"]["status"] == "timeout"
+
+    def test_llamacpp_with_api_key(self):
+        """Health check sends Authorization header when LLAMACPP_API_KEY is set."""
+        llama_response = MagicMock()
+        llama_response.status_code = 200
+        llama_response.json.return_value = {"data": [{"id": "model1"}]}
+        llama_response.raise_for_status = MagicMock()
+
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(),
+            self._ollama_ok_response(),
+            llama_response,
+        )
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            with patch("src.api.routes.LLAMACPP_API_KEY", "secret-key"):
+                for p in patches:
+                    p.start()
+                try:
+                    with TestClient(app) as client:
+                        response = client.get("/api/health/ready")
+                finally:
+                    for p in patches:
+                        p.stop()
+
+        assert response.status_code == 200
+        # Verify Authorization header was sent
+        call_kwargs = client_instance.get.call_args.kwargs
+        assert call_kwargs["headers"]["Authorization"] == "Bearer secret-key"
+
 
 # ---------------------------------------------------------------------------
 # Models endpoint
