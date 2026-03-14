@@ -146,14 +146,16 @@ class TestGenerateLlamaCpp:
         assert call_kwargs["headers"].get("Authorization") == "Bearer test-key"
 
     async def test_timeout_propagates(self):
-        """TimeoutException from llama.cpp propagates out."""
+        """TimeoutException from llama.cpp is wrapped as LLMTimeoutError."""
+        from src.exceptions import LLMTimeoutError
+
         client_instance = AsyncMock()
         client_instance.post.side_effect = httpx.TimeoutException("timed out")
         client_instance.__aenter__ = AsyncMock(return_value=client_instance)
         client_instance.__aexit__ = AsyncMock(return_value=False)
 
         with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
-            with pytest.raises(httpx.TimeoutException):
+            with pytest.raises(LLMTimeoutError):
                 await _generate_llamacpp("llamacpp/llama3", "hi", None, 60, None)
 
 

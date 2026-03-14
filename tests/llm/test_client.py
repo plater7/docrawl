@@ -258,14 +258,16 @@ class TestGenerateOllama:
         assert payload["stream"] is False
 
     async def test_generate_ollama_timeout_propagates(self):
-        """TimeoutException from Ollama propagates out of generate()."""
+        """TimeoutException from Ollama is wrapped as LLMTimeoutError."""
+        from src.exceptions import LLMTimeoutError
+
         client_instance = AsyncMock()
         client_instance.post.side_effect = httpx.TimeoutException("timed out")
         client_instance.__aenter__ = AsyncMock(return_value=client_instance)
         client_instance.__aexit__ = AsyncMock(return_value=False)
 
         with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
-            with pytest.raises(httpx.TimeoutException):
+            with pytest.raises(LLMTimeoutError):
                 await generate("mistral:7b", "hello")
 
 
@@ -371,14 +373,16 @@ class TestGenerateLMStudio:
         assert call_kwargs["headers"].get("Authorization") == "Bearer my-key"
 
     async def test_timeout_propagates(self):
-        """TimeoutException from LM Studio propagates out."""
+        """TimeoutException from LM Studio is wrapped as LLMTimeoutError."""
+        from src.exceptions import LLMTimeoutError
+
         client_instance = AsyncMock()
         client_instance.post.side_effect = httpx.TimeoutException("timed out")
         client_instance.__aenter__ = AsyncMock(return_value=client_instance)
         client_instance.__aexit__ = AsyncMock(return_value=False)
 
         with patch("src.llm.client.httpx.AsyncClient", return_value=client_instance):
-            with pytest.raises(httpx.TimeoutException):
+            with pytest.raises(LLMTimeoutError):
                 await _generate_lmstudio("llama-3.1-8b", "hi", None, 60, None)
 
 
