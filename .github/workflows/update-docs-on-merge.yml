@@ -167,8 +167,13 @@ jobs:
           git add README.md CHANGELOG.md
           if ! git diff --staged --quiet; then
             git commit -m "chore: update README + CHANGELOG after PR #${{ github.event.pull_request.number }} [skip ci]"
-            git pull --rebase origin main
-            git push origin main
+            for i in 1 2 3 4 5; do
+              if git pull --rebase origin main && git push origin main; then
+                break
+              fi
+              echo "Push attempt $i failed, retrying..."
+              [ "$i" -eq 5 ] && exit 1
+            done
             echo "Committed and pushed."
           else
             echo "No changes — README and CHANGELOG already up to date."
