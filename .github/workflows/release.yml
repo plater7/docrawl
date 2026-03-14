@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - "v*"
+  # Also fires when a release is created/published via the GitHub web UI,
+  # GH CLI (`gh release create`), or API — ensuring the CHANGELOG stamp and
+  # release notes extraction always run regardless of how the release is made.
+  release:
+    types: [created, published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

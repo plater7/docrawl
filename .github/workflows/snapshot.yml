@@ -1,21 +1,17 @@
 name: Update SNAPSHOT.md
 
 on:
+  # Run on every push to main (i.e. every PR merge) to keep SNAPSHOT.md
+  # consistent regardless of which files changed in the merge.
   push:
     branches: [main]
-    paths:
-      - "src/**"
-      - "requirements.txt"
-      - "requirements-dev.txt"
-      - "Dockerfile"
-      - "docker/**"
-      - "docker-compose.yml"
-      - "docker-compose.yaml"
-      - "pyproject.toml"
-      - "scripts/generate_snapshot.py"
 
   # Allow manual trigger from Actions tab
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -23,13 +19,14 @@ permissions:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           # Need full history so the commit shows correct author
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: "3.12"
 
