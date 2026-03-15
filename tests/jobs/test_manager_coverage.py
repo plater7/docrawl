@@ -133,6 +133,7 @@ class TestEventStreamKeepalive:
         job._task = _make_mock_task(done=False)
 
         timeout_count = 0
+
         async def patched_wait_for(coro, timeout):
             nonlocal timeout_count
             timeout_count += 1
@@ -251,9 +252,7 @@ class TestEventStreamExceptionHandlers:
             raise ValueError("unexpected failure")
 
         received = []
-        with patch(
-            "src.jobs.manager.asyncio.wait_for", side_effect=exploding_wait_for
-        ):
+        with patch("src.jobs.manager.asyncio.wait_for", side_effect=exploding_wait_for):
             # Should not raise — exception is caught internally
             async for event in job.event_stream():
                 received.append(event)  # pragma: no cover

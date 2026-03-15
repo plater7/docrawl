@@ -160,9 +160,7 @@ class TestResumeUrlsPath:
             with patch("src.jobs.runner.PageScraper", return_value=scraper):
                 with patch("src.jobs.runner.get_converter", return_value=converter):
                     with patch("src.jobs.runner.RobotsParser", return_value=robots):
-                        with patch(
-                            "src.jobs.runner.discover_urls"
-                        ) as mock_discover:
+                        with patch("src.jobs.runner.discover_urls") as mock_discover:
                             with patch(
                                 "src.jobs.runner.fetch_html_fast",
                                 return_value="# Hello",
@@ -213,8 +211,7 @@ class TestResumeUrlsPath:
                                         )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("Resuming" in m or "pending URLs" in m for m in messages)
 
@@ -266,8 +263,7 @@ class TestRobotsTxtWithCrawlDelay:
                                         )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("crawl-delay" in m for m in messages)
         assert any("5.0s" in m for m in messages)
@@ -320,8 +316,7 @@ class TestRobotsTxtNoCrawlDelay:
                                         )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("no crawl-delay" in m for m in messages)
 
@@ -524,8 +519,7 @@ class TestPageCacheHitPath:
                                                 )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("cache" in m.lower() for m in messages)
 
@@ -634,8 +628,7 @@ class TestNativeMarkdownPath:
                                                 )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("native-md" in m or "Skipped Playwright" in m for m in messages)
 
@@ -744,8 +737,7 @@ class TestProxyMarkdownPath:
                                                 )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("proxy" in m.lower() for m in messages)
 
@@ -868,8 +860,7 @@ class TestBlockedResponseDetection:
                                 )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("blocked" in m.lower() for m in messages)
 
@@ -964,9 +955,7 @@ class TestJsonOutputFormat:
                                     with patch("src.jobs.runner.save_job_state"):
                                         await run_job(
                                             job,
-                                            resume_urls=[
-                                                "https://example.com/page1"
-                                            ],
+                                            resume_urls=["https://example.com/page1"],
                                         )
 
         out_dir = Path(req.output_path)
@@ -1120,8 +1109,7 @@ class TestChunkCleanupFailure:
         assert job.status == "completed"
         # Check that a warning was logged about chunk failure
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("failed" in m.lower() or "raw" in m.lower() for m in messages)
 
@@ -1211,9 +1199,7 @@ class TestNeedsLlmCleanupFalse:
                                         "src.jobs.runner.needs_llm_cleanup",
                                         return_value=False,
                                     ):
-                                        with patch(
-                                            "src.jobs.runner.save_job_state"
-                                        ):
+                                        with patch("src.jobs.runner.save_job_state"):
                                             await run_job(
                                                 job,
                                                 resume_urls=[
@@ -1222,8 +1208,7 @@ class TestNeedsLlmCleanupFalse:
                                             )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("skip" in m.lower() and "clean" in m.lower() for m in messages)
 
@@ -1271,9 +1256,7 @@ class TestPlaywrightRetrySuccess:
                                         "src.jobs.runner.needs_llm_cleanup",
                                         return_value=False,
                                     ):
-                                        with patch(
-                                            "src.jobs.runner.save_job_state"
-                                        ):
+                                        with patch("src.jobs.runner.save_job_state"):
                                             with patch("asyncio.sleep"):
                                                 await run_job(
                                                     job,
@@ -1324,8 +1307,7 @@ class TestPlaywrightRetryExhausted:
         assert job.status == "completed"
         # Page error should have been logged
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("Persistent error" in m or "✗" in m for m in messages)
 
@@ -1492,8 +1474,7 @@ class TestRobotsTxtFiltering:
                                                 await run_job(job)
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         # The robots.txt filtering log should appear (removed 1 URL)
         assert any("robots.txt" in m for m in messages)
@@ -1786,8 +1767,7 @@ class TestMultipleChunksWithCleanup:
                                                 )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         # Should see chunk 1/2 and 2/2 log entries
         assert any("1/2" in m for m in messages)
@@ -1895,7 +1875,11 @@ class TestIsCancelledInsideChunkLoop:
                             ):
                                 with patch(
                                     "src.jobs.runner.chunk_markdown",
-                                    return_value=["# Chunk A", "# Chunk B", "# Chunk C"],
+                                    return_value=[
+                                        "# Chunk A",
+                                        "# Chunk B",
+                                        "# Chunk C",
+                                    ],
                                 ):
                                     with patch(
                                         "src.jobs.runner.needs_llm_cleanup",
@@ -1979,8 +1963,7 @@ class TestPipelineModeBranch:
                                                 )
 
         messages = [
-            call.args[1].get("message", "")
-            for call in job.emit_event.call_args_list
+            call.args[1].get("message", "") for call in job.emit_event.call_args_list
         ]
         assert any("pipeline mode" in m.lower() for m in messages)
 
@@ -2178,9 +2161,7 @@ class TestJsonOutputWithRawHtml:
                                             title=None,
                                             blocks=[],
                                         )
-                                        with patch(
-                                            "src.jobs.runner.save_structured"
-                                        ):
+                                        with patch("src.jobs.runner.save_structured"):
                                             with patch(
                                                 "src.jobs.runner.save_job_state"
                                             ):

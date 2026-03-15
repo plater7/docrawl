@@ -25,7 +25,10 @@ from src.crawler.discovery import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_resp(status: int, content_type: str = "text/html", body: str = "") -> MagicMock:
+
+def _make_resp(
+    status: int, content_type: str = "text/html", body: str = ""
+) -> MagicMock:
     """Build a minimal fake httpx response."""
     resp = MagicMock()
     resp.status_code = status
@@ -40,6 +43,7 @@ def _make_async_client(url_map: dict) -> AsyncMock:
     Build an async httpx.AsyncClient mock.
     url_map: {url: MagicMock response} — unknown URLs get 404.
     """
+
     async def fake_get(url, **kwargs):
         for key, resp in url_map.items():
             if key in url:
@@ -57,8 +61,8 @@ def _make_async_client(url_map: dict) -> AsyncMock:
 # normalize_url()
 # ===========================================================================
 
-class TestNormalizeUrlUncoveredBranches:
 
+class TestNormalizeUrlUncoveredBranches:
     def test_url_longer_than_2000_chars_is_truncated(self):
         """URLs exceeding 2000 chars must be truncated and still normalised."""
         long_url = "https://example.com/" + "a" * 2000
@@ -86,7 +90,9 @@ class TestNormalizeUrlUncoveredBranches:
     def test_exception_during_urlparse_returns_url_as_is(self):
         """If urlparse raises, the raw URL is returned (except block)."""
         bad_url = "https://example.com/path"
-        with patch("src.crawler.discovery.urlparse", side_effect=Exception("parse error")):
+        with patch(
+            "src.crawler.discovery.urlparse", side_effect=Exception("parse error")
+        ):
             result = normalize_url(bad_url)
         assert result == bad_url
 
@@ -94,6 +100,7 @@ class TestNormalizeUrlUncoveredBranches:
 # ===========================================================================
 # _extract_links() — tested indirectly via recursive_crawl
 # ===========================================================================
+
 
 class TestExtractLinksViaCrawl:
     """
@@ -106,7 +113,9 @@ class TestExtractLinksViaCrawl:
         client = _make_async_client({"example.com": _make_resp(404)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         # Only base URL (depth-0 dedup), no children discovered
         assert result == ["https://example.com/"]
 
@@ -115,28 +124,32 @@ class TestExtractLinksViaCrawl:
         client = _make_async_client({"example.com": _make_resp(500)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         assert result == ["https://example.com/"]
 
     async def test_non_html_content_type_returns_no_links(self):
         """JSON responses must not be parsed for links."""
-        client = _make_async_client({
-            "example.com": _make_resp(200, content_type="application/json", body="{}")
-        })
+        client = _make_async_client(
+            {"example.com": _make_resp(200, content_type="application/json", body="{}")}
+        )
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         assert result == ["https://example.com/"]
 
     async def test_external_links_filtered_out(self):
         """Links pointing to a different domain must not appear in results."""
         html = '<a href="https://other-domain.com/page">external</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        client = _make_async_client({"example.com": _make_resp(200, body=html)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         hostnames = [urlparse(u).hostname for u in result]
         # All discovered URLs must be on example.com (or have no hostname, e.g., malformed/relative)
         assert all(h in (None, "example.com") for h in hostnames)
@@ -147,49 +160,50 @@ class TestExtractLinksViaCrawl:
     async def test_javascript_links_filtered(self):
         """javascript: hrefs must be skipped."""
         html = '<a href="javascript:void(0)">js link</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        client = _make_async_client({"example.com": _make_resp(200, body=html)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         assert result == ["https://example.com/"]
 
     async def test_mailto_links_filtered(self):
         """mailto: hrefs must be skipped."""
         html = '<a href="mailto:admin@example.com">email</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        client = _make_async_client({"example.com": _make_resp(200, body=html)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         assert result == ["https://example.com/"]
 
     async def test_tel_links_filtered(self):
         """tel: hrefs must be skipped."""
         html = '<a href="tel:+1234567890">call us</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        client = _make_async_client({"example.com": _make_resp(200, body=html)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         assert result == ["https://example.com/"]
 
     async def test_fragment_links_filtered(self):
         """Fragment-only hrefs (#section) must be skipped."""
         html = '<a href="#section">anchor</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        client = _make_async_client({"example.com": _make_resp(200, body=html)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         assert result == ["https://example.com/"]
 
     async def test_timeout_exception_returns_empty_list(self):
         """httpx.TimeoutException during fetch must not crash the crawl."""
+
         async def timeout_get(url, **kwargs):
             raise httpx.TimeoutException("timed out")
 
@@ -199,12 +213,15 @@ class TestExtractLinksViaCrawl:
         client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
-            result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+            result = await recursive_crawl(
+                "https://example.com/", max_depth=1, concurrency=1
+            )
         # Base URL is always added at depth-0 before any fetch
         assert "https://example.com/" in result
 
     async def test_generic_exception_returns_empty_list(self):
         """Generic exception during fetch must not crash the crawl."""
+
         async def broken_get(url, **kwargs):
             raise RuntimeError("network dead")
 
@@ -214,18 +231,20 @@ class TestExtractLinksViaCrawl:
         client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
-            result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+            result = await recursive_crawl(
+                "https://example.com/", max_depth=1, concurrency=1
+            )
         assert "https://example.com/" in result
 
     async def test_valid_links_discovered(self):
         """Valid same-domain links from HTML are returned in results."""
         html = '<a href="/page1">p1</a><a href="/page2">p2</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        client = _make_async_client({"example.com": _make_resp(200, body=html)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         assert "https://example.com/page1" in result
         assert "https://example.com/page2" in result
 
@@ -234,8 +253,8 @@ class TestExtractLinksViaCrawl:
 # recursive_crawl()
 # ===========================================================================
 
-class TestRecursiveCrawlUncoveredBranches:
 
+class TestRecursiveCrawlUncoveredBranches:
     async def test_max_depth_zero_returns_base_url_immediately(self):
         """max_depth < 1 exits before creating any HTTP client."""
         result = await recursive_crawl("https://example.com/", max_depth=0)
@@ -248,12 +267,11 @@ class TestRecursiveCrawlUncoveredBranches:
 
     async def test_url_cap_at_1000_logs_warning(self):
         """When 1000 URLs are collected, a warning is logged and crawl stops."""
+
         # Serve HTML with 100 links per page so we fill the cap quickly.
         # We need to provide enough unique URLs at depth-0+1 to exceed cap.
         def make_html(page_num: int) -> str:
-            links = "".join(
-                f'<a href="/p{page_num}-{i}">link</a>' for i in range(50)
-            )
+            links = "".join(f'<a href="/p{page_num}-{i}">link</a>' for i in range(50))
             return f"<html>{links}</html>"
 
         # Give each URL a unique page_num so we get many distinct child URLs
@@ -297,31 +315,37 @@ class TestRecursiveCrawlUncoveredBranches:
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 with patch("src.crawler.discovery.logger") as mock_logger:
-                    await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                    await recursive_crawl(
+                        "https://example.com/", max_depth=1, concurrency=1
+                    )
         # logger.info should have been called at least once for heartbeat
         mock_logger.info.assert_called()
 
     async def test_deduplication_same_url_visited_once(self):
         """If the same link appears multiple times, it is added only once."""
         html = '<a href="/page">p</a><a href="/page">p</a><a href="/page/">p</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        client = _make_async_client({"example.com": _make_resp(200, body=html)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         # /page and /page/ normalise to the same URL
         assert result.count("https://example.com/page") <= 1
 
     async def test_bfs_depth_1_discovers_child_pages(self):
         """Normal BFS: depth-0 fetched, found links returned at depth-1."""
         html = '<a href="/child1">c1</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html),
-        })
+        client = _make_async_client(
+            {
+                "example.com": _make_resp(200, body=html),
+            }
+        )
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         # Ensure both the base URL and the discovered child URL are present.
         assert "https://example.com/" in result
         assert "https://example.com/child1" in result
@@ -363,9 +387,9 @@ CHILD_SITEMAP_XML = (
 
 
 class TestTrySitemapUncoveredBranches:
-
     def _client_from_map(self, url_map: dict) -> AsyncMock:
         """url_map: {substring: (status, content_bytes, text)}"""
+
         async def fake_get(url, **kwargs):
             for key, (status, content, text) in url_map.items():
                 if key in url:
@@ -388,15 +412,18 @@ class TestTrySitemapUncoveredBranches:
 
     async def test_non_200_non_404_sitemap_response_skipped(self):
         """500 response for sitemap.xml must be skipped gracefully."""
-        client = self._client_from_map({
-            "sitemap.xml": (500, b"", ""),
-        })
+        client = self._client_from_map(
+            {
+                "sitemap.xml": (500, b"", ""),
+            }
+        )
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             result = await try_sitemap("https://example.com/")
         assert result == []
 
     async def test_timeout_exception_on_sitemap_fetch_skipped(self):
         """TimeoutException during sitemap fetch must not crash discovery."""
+
         async def timeout_get(url, **kwargs):
             if "sitemap" in url:
                 raise httpx.TimeoutException("timeout")
@@ -417,6 +444,7 @@ class TestTrySitemapUncoveredBranches:
 
     async def test_nested_sitemap_index_parsed_recursively(self):
         """A sitemapindex file causes child sitemaps to be fetched and parsed."""
+
         async def fake_get(url, **kwargs):
             resp = MagicMock()
             if url.endswith("/sitemap.xml"):
@@ -473,6 +501,7 @@ class TestTrySitemapUncoveredBranches:
 
     async def test_robots_txt_404_continues_gracefully(self):
         """404 on robots.txt must not stop sitemap discovery."""
+
         async def fake_get(url, **kwargs):
             resp = MagicMock()
             if "robots.txt" in url:
@@ -500,6 +529,7 @@ class TestTrySitemapUncoveredBranches:
 
     async def test_robots_txt_exception_continues_gracefully(self):
         """Exception during robots.txt fetch must be silently passed."""
+
         async def fake_get(url, **kwargs):
             if "robots.txt" in url:
                 raise httpx.TimeoutException("robots timeout")
@@ -586,9 +616,7 @@ class TestTrySitemapUncoveredBranches:
         client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
-            result = await try_sitemap(
-                "https://example.com/docs/", filter_by_path=True
-            )
+            result = await try_sitemap("https://example.com/docs/", filter_by_path=True)
         # /other-section/page is outside /docs/ and must be excluded
         assert "https://example.com/other-section/page" not in result
         assert "https://example.com/docs/page" in result
@@ -704,6 +732,7 @@ class TestTrySitemapUncoveredBranches:
 
     async def test_generic_exception_in_parse_sitemap_xml_logs_warning(self):
         """Unexpected exception in parse_sitemap_xml must log a warning."""
+
         # Trigger via patch on ET.fromstring raising an unexpected error type
         async def fake_get(url, **kwargs):
             resp = MagicMock()
@@ -723,7 +752,10 @@ class TestTrySitemapUncoveredBranches:
         client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
-            with patch("src.crawler.discovery.ET.fromstring", side_effect=RuntimeError("unexpected")):
+            with patch(
+                "src.crawler.discovery.ET.fromstring",
+                side_effect=RuntimeError("unexpected"),
+            ):
                 result = await try_sitemap("https://example.com/")
         assert result == []
 
@@ -731,6 +763,7 @@ class TestTrySitemapUncoveredBranches:
 # ===========================================================================
 # try_nav_parse()
 # ===========================================================================
+
 
 def _make_playwright_stack(
     *,
@@ -778,7 +811,6 @@ def _make_link(href):
 
 
 class TestTryNavParseUncoveredBranches:
-
     async def test_ssrf_check_blocked_returns_empty(self):
         """validate_url_not_ssrf raising ValueError must return []."""
         with patch(
@@ -800,57 +832,79 @@ class TestTryNavParseUncoveredBranches:
         pw_cm, _, _ = _make_playwright_stack(links_per_selector=links_per_selector)
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert len(result) <= 100
 
     async def test_mailto_links_filtered_in_nav(self):
         """mailto: hrefs are skipped in nav parsing."""
         links = [_make_link("mailto:admin@example.com")]
-        pw_cm, _, _ = _make_playwright_stack(links_per_selector=[links] + [[] for _ in range(6)])
+        pw_cm, _, _ = _make_playwright_stack(
+            links_per_selector=[links] + [[] for _ in range(6)]
+        )
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert result == []
 
     async def test_javascript_links_filtered_in_nav(self):
         """javascript: hrefs are skipped in nav parsing."""
         links = [_make_link("javascript:void(0)")]
-        pw_cm, _, _ = _make_playwright_stack(links_per_selector=[links] + [[] for _ in range(6)])
+        pw_cm, _, _ = _make_playwright_stack(
+            links_per_selector=[links] + [[] for _ in range(6)]
+        )
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert result == []
 
     async def test_external_domain_links_filtered_in_nav(self):
         """Links to external domains are excluded from nav results."""
         links = [_make_link("https://other.com/page")]
-        pw_cm, _, _ = _make_playwright_stack(links_per_selector=[links] + [[] for _ in range(6)])
+        pw_cm, _, _ = _make_playwright_stack(
+            links_per_selector=[links] + [[] for _ in range(6)]
+        )
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert result == []
 
     async def test_link_with_no_href_is_skipped(self):
         """An element with href=None must be skipped without error."""
         links = [_make_link(None)]
-        pw_cm, _, _ = _make_playwright_stack(links_per_selector=[links] + [[] for _ in range(6)])
+        pw_cm, _, _ = _make_playwright_stack(
+            links_per_selector=[links] + [[] for _ in range(6)]
+        )
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert result == []
 
     async def test_fragment_href_skipped_in_nav(self):
         """Fragment-only hrefs (#section) are skipped in nav parsing."""
         links = [_make_link("#section")]
-        pw_cm, _, _ = _make_playwright_stack(links_per_selector=[links] + [[] for _ in range(6)])
+        pw_cm, _, _ = _make_playwright_stack(
+            links_per_selector=[links] + [[] for _ in range(6)]
+        )
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert result == []
 
@@ -868,17 +922,23 @@ class TestTryNavParseUncoveredBranches:
         page_mock.query_selector_all = AsyncMock(side_effect=side_effects)
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert "https://example.com/valid-page" in result
 
     async def test_valid_same_domain_links_included(self):
         """Valid same-domain links are returned by try_nav_parse."""
         links = [_make_link("/docs/intro"), _make_link("/docs/api")]
-        pw_cm, _, _ = _make_playwright_stack(links_per_selector=[links] + [[] for _ in range(6)])
+        pw_cm, _, _ = _make_playwright_stack(
+            links_per_selector=[links] + [[] for _ in range(6)]
+        )
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert "https://example.com/docs/intro" in result
         assert "https://example.com/docs/api" in result
@@ -888,24 +948,34 @@ class TestTryNavParseUncoveredBranches:
 # discover_urls()
 # ===========================================================================
 
-class TestDiscoverUrlsUncoveredBranches:
 
+class TestDiscoverUrlsUncoveredBranches:
     async def test_filter_by_path_param_forwarded_to_try_sitemap(self):
         """filter_by_path must be passed through to try_sitemap."""
-        with patch("src.crawler.discovery.try_sitemap", return_value=["https://example.com/p"]) as mock_sitemap:
+        with patch(
+            "src.crawler.discovery.try_sitemap", return_value=["https://example.com/p"]
+        ) as mock_sitemap:
             await discover_urls("https://example.com/", filter_by_path=False)
         call_kwargs = mock_sitemap.call_args
-        assert call_kwargs[0][1] is False or call_kwargs[1].get("filter_by_path") is False
+        assert (
+            call_kwargs[0][1] is False or call_kwargs[1].get("filter_by_path") is False
+        )
 
     async def test_sitemap_cache_param_forwarded_to_try_sitemap(self, tmp_path):
         """sitemap_cache must be forwarded to try_sitemap."""
         from src.scraper.cache import PageCache
 
         cache = PageCache(tmp_path / ".cache")
-        with patch("src.crawler.discovery.try_sitemap", return_value=["https://example.com/p"]) as mock_sitemap:
+        with patch(
+            "src.crawler.discovery.try_sitemap", return_value=["https://example.com/p"]
+        ) as mock_sitemap:
             await discover_urls("https://example.com/", sitemap_cache=cache)
         call_kwargs = mock_sitemap.call_args
-        passed_cache = call_kwargs[0][2] if len(call_kwargs[0]) > 2 else call_kwargs[1].get("sitemap_cache")
+        passed_cache = (
+            call_kwargs[0][2]
+            if len(call_kwargs[0]) > 2
+            else call_kwargs[1].get("sitemap_cache")
+        )
         assert passed_cache is cache
 
     async def test_nav_exception_does_not_stop_recursive_crawl(self):
@@ -1022,6 +1092,7 @@ class TestDiscoverUrlsUncoveredBranches:
 # Remaining gap tests — targeting specific uncovered branches
 # ===========================================================================
 
+
 class TestRemainingGaps:
     """Cover the last few uncovered lines and branches."""
 
@@ -1030,9 +1101,7 @@ class TestRemainingGaps:
     async def test_jitter_sleep_called_when_concurrency_gt_1(self):
         """asyncio.sleep jitter is invoked when concurrency > 1 (jitter=True)."""
         html = '<a href="/child">child</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        client = _make_async_client({"example.com": _make_resp(200, body=html)})
 
         sleep_calls = []
 
@@ -1041,7 +1110,9 @@ class TestRemainingGaps:
 
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", side_effect=recording_sleep):
-                await recursive_crawl("https://example.com/", max_depth=1, concurrency=2)
+                await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=2
+                )
 
         # At least one sleep call should have occurred (jitter active with concurrency=2)
         assert len(sleep_calls) >= 1
@@ -1051,12 +1122,12 @@ class TestRemainingGaps:
     async def test_link_with_query_param_preserved_in_crawl(self):
         """Links with ?query string are captured with the query included."""
         html = '<a href="/search?q=test">search</a>'
-        client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        client = _make_async_client({"example.com": _make_resp(200, body=html)})
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=1, concurrency=1
+                )
         assert any("q=test" in u for u in result)
 
     # ---- Line 321: query param in try_nav_parse link building ----
@@ -1064,10 +1135,14 @@ class TestRemainingGaps:
     async def test_nav_parse_link_with_query_param_preserved(self):
         """Links with query strings from nav parsing include the query."""
         links = [_make_link("/search?q=docs")]
-        pw_cm, _, _ = _make_playwright_stack(links_per_selector=[links] + [[] for _ in range(6)])
+        pw_cm, _, _ = _make_playwright_stack(
+            links_per_selector=[links] + [[] for _ in range(6)]
+        )
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert any("q=docs" in u for u in result)
 
@@ -1082,6 +1157,7 @@ class TestRemainingGaps:
             "<url><loc>https://example.com/real-page</loc></url>"
             "</urlset>"
         )
+
         async def fake_get(url, **kwargs):
             resp = MagicMock()
             if "sitemap.xml" in url and "sitemap_index" not in url:
@@ -1114,6 +1190,7 @@ class TestRemainingGaps:
             "<url><loc>https://example.com/local-page</loc></url>"
             "</urlset>"
         )
+
         async def fake_get(url, **kwargs):
             resp = MagicMock()
             if "sitemap.xml" in url and "sitemap_index" not in url:
@@ -1159,7 +1236,9 @@ class TestRemainingGaps:
 
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=2, concurrency=1)
+                result = await recursive_crawl(
+                    "https://example.com/", max_depth=2, concurrency=1
+                )
 
         assert len(result) <= 1000
 
@@ -1174,7 +1253,9 @@ class TestRemainingGaps:
         )
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert result == []
 
@@ -1187,7 +1268,9 @@ class TestRemainingGaps:
         )
 
         with patch("src.crawler.discovery.async_playwright", return_value=pw_cm):
-            with patch("src.crawler.discovery.validate_url_not_ssrf", return_value=None):
+            with patch(
+                "src.crawler.discovery.validate_url_not_ssrf", return_value=None
+            ):
                 result = await try_nav_parse("https://example.com/")
         assert result == []
 
