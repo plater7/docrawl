@@ -1,11 +1,13 @@
 name: Publish Docker Image
 
-# Runs after the Release workflow completes successfully.
-# This ensures the GitHub Release exists before the image is published.
+# Triggered when a GitHub Release is published (created by the Release workflow).
+# Using `release: published` instead of `workflow_run` avoids the Scorecard
+# DangerousWorkflow pattern: workflow_run + explicit ref checkout is always
+# flagged regardless of whether the ref is trusted. With `release`, the
+# trigger fires with the tag SHA as github.sha and no explicit ref is needed.
 on:
-  workflow_run:
-    workflows: ["Release"]
-    types: [completed]
+  release:
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,18 +20,13 @@ permissions:
 
 jobs:
   publish:
-    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-        with:
-          # Use the immutable tag ref (not head_sha) to avoid the dangerous
-          # workflow_run + untrusted-code-checkout pattern flagged by Scorecard.
-          # head_branch for a tag-triggered workflow_run is the tag name (e.g. v0.9.10).
-          # Tags are repository-controlled refs — not writable by PR authors.
-          ref: refs/tags/${{ github.event.workflow_run.head_branch }}
+        # No explicit ref needed: the release trigger sets github.sha to the
+        # tag's commit and actions/checkout uses that by default.
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
@@ -44,11 +41,11 @@ jobs:
       - name: Parse semver from tag
         id: semver
         env:
-          # Bind to env var to prevent script injection from context variable
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          # github.ref_name is the tag name (e.g. v0.9.10) — not user-controlled
+          # in a release event. Bound to env var to keep script safe.
+          TAG_NAME: ${{ github.ref_name }}
         run: |
-          # head_branch for a tag-triggered workflow_run is the tag name (e.g. v0.9.10)
-          RAW="${HEAD_BRANCH}"
+          RAW="${TAG_NAME}"
           VERSION="${RAW#v}"                     # strip leading 'v' → 0.9.10
           MINOR="${VERSION%.*}"                  # drop patch → 0.9
           IS_STABLE=$([[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo true || echo false)
@@ -65,7 +62,7 @@ jobs:
             type=raw,value=${{ steps.semver.outputs.version }}
             type=raw,value=${{ steps.semver.outputs.minor }},enable=${{ steps.semver.outputs.stable }}
             type=raw,value=latest,enable=${{ steps.semver.outputs.stable }}
-            type=sha,prefix=sha-,format=short,value=${{ github.event.workflow_run.head_sha }}
+            type=sha,prefix=sha-,format=short
 
       - name: Build and push Docker image
         uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294  # v7.0.0
