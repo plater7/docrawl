@@ -15,6 +15,7 @@ import httpx
 import pytest
 from urllib.parse import urlparse
 from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from src.crawler.discovery import (
     discover_urls,
@@ -1131,7 +1132,7 @@ class TestRemainingGaps:
 
         client = AsyncMock()
         client.get = fake_get
-        client.__aenter__ = AsyncMock(return_value=client)
+        assert not any(urlparse(u).hostname == "other.com" for u in result)
         client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
