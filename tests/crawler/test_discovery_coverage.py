@@ -1133,7 +1133,6 @@ class TestRemainingGaps:
     # ---- Line 321: query param in try_nav_parse link building ----
 
     async def test_nav_parse_link_with_query_param_preserved(self):
-        """Links with query strings from nav parsing include the query."""
         links = [_make_link("/search?q=docs")]
         pw_cm, _, _ = _make_playwright_stack(
             links_per_selector=[links] + [[] for _ in range(6)]
