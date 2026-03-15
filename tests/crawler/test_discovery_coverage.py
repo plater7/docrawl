@@ -321,8 +321,8 @@ class TestRecursiveCrawlUncoveredBranches:
         """Normal BFS: depth-0 fetched, found links returned at depth-1."""
         html = '<a href="/child1">c1</a>'
         client = _make_async_client({
-            "example.com": _make_resp(200, body=html)
-        })
+        # Ensure both the base URL and the discovered child URL are present.
+        assert set(result) >= {"https://example.com/", "https://example.com/child1"}
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
