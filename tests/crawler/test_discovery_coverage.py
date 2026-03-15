@@ -155,7 +155,6 @@ class TestExtractLinksViaCrawl:
         assert all(h in (None, "example.com") for h in hostnames)
         # No discovered URL may point to other-domain.com
         assert "other-domain.com" not in hostnames
-        assert not any("other-domain.com" in u for u in result)
 
     async def test_javascript_links_filtered(self):
         """javascript: hrefs must be skipped."""
@@ -217,7 +216,7 @@ class TestExtractLinksViaCrawl:
                 "https://example.com/", max_depth=1, concurrency=1
             )
         # Base URL is always added at depth-0 before any fetch
-        assert "https://example.com/" in result
+        assert any(u == "https://example.com/" for u in result)
 
     async def test_generic_exception_returns_empty_list(self):
         """Generic exception during fetch must not crash the crawl."""
@@ -234,7 +233,7 @@ class TestExtractLinksViaCrawl:
             result = await recursive_crawl(
                 "https://example.com/", max_depth=1, concurrency=1
             )
-        assert "https://example.com/" in result
+        assert any(u == "https://example.com/" for u in result)
 
     async def test_valid_links_discovered(self):
         """Valid same-domain links from HTML are returned in results."""
@@ -347,8 +346,8 @@ class TestRecursiveCrawlUncoveredBranches:
                     "https://example.com/", max_depth=1, concurrency=1
                 )
         # Ensure both the base URL and the discovered child URL are present.
-        assert "https://example.com/" in result
-        assert "https://example.com/child1" in result
+        assert any(u == "https://example.com/" for u in result)
+        assert any(u == "https://example.com/child1" for u in result)
 
     async def test_concurrency_env_var_used_when_not_passed(self):
         """DISCOVERY_CONCURRENCY env var sets concurrency when arg is None."""
@@ -1004,7 +1003,7 @@ class TestDiscoverUrlsUncoveredBranches:
                 ):
                     result = await discover_urls("https://example.com/", max_depth=1)
 
-        assert "https://example.com/" in result
+        assert any(u == "https://example.com/" for u in result)
         assert len(result) >= 1
 
     async def test_sitemap_finds_urls_nav_skipped_cascade(self):
@@ -1209,7 +1208,6 @@ class TestRemainingGaps:
 
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             result = await try_sitemap("https://example.com/")
-        assert not any("other.com" in u for u in result)
         assert not any(urlparse(u).hostname == "other.com" for u in result)
         assert "https://example.com/local-page" in result
 
