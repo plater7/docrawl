@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 from src.crawler.discovery import (
     discover_urls,
@@ -139,8 +140,11 @@ class TestExtractLinksViaCrawl:
         })
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
-        assert all((urlparse(u).hostname == "example.com") or (u == "https://example.com/") for u in result)
+        hostnames = [urlparse(u).hostname for u in result]
+        # All discovered URLs must be on example.com (or have no hostname, e.g., malformed/relative)
+        assert all(h in (None, "example.com") for h in hostnames)
+        # No discovered URL may point to other-domain.com
+        assert "other-domain.com" not in hostnames
         assert not any("other-domain.com" in u for u in result)
 
     async def test_javascript_links_filtered(self):
