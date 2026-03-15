@@ -1,0 +1,10 @@
+# Raw intake folder — temporary processing area
+# Notion exports, CLI logs, and chat exports go here for processing
+# NEVER commit raw data — it may contain API keys, tokens, or paths
+raw/
+!raw/.gitkeep
+
+# Common export formats that might land here by accident
+*.zip
+*.html
+*.csv
