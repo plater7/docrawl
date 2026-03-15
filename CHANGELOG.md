@@ -65,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: Bumps actions/setup-python from 5 to 6** ([#169](https://github.com/plater7/docrawl/pull/169))
 - **fix(ci): add git pull --rebase before push in auto-commit workflows** ([#173](https://github.com/plater7/docrawl/pull/173))
 - **fix: close #162 (Allow: directive), #165 (LLM error hierarchy), #164 (runner coverage +17pp)** ([#174](https://github.com/plater7/docrawl/pull/174))
+- **test: increase coverage for manager, runner, and discovery** ([#175](https://github.com/plater7/docrawl/pull/175))
 
 ## [v0.9.9] - 2026-03-03
 
