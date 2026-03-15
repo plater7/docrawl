@@ -10,8 +10,6 @@ import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from src.api.models import JobRequest
 from src.jobs.manager import Job
 from src.jobs.runner import run_job

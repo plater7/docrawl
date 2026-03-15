@@ -19,7 +19,7 @@ Covers areas NOT already tested in test_manager.py and test_manager_ttl_pause.py
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from src.api.models import JobRequest
 from src.jobs.manager import Job, JobManager
@@ -133,8 +133,6 @@ class TestEventStreamKeepalive:
         job._task = _make_mock_task(done=False)
 
         timeout_count = 0
-        original_wait_for = asyncio.wait_for
-
         async def patched_wait_for(coro, timeout):
             nonlocal timeout_count
             timeout_count += 1
@@ -162,7 +160,6 @@ class TestEventStreamKeepalive:
         job._task = _make_mock_task(done=False)
 
         call_count = 0
-        original_wait_for = asyncio.wait_for
 
         async def patched_wait_for(coro, timeout):
             nonlocal call_count
@@ -571,8 +568,6 @@ class TestStartCleanupLoop:
         """start_cleanup_loop should call cleanup_old_jobs and exit on CancelledError."""
         manager = JobManager()
         cleanup_call_count = 0
-
-        original_cleanup = manager.cleanup_old_jobs
 
         async def fake_cleanup():
             nonlocal cleanup_call_count

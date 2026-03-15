@@ -7,14 +7,9 @@ Covers all previously-uncovered branches and lines identified in the
 asyncio_mode = "auto" is set in pytest.ini, so async tests need no decorator.
 """
 
-import asyncio
-import gzip as gzip_module
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-import pytest
-from urllib.parse import urlparse
-from urllib.parse import urlparse
 from urllib.parse import urlparse
 
 from src.crawler.discovery import (
@@ -141,6 +136,7 @@ class TestExtractLinksViaCrawl:
         })
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
+                result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
         hostnames = [urlparse(u).hostname for u in result]
         # All discovered URLs must be on example.com (or have no hostname, e.g., malformed/relative)
         assert all(h in (None, "example.com") for h in hostnames)
@@ -298,7 +294,6 @@ class TestRecursiveCrawlUncoveredBranches:
         client.__aenter__ = AsyncMock(return_value=client)
         client.__aexit__ = AsyncMock(return_value=None)
 
-        import logging
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 with patch("src.crawler.discovery.logger") as mock_logger:
@@ -322,11 +317,12 @@ class TestRecursiveCrawlUncoveredBranches:
         """Normal BFS: depth-0 fetched, found links returned at depth-1."""
         html = '<a href="/child1">c1</a>'
         client = _make_async_client({
-        # Ensure both the base URL and the discovered child URL are present.
-        assert set(result) >= {"https://example.com/", "https://example.com/child1"}
+            "example.com": _make_resp(200, body=html),
+        })
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 result = await recursive_crawl("https://example.com/", max_depth=1, concurrency=1)
+        # Ensure both the base URL and the discovered child URL are present.
         assert "https://example.com/" in result
         assert "https://example.com/child1" in result
 
@@ -1132,12 +1128,13 @@ class TestRemainingGaps:
 
         client = AsyncMock()
         client.get = fake_get
-        assert not any(urlparse(u).hostname == "other.com" for u in result)
+        client.__aenter__ = AsyncMock(return_value=client)
         client.__aexit__ = AsyncMock(return_value=None)
 
         with patch("src.crawler.discovery.httpx.AsyncClient", return_value=client):
             result = await try_sitemap("https://example.com/")
         assert not any("other.com" in u for u in result)
+        assert not any(urlparse(u).hostname == "other.com" for u in result)
         assert "https://example.com/local-page" in result
 
     # ---- Branch 180->226: MAX_URLS cap checked at loop entry ----
