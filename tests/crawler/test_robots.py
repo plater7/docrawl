@@ -416,9 +416,7 @@ class TestAllowDirective:
     def test_disallow_root_allow_subpath_multiple_exceptions(self):
         """Multiple Allow: exceptions under Disallow: / each work independently."""
         parser = RobotsParser()
-        parser._parse(
-            "User-agent: *\nDisallow: /\nAllow: /public/\nAllow: /api/v1/\n"
-        )
+        parser._parse("User-agent: *\nDisallow: /\nAllow: /public/\nAllow: /api/v1/\n")
         assert parser.is_allowed("https://example.com/public/doc") is True
         assert parser.is_allowed("https://example.com/api/v1/users") is True
         assert parser.is_allowed("https://example.com/api/v2/users") is False
