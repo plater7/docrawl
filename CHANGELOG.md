@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **feat(llm): add llama.cpp server support as new LLM provider** ([#172](https://github.com/plater7/docrawl/pull/172))
 
 ---
+- **test(robots): add Disallow: / + Allow: /subpath/ coverage** ([#182](https://github.com/plater7/docrawl/pull/182))
 
 ## [v0.9.99] - 2026-03-14
 
