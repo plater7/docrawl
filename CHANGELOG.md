@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **fix(docker): pin base image to SHA256 digest (PinnedDependencies)** ([#189](https://github.com/plater7/docrawl/pull/189))
 - **feat(fuzz): add atheris fuzzing for URL validator, filter, and CSS selectors** ([#193](https://github.com/plater7/docrawl/pull/193))
 - **test(exceptions): add coverage for LLMProviderError hierarchy** ([#194](https://github.com/plater7/docrawl/pull/194))
+- **test(main): add coverage for middleware, handlers, and serve_ui** ([#195](https://github.com/plater7/docrawl/pull/195))
 
 ## [v0.9.99] - 2026-03-14
 
