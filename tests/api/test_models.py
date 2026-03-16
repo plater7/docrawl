@@ -1,5 +1,6 @@
 """Tests for src/api/models.py — JobRequest validators, OllamaModel, and JobStatus."""
 
+import logging
 import pytest
 from unittest.mock import patch, MagicMock
 from pydantic import ValidationError
@@ -483,3 +484,85 @@ class TestValidateSelectors:
         with pytest.raises(ValidationError) as exc_info:
             JobRequest(**_minimal_request(noise_selectors=[long_selector]))
         assert "too long" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# validate_selectors — unsafe character rejection (Issue #177)
+# ---------------------------------------------------------------------------
+
+
+class TestValidateSelectorsUnsafeChars:
+    """Selectors with backtick or braces must be rejected to prevent JS template literal injection."""
+
+    def test_content_selector_with_backtick_raises(self):
+        """Selector containing backtick must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(**_minimal_request(content_selectors=[".foo`; evilCode(); `"]))
+        assert "unsafe characters" in str(exc_info.value)
+
+    def test_noise_selector_with_backtick_raises(self):
+        """Noise selector containing backtick must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(**_minimal_request(noise_selectors=[".bar`injection`"]))
+        assert "unsafe characters" in str(exc_info.value)
+
+    def test_selector_with_open_brace_raises(self):
+        """Selector containing '{' must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(**_minimal_request(content_selectors=[".cls{color:red}"]))
+        assert "unsafe characters" in str(exc_info.value)
+
+    def test_selector_with_close_brace_raises(self):
+        """Selector containing '}' must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(**_minimal_request(content_selectors=[".cls}"]))
+        assert "unsafe characters" in str(exc_info.value)
+
+    def test_normal_selector_no_backtick_accepted(self):
+        """Normal CSS selectors without unsafe chars must be accepted."""
+        req = JobRequest(
+            **_minimal_request(
+                content_selectors=[".main-content", "#article", "div.docs > p"]
+            )
+        )
+        assert req.content_selectors == [".main-content", "#article", "div.docs > p"]
+
+    def test_selector_with_brackets_accepted(self):
+        """Attribute selectors using [] are safe and must be accepted."""
+        req = JobRequest(
+            **_minimal_request(content_selectors=["[data-testid='main']", "a[href]"])
+        )
+        assert len(req.content_selectors) == 2
+
+
+# ---------------------------------------------------------------------------
+# validate_models_required — skip_llm_cleanup warning (Issue #178)
+# ---------------------------------------------------------------------------
+
+
+class TestSkipLlmCleanupWarning:
+    """skip_llm_cleanup=True on a non-ReaderLM job should emit a warning."""
+
+    def test_skip_llm_cleanup_non_readerlm_logs_warning(self, caplog):
+        """Warning must be logged when skip_llm_cleanup=True and converter is not ReaderLM."""
+        with caplog.at_level(logging.WARNING, logger="src.api.models"):
+            JobRequest(url="https://example.com", skip_llm_cleanup=True)
+        assert any("skip_llm_cleanup=True" in r.message for r in caplog.records)
+
+    def test_skip_llm_cleanup_with_readerlm_no_warning(self, caplog):
+        """No warning must be emitted when converter='readerlm' (expected usage)."""
+        with caplog.at_level(logging.WARNING, logger="src.api.models"):
+            JobRequest(url="https://example.com", converter="readerlm")
+        assert not any("skip_llm_cleanup" in r.message for r in caplog.records)
+
+    def test_skip_llm_cleanup_with_readerlm_v1_no_warning(self, caplog):
+        """No warning must be emitted when converter='readerlm-v1'."""
+        with caplog.at_level(logging.WARNING, logger="src.api.models"):
+            JobRequest(url="https://example.com", converter="readerlm-v1")
+        assert not any("skip_llm_cleanup" in r.message for r in caplog.records)
+
+    def test_skip_llm_cleanup_false_no_warning(self, caplog):
+        """No warning must be emitted when skip_llm_cleanup=False (default)."""
+        with caplog.at_level(logging.WARNING, logger="src.api.models"):
+            JobRequest(**_minimal_request())
+        assert not any("skip_llm_cleanup" in r.message for r in caplog.records)
