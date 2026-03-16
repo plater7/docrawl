@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.9.10
 
-> Auto-generated on 2026-03-16 01:58 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-03-16 14:29 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -68,6 +68,8 @@ src/
 ```python
 """Pydantic models for API request/response."""
 
+import logging
+import re
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -75,6 +77,11 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, HttpUrl, Field, field_validator, model_validator
 
 from src.utils.security import validate_url_not_ssrf
+
+logger = logging.getLogger(__name__)
+
+# Characters that would break a JS template literal if interpolated verbatim.
+_UNSAFE_SELECTOR_RE = re.compile(r"[`{}]")
 
 
 class JobRequest(BaseModel):
@@ -144,6 +151,10 @@ class JobRequest(BaseModel):
         for sel in v:
             if len(sel) > 200:
                 raise ValueError(f"Selector too long (max 200 chars): {sel[:50]}...")
+            if _UNSAFE_SELECTOR_RE.search(sel):
+                raise ValueError(
+                    f"Selector contains unsafe characters (backtick or braces): {sel[:50]}"
+                )
         return v
 
     @field_validator("output_path")
@@ -197,6 +208,12 @@ class JobRequest(BaseModel):
             raise ValueError(
                 "pipeline_model is required unless skip_llm_cleanup=True or "
                 "a ReaderLM converter is used (converter='readerlm' / 'readerlm-v1')."
+            )
+        if self.skip_llm_cleanup and self.converter not in _READERLM_CONVERTERS:
+            logger.warning(
+                "skip_llm_cleanup=True on a non-ReaderLM job (converter=%r). "
+                "LLM cleanup will be skipped entirely — set intentionally?",
+                self.converter,
             )
         return self
 
