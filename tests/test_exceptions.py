@@ -410,7 +410,7 @@ class TestLLMProviderError:
         except DocrawlError:
             caught = True
         assert caught
-    
+
 
 # ---------------------------------------------------------------------------
 # TestLLMConnectionError
@@ -465,7 +465,7 @@ class TestLLMConnectionError:
         result = str(err)
         assert "Cannot connect to ollama" in result
         assert "Hint:" in result
-    
+
 
 # ---------------------------------------------------------------------------
 # TestLLMTimeoutError
@@ -503,6 +503,7 @@ class TestLLMTimeoutError:
     def test_is_llm_provider_error_subclass(self):
         """LLMTimeoutError inherits from LLMProviderError."""
         assert issubclass(LLMTimeoutError, LLMProviderError)
+
     def test_is_docrawl_error_subclass(self):
         """LLMTimeoutError inherits from DocrawlError."""
         assert issubclass(LLMTimeoutError, DocrawlError)
@@ -517,7 +518,7 @@ class TestLLMTimeoutError:
         err = LLMTimeoutError(provider="openai", timeout_s=60)
         result = str(err)
         assert "Hint:" in result
-    
+
 
 # ---------------------------------------------------------------------------
 # TestLLMRateLimitError
@@ -556,7 +557,7 @@ class TestLLMRateLimitError:
     def test_is_llm_provider_error_subclass(self):
         """LLMRateLimitError inherits from LLMProviderError."""
         assert issubclass(LLMRateLimitError, LLMProviderError)
-    
+
     def test_is_docrawl_error_subclass(self):
         """LLMRateLimitError inherits from DocrawlError."""
         assert issubclass(LLMRateLimitError, DocrawlError)
@@ -572,7 +573,7 @@ class TestLLMRateLimitError:
         err = LLMRateLimitError(provider="openai")
         result = str(err)
         assert "Hint:" in result
-    
+
 
 # ---------------------------------------------------------------------------
 # TestLLMExceptionHierarchy
@@ -630,7 +631,7 @@ class TestLLMExceptionHierarchy:
             except Exception:
                 caught = True
             assert caught, f"{type(exc).__name__} not caught as Exception"
-    
+
     def test_llm_errors_not_caught_as_unrelated_docrawl_subclass(self):
         """LLM errors are not accidentally caught by unrelated DocrawlError subclasses."""
         llm_exc = LLMConnectionError(provider="ollama")
@@ -642,7 +643,9 @@ class TestLLMExceptionHierarchy:
                 caught_as_unrelated = True
         except LLMConnectionError:
             pass  # expected: propagated because OllamaNotRunningError didn't match
-        assert not caught_as_unrelated, "LLMConnectionError should not be caught as OllamaNotRunningError"
+        assert not caught_as_unrelated, (
+            "LLMConnectionError should not be caught as OllamaNotRunningError"
+        )
 
     def test_different_llm_subtypes_not_interchangeable(self):
         """LLMTimeoutError is not caught by an except clause for LLMConnectionError."""
@@ -655,4 +658,6 @@ class TestLLMExceptionHierarchy:
                 caught_as_connection = True
         except LLMTimeoutError:
             pass  # expected: propagated because LLMConnectionError didn't match
-        assert not caught_as_connection, "LLMTimeoutError should not be caught as LLMConnectionError"
+        assert not caught_as_connection, (
+            "LLMTimeoutError should not be caught as LLMConnectionError"
+        )
