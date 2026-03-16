@@ -580,84 +580,59 @@ class TestLLMRateLimitError:
 # ---------------------------------------------------------------------------
 
 
+def _assert_catches(exc: BaseException, exc_type: type) -> None:
+    """Assert that raising *exc* is caught by an ``except exc_type`` clause."""
+    caught = False
+    try:
+        raise exc
+    except exc_type:
+        caught = True
+    assert caught, f"{type(exc).__name__} not caught as {exc_type.__name__}"
+
+
+def _assert_not_catches(exc: BaseException, exc_type: type) -> None:
+    """Assert that raising *exc* is NOT caught by an ``except exc_type`` clause."""
+    caught = False
+    try:
+        try:
+            raise exc
+        except exc_type:
+            caught = True
+    except type(exc):
+        pass  # propagated as expected
+    assert not caught, f"{type(exc).__name__} should not be caught as {exc_type.__name__}"
+
+
 class TestLLMExceptionHierarchy:
     """LLM provider exceptions share the LLMProviderError / DocrawlError hierarchy."""
 
+    _LLM_EXCEPTIONS = [
+        LLMConnectionError("ollama"),
+        LLMConnectionError("ollama", detail="conn refused"),
+        LLMTimeoutError("openai", timeout_s=10),
+        LLMRateLimitError("openai"),
+        LLMRateLimitError("openai", retry_after=60),
+    ]
+
     def test_all_llm_subclasses_caught_as_llm_provider_error(self):
         """All LLM concrete exceptions can be caught with LLMProviderError."""
-        exceptions = [
-            LLMConnectionError("ollama"),
-            LLMConnectionError("ollama", detail="conn refused"),
-            LLMTimeoutError("openai", timeout_s=10),
-            LLMRateLimitError("openai"),
-            LLMRateLimitError("openai", retry_after=60),
-        ]
-        for exc in exceptions:
-            caught = False
-            try:
-                raise exc
-            except LLMProviderError:
-                caught = True
-            assert caught, f"{type(exc).__name__} not caught as LLMProviderError"
+        for exc in self._LLM_EXCEPTIONS:
+            _assert_catches(exc, LLMProviderError)
 
     def test_all_llm_subclasses_caught_as_docrawl_error(self):
         """All LLM concrete exceptions can be caught with DocrawlError."""
-        exceptions = [
-            LLMConnectionError("ollama"),
-            LLMConnectionError("ollama", detail="conn refused"),
-            LLMTimeoutError("openai", timeout_s=10),
-            LLMRateLimitError("openai"),
-            LLMRateLimitError("openai", retry_after=60),
-        ]
-        for exc in exceptions:
-            caught = False
-            try:
-                raise exc
-            except DocrawlError:
-                caught = True
-            assert caught, f"{type(exc).__name__} not caught as DocrawlError"
+        for exc in self._LLM_EXCEPTIONS:
+            _assert_catches(exc, DocrawlError)
 
     def test_all_llm_subclasses_caught_as_exception(self):
         """All LLM concrete exceptions can be caught with the built-in Exception."""
-        exceptions = [
-            LLMConnectionError("ollama"),
-            LLMTimeoutError("openai", timeout_s=5),
-            LLMRateLimitError("openai", retry_after=30),
-        ]
-        for exc in exceptions:
-            caught = False
-            try:
-                raise exc
-            except Exception:
-                caught = True
-            assert caught, f"{type(exc).__name__} not caught as Exception"
+        for exc in self._LLM_EXCEPTIONS:
+            _assert_catches(exc, Exception)
 
     def test_llm_errors_not_caught_as_unrelated_docrawl_subclass(self):
         """LLM errors are not accidentally caught by unrelated DocrawlError subclasses."""
-        llm_exc = LLMConnectionError(provider="ollama")
-        caught_as_unrelated = False
-        try:
-            try:
-                raise llm_exc
-            except OllamaNotRunningError:
-                caught_as_unrelated = True
-        except LLMConnectionError:
-            pass  # expected: propagated because OllamaNotRunningError didn't match
-        assert not caught_as_unrelated, (
-            "LLMConnectionError should not be caught as OllamaNotRunningError"
-        )
+        _assert_not_catches(LLMConnectionError(provider="ollama"), OllamaNotRunningError)
 
     def test_different_llm_subtypes_not_interchangeable(self):
         """LLMTimeoutError is not caught by an except clause for LLMConnectionError."""
-        timeout_exc = LLMTimeoutError(provider="openai", timeout_s=5)
-        caught_as_connection = False
-        try:
-            try:
-                raise timeout_exc
-            except LLMConnectionError:
-                caught_as_connection = True
-        except LLMTimeoutError:
-            pass  # expected: propagated because LLMConnectionError didn't match
-        assert not caught_as_connection, (
-            "LLMTimeoutError should not be caught as LLMConnectionError"
-        )
+        _assert_not_catches(LLMTimeoutError(provider="openai", timeout_s=5), LLMConnectionError)
