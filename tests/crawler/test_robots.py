@@ -398,3 +398,28 @@ class TestAllowDirective:
         assert parser.is_allowed("https://example.com/public") is True
         assert parser.is_allowed("https://example.com/admin/secret") is False
         assert parser.crawl_delay == 2.0
+
+    def test_disallow_root_allow_subpath_without_trailing_slash(self):
+        """Disallow: / + Allow: /public (no trailing slash) permits /public and children."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nDisallow: /\nAllow: /public\n")
+        assert parser.is_allowed("https://example.com/public") is True
+        assert parser.is_allowed("https://example.com/public/page") is True
+        assert parser.is_allowed("https://example.com/private/page") is False
+
+    def test_disallow_root_blocks_root_path_itself(self):
+        """Disallow: / + Allow: /public/ — the bare root / is still blocked."""
+        parser = RobotsParser()
+        parser._parse("User-agent: *\nDisallow: /\nAllow: /public/\n")
+        assert parser.is_allowed("https://example.com/") is False
+
+    def test_disallow_root_allow_subpath_multiple_exceptions(self):
+        """Multiple Allow: exceptions under Disallow: / each work independently."""
+        parser = RobotsParser()
+        parser._parse(
+            "User-agent: *\nDisallow: /\nAllow: /public/\nAllow: /api/v1/\n"
+        )
+        assert parser.is_allowed("https://example.com/public/doc") is True
+        assert parser.is_allowed("https://example.com/api/v1/users") is True
+        assert parser.is_allowed("https://example.com/api/v2/users") is False
+        assert parser.is_allowed("https://example.com/admin/") is False
