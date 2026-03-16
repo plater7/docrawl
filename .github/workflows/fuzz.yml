@@ -34,9 +34,15 @@ jobs:
 
       - name: Fuzz url validator
         run: python fuzz/fuzz_url_validator.py -atheris_runs=5000
+        env:
+          PYTHONPATH: .
 
       - name: Fuzz url filter
         run: python fuzz/fuzz_url_filter.py -atheris_runs=5000
+        env:
+          PYTHONPATH: .
 
       - name: Fuzz css selectors
         run: python fuzz/fuzz_css_selectors.py -atheris_runs=5000
+        env:
+          PYTHONPATH: .
