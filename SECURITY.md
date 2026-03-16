@@ -7,7 +7,9 @@ If you discover a security vulnerability in Docrawl, please report it responsibl
 ### Private Disclosure (Preferred)
 
 1. **Do NOT open a public issue** for security vulnerabilities
-2. Email the maintainer or use GitHub's private vulnerability reporting feature
+2. **Use GitHub private vulnerability reporting** (preferred):
+   👉 https://github.com/plater7/docrawl/security/advisories/new
+   Or email the maintainer directly if you prefer not to use GitHub.
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce

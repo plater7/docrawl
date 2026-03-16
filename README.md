@@ -5,6 +5,7 @@
   <a href="https://codecov.io/gh/plater7/docrawl"><img src="https://img.shields.io/codecov/c/github/plater7/docrawl?style=for-the-badge&logo=codecov" alt="coverage"></a>
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="license">
   <img src="https://img.shields.io/badge/ai--assisted-✓-purple?style=for-the-badge" alt="ai-assisted">
+  <a href="https://bestpractices.coreinfrastructure.org/projects"><img src="https://img.shields.io/badge/OpenSSF-Best_Practices-4ac151?style=for-the-badge&logo=openssf" alt="OpenSSF Best Practices"></a>
 </p>
 
 <h1 align="center">🕷️ Docrawl</h1>
