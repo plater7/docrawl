@@ -30,6 +30,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # TODO: bump to pip>=26.0 once stable — needed to fix GHSA-6vgw-5pg2-w6jp
           python -m pip install pip==25.3
           pip install bandit==1.8.3 pip-audit==2.9.0
           pip install -r requirements.txt
