@@ -8,6 +8,10 @@ from src.exceptions import (
     CrawlError,
     DiskSpaceError,
     DocrawlError,
+    LLMConnectionError,
+    LLMProviderError,
+    LLMRateLimitError,
+    LLMTimeoutError,
     ModelNotFoundError,
     OllamaNotRunningError,
     PermissionDeniedError,
@@ -348,3 +352,293 @@ class TestExceptionHierarchy:
             except Exception:
                 caught = True
             assert caught, f"{type(exc).__name__} not caught as Exception"
+
+
+# ---------------------------------------------------------------------------
+# TestLLMProviderError
+# ---------------------------------------------------------------------------
+
+
+class TestLLMProviderError:
+    """Tests for LLMProviderError base class."""
+
+    def test_provider_attribute_stored(self):
+        """provider attribute holds the constructor argument."""
+        err = LLMProviderError("base error", provider="ollama")
+        assert err.provider == "ollama"
+
+    def test_message_stored(self):
+        """message attribute holds the constructor argument."""
+        err = LLMProviderError("something went wrong", provider="openai")
+        assert err.message == "something went wrong"
+
+    def test_user_hint_none_by_default(self):
+        """user_hint defaults to None when not provided."""
+        err = LLMProviderError("msg", provider="openai")
+        assert err.user_hint is None
+
+    def test_user_hint_stored_when_provided(self):
+        """user_hint is stored when explicitly passed."""
+        err = LLMProviderError("msg", provider="openai", user_hint="Check config")
+        assert err.user_hint == "Check config"
+
+    def test_is_docrawl_error_subclass(self):
+        """LLMProviderError inherits from DocrawlError."""
+        assert issubclass(LLMProviderError, DocrawlError)
+
+    def test_str_with_hint_includes_both(self):
+        """__str__ includes message and hint when both are set."""
+        err = LLMProviderError("failed", provider="openai", user_hint="Try again")
+        result = str(err)
+        assert "failed" in result
+        assert "Hint: Try again" in result
+
+    def test_str_without_hint_returns_message_only(self):
+        """__str__ returns only the message when no user_hint is set."""
+        err = LLMProviderError("connection dropped", provider="ollama")
+        assert str(err) == "connection dropped"
+
+    def test_is_exception_subclass(self):
+        """LLMProviderError is a subclass of the built-in Exception."""
+        assert issubclass(LLMProviderError, Exception)
+
+    def test_can_be_raised_and_caught(self):
+        """LLMProviderError can be raised and caught as DocrawlError."""
+        caught = False
+        try:
+            raise LLMProviderError("boom", provider="openai")
+        except DocrawlError:
+            caught = True
+        assert caught
+
+
+# ---------------------------------------------------------------------------
+# TestLLMConnectionError
+# ---------------------------------------------------------------------------
+
+
+class TestLLMConnectionError:
+    """Tests for LLMConnectionError."""
+
+    def test_provider_in_message_no_detail(self):
+        """Provider name appears in message when no detail is given."""
+        err = LLMConnectionError(provider="ollama")
+        assert "ollama" in err.message
+
+    def test_message_no_detail_has_no_colon_suffix(self):
+        """Message does not include a colon suffix when detail is empty string."""
+        err = LLMConnectionError(provider="ollama", detail="")
+        assert err.message == "Cannot connect to ollama"
+
+    def test_detail_appended_to_message(self):
+        """Non-empty detail is appended to the message after a colon."""
+        err = LLMConnectionError(provider="ollama", detail="conn refused")
+        assert "conn refused" in err.message
+        assert ": conn refused" in err.message
+
+    def test_provider_attribute_set(self):
+        """provider attribute is set correctly."""
+        err = LLMConnectionError(provider="openai")
+        assert err.provider == "openai"
+
+    def test_hint_mentions_provider(self):
+        """user_hint references the provider name."""
+        err = LLMConnectionError(provider="mistral")
+        assert "mistral" in err.user_hint
+
+    def test_is_llm_provider_error_subclass(self):
+        """LLMConnectionError inherits from LLMProviderError."""
+        assert issubclass(LLMConnectionError, LLMProviderError)
+
+    def test_is_docrawl_error_subclass(self):
+        """LLMConnectionError inherits from DocrawlError."""
+        assert issubclass(LLMConnectionError, DocrawlError)
+
+    def test_message_exact_format_no_detail(self):
+        """Message is exactly 'Cannot connect to {provider}' when no detail given."""
+        err = LLMConnectionError(provider="openai")
+        assert err.message == "Cannot connect to openai"
+
+    def test_str_contains_message_and_hint(self):
+        """__str__ includes both the connection message and the hint."""
+        err = LLMConnectionError(provider="ollama")
+        result = str(err)
+        assert "Cannot connect to ollama" in result
+        assert "Hint:" in result
+
+
+# ---------------------------------------------------------------------------
+# TestLLMTimeoutError
+# ---------------------------------------------------------------------------
+
+
+class TestLLMTimeoutError:
+    """Tests for LLMTimeoutError."""
+
+    def test_provider_in_message(self):
+        """Provider name appears in the error message."""
+        err = LLMTimeoutError(provider="ollama", timeout_s=30)
+        assert "ollama" in err.message
+
+    def test_timeout_value_in_message(self):
+        """The timeout value appears in the error message."""
+        err = LLMTimeoutError(provider="ollama", timeout_s=30)
+        assert "30" in err.message
+
+    def test_float_timeout_in_message(self):
+        """Float timeout values are included in the message."""
+        err = LLMTimeoutError(provider="openai", timeout_s=12.5)
+        assert "12.5" in err.message
+
+    def test_default_timeout_is_zero(self):
+        """Default timeout_s of 0 is reflected in the message."""
+        err = LLMTimeoutError(provider="ollama")
+        assert "0" in err.message
+
+    def test_hint_mentions_timeout_or_model(self):
+        """user_hint advises increasing timeout or using a smaller model."""
+        err = LLMTimeoutError(provider="ollama", timeout_s=10)
+        assert "timeout" in err.user_hint.lower() or "model" in err.user_hint.lower()
+
+    def test_is_llm_provider_error_subclass(self):
+        """LLMTimeoutError inherits from LLMProviderError."""
+        assert issubclass(LLMTimeoutError, LLMProviderError)
+
+    def test_is_docrawl_error_subclass(self):
+        """LLMTimeoutError inherits from DocrawlError."""
+        assert issubclass(LLMTimeoutError, DocrawlError)
+
+    def test_message_has_s_suffix_on_timeout(self):
+        """Timeout value in message is followed by the 's' seconds suffix."""
+        err = LLMTimeoutError(provider="ollama", timeout_s=30)
+        assert "30s" in err.message
+
+    def test_str_contains_hint(self):
+        """__str__ includes the user_hint for timeout errors."""
+        err = LLMTimeoutError(provider="openai", timeout_s=60)
+        result = str(err)
+        assert "Hint:" in result
+
+
+# ---------------------------------------------------------------------------
+# TestLLMRateLimitError
+# ---------------------------------------------------------------------------
+
+
+class TestLLMRateLimitError:
+    """Tests for LLMRateLimitError."""
+
+    def test_provider_in_message(self):
+        """Provider name appears in the error message."""
+        err = LLMRateLimitError(provider="openai")
+        assert "openai" in err.message
+
+    def test_retry_after_none_by_default(self):
+        """retry_after attribute is None when not provided."""
+        err = LLMRateLimitError(provider="openai")
+        assert err.retry_after is None
+
+    def test_retry_after_stored_when_provided(self):
+        """retry_after attribute holds the provided integer value."""
+        err = LLMRateLimitError(provider="openai", retry_after=30)
+        assert err.retry_after == 30
+
+    def test_hint_with_retry_after_includes_seconds(self):
+        """user_hint includes the retry_after value in seconds when set."""
+        err = LLMRateLimitError(provider="openai", retry_after=30)
+        assert "30" in err.user_hint
+        assert "Retry after" in err.user_hint
+
+    def test_hint_without_retry_after_is_generic(self):
+        """user_hint falls back to a generic wait message when retry_after is None."""
+        err = LLMRateLimitError(provider="openai", retry_after=None)
+        assert "Wait" in err.user_hint or "retry" in err.user_hint.lower()
+
+    def test_is_llm_provider_error_subclass(self):
+        """LLMRateLimitError inherits from LLMProviderError."""
+        assert issubclass(LLMRateLimitError, LLMProviderError)
+
+    def test_is_docrawl_error_subclass(self):
+        """LLMRateLimitError inherits from DocrawlError."""
+        assert issubclass(LLMRateLimitError, DocrawlError)
+
+    def test_retry_after_zero_treated_as_falsy(self):
+        """retry_after=0 is falsy so hint falls back to the generic wait message."""
+        err = LLMRateLimitError(provider="openai", retry_after=0)
+        assert "Wait" in err.user_hint or "retry" in err.user_hint.lower()
+        assert "0s" not in err.user_hint
+
+    def test_str_contains_hint(self):
+        """__str__ includes the user_hint for rate-limit errors."""
+        err = LLMRateLimitError(provider="openai")
+        result = str(err)
+        assert "Hint:" in result
+
+
+# ---------------------------------------------------------------------------
+# TestLLMExceptionHierarchy
+# ---------------------------------------------------------------------------
+
+
+def _assert_catches(exc: BaseException, exc_type: type) -> None:
+    """Assert that raising *exc* is caught by an ``except exc_type`` clause."""
+    caught = False
+    try:
+        raise exc
+    except exc_type:
+        caught = True
+    assert caught, f"{type(exc).__name__} not caught as {exc_type.__name__}"
+
+
+def _assert_not_catches(exc: BaseException, exc_type: type) -> None:
+    """Assert that raising *exc* is NOT caught by an ``except exc_type`` clause."""
+    caught = False
+    try:
+        try:
+            raise exc
+        except exc_type:
+            caught = True
+    except type(exc):
+        pass  # propagated as expected
+    assert not caught, (
+        f"{type(exc).__name__} should not be caught as {exc_type.__name__}"
+    )
+
+
+class TestLLMExceptionHierarchy:
+    """LLM provider exceptions share the LLMProviderError / DocrawlError hierarchy."""
+
+    _LLM_EXCEPTIONS = [
+        LLMConnectionError("ollama"),
+        LLMConnectionError("ollama", detail="conn refused"),
+        LLMTimeoutError("openai", timeout_s=10),
+        LLMRateLimitError("openai"),
+        LLMRateLimitError("openai", retry_after=60),
+    ]
+
+    def test_all_llm_subclasses_caught_as_llm_provider_error(self):
+        """All LLM concrete exceptions can be caught with LLMProviderError."""
+        for exc in self._LLM_EXCEPTIONS:
+            _assert_catches(exc, LLMProviderError)
+
+    def test_all_llm_subclasses_caught_as_docrawl_error(self):
+        """All LLM concrete exceptions can be caught with DocrawlError."""
+        for exc in self._LLM_EXCEPTIONS:
+            _assert_catches(exc, DocrawlError)
+
+    def test_all_llm_subclasses_caught_as_exception(self):
+        """All LLM concrete exceptions can be caught with the built-in Exception."""
+        for exc in self._LLM_EXCEPTIONS:
+            _assert_catches(exc, Exception)
+
+    def test_llm_errors_not_caught_as_unrelated_docrawl_subclass(self):
+        """LLM errors are not accidentally caught by unrelated DocrawlError subclasses."""
+        _assert_not_catches(
+            LLMConnectionError(provider="ollama"), OllamaNotRunningError
+        )
+
+    def test_different_llm_subtypes_not_interchangeable(self):
+        """LLMTimeoutError is not caught by an except clause for LLMConnectionError."""
+        _assert_not_catches(
+            LLMTimeoutError(provider="openai", timeout_s=5), LLMConnectionError
+        )
