@@ -600,7 +600,9 @@ def _assert_not_catches(exc: BaseException, exc_type: type) -> None:
             caught = True
     except type(exc):
         pass  # propagated as expected
-    assert not caught, f"{type(exc).__name__} should not be caught as {exc_type.__name__}"
+    assert not caught, (
+        f"{type(exc).__name__} should not be caught as {exc_type.__name__}"
+    )
 
 
 class TestLLMExceptionHierarchy:
@@ -631,8 +633,12 @@ class TestLLMExceptionHierarchy:
 
     def test_llm_errors_not_caught_as_unrelated_docrawl_subclass(self):
         """LLM errors are not accidentally caught by unrelated DocrawlError subclasses."""
-        _assert_not_catches(LLMConnectionError(provider="ollama"), OllamaNotRunningError)
+        _assert_not_catches(
+            LLMConnectionError(provider="ollama"), OllamaNotRunningError
+        )
 
     def test_different_llm_subtypes_not_interchangeable(self):
         """LLMTimeoutError is not caught by an except clause for LLMConnectionError."""
-        _assert_not_catches(LLMTimeoutError(provider="openai", timeout_s=5), LLMConnectionError)
+        _assert_not_catches(
+            LLMTimeoutError(provider="openai", timeout_s=5), LLMConnectionError
+        )
