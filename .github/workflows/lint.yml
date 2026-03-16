@@ -35,8 +35,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # TODO: bump to pip>=26.0 once stable — needed to fix GHSA-6vgw-5pg2-w6jp
-          python -m pip install pip==25.3
+          python -m pip install pip==26.0.1
           pip install ruff==0.11.6 mypy==1.15.0
           pip install -r requirements-dev.txt
 
