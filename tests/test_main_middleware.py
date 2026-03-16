@@ -3,7 +3,6 @@
 import json
 from unittest.mock import MagicMock
 
-import pytest
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 
@@ -290,7 +289,6 @@ class TestGlobalExceptionHandler:
         body = json.loads(response.body)
         assert secret_detail not in body.get("error", "")
         assert body["error"] == "Internal server error"
-
 
 
 # ---------------------------------------------------------------------------
