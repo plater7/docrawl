@@ -2,7 +2,9 @@
 #
 # 🤖 Generated with AI assistance by DocCrawler 🕷️ (model: qwen3-coder:free) and human review.
 
-FROM python:3.12.9-slim-bookworm
+# Pinned to SHA256 digest for reproducible builds (Scorecard PinnedDependencies).
+# To update: docker manifest inspect python:3.12.9-slim-bookworm --verbose
+FROM python:3.12.9-slim-bookworm@sha256:48a11b7ba705fd53bf15248d1f94d36c39549903c5d59edcfa2f3f84126e7b44
 
 WORKDIR /app
 
@@ -17,6 +19,7 @@ RUN groupadd -r docrawl && useradd -r -g docrawl -m -d /home/docrawl docrawl
 
 # Copy requirements first for better caching
 COPY requirements.txt .
+# Dependencies pinned in requirements.txt; hash verification via pip-audit in CI
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright system dependencies
