@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 - **test(robots): add Disallow: / + Allow: /subpath/ coverage** ([#182](https://github.com/plater7/docrawl/pull/182))
+- **docs: add GitHub advisory URL to SECURITY.md and OpenSSF badge (Scorecard)** ([#191](https://github.com/plater7/docrawl/pull/191))
 
 ## [v0.9.99] - 2026-03-14
 
