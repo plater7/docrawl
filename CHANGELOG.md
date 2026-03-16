@@ -121,6 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 - **fix(ci): move permissions to job level (TokenPermissions)** ([#188](https://github.com/plater7/docrawl/pull/188))
+- **fix(ci): pin inline pip installs to exact versions (PinnedDependencies)** ([#190](https://github.com/plater7/docrawl/pull/190))
 
 ## [v0.9.6b] - 2026-02-26
 
