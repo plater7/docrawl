@@ -22,15 +22,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
-permissions:
-  contents: read
-  packages: write
-  id-token: write
+permissions: read-all
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
 
     steps:
       - name: Verify release notes present
