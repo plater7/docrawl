@@ -127,8 +127,8 @@ fi
 echo ""
 echo -e "${BLUE}Checking Ollama (optional)...${NC}"
 if check_command ollama; then
-    if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-        OLLAMA_RESPONSE=$(curl -s http://localhost:11434/api/tags 2>/dev/null || echo '{}')
+    OLLAMA_RESPONSE=$(curl -s http://localhost:11434/api/tags 2>/dev/null)
+    if [ -n "$OLLAMA_RESPONSE" ]; then
         MODEL_COUNT=$(python3 -c "import sys,json; print(len(json.loads(sys.argv[1]).get('models',[])))" "$OLLAMA_RESPONSE" 2>/dev/null || echo "0")
         if [[ "$MODEL_COUNT" -gt 0 ]]; then
             echo -e "${GREEN}✓${NC} Ollama is running with $MODEL_COUNT model(s)"
