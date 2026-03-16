@@ -118,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CONTRIBUTING.md estandarizado en español con sección de Conventional Commits — closes #110
 
 ---
+- **fix(ci): move permissions to job level (TokenPermissions)** ([#188](https://github.com/plater7/docrawl/pull/188))
 
 ## [v0.9.6b] - 2026-02-26
 
