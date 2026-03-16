@@ -393,6 +393,24 @@ class TestLLMProviderError:
         assert "failed" in result
         assert "Hint: Try again" in result
 
+    def test_str_without_hint_returns_message_only(self):
+        """__str__ returns only the message when no user_hint is set."""
+        err = LLMProviderError("connection dropped", provider="ollama")
+        assert str(err) == "connection dropped"
+
+    def test_is_exception_subclass(self):
+        """LLMProviderError is a subclass of the built-in Exception."""
+        assert issubclass(LLMProviderError, Exception)
+
+    def test_can_be_raised_and_caught(self):
+        """LLMProviderError can be raised and caught as DocrawlError."""
+        caught = False
+        try:
+            raise LLMProviderError("boom", provider="openai")
+        except DocrawlError:
+            caught = True
+        assert caught
+    
 
 # ---------------------------------------------------------------------------
 # TestLLMConnectionError
@@ -432,6 +450,22 @@ class TestLLMConnectionError:
         """LLMConnectionError inherits from LLMProviderError."""
         assert issubclass(LLMConnectionError, LLMProviderError)
 
+    def test_is_docrawl_error_subclass(self):
+        """LLMConnectionError inherits from DocrawlError."""
+        assert issubclass(LLMConnectionError, DocrawlError)
+
+    def test_message_exact_format_no_detail(self):
+        """Message is exactly 'Cannot connect to {provider}' when no detail given."""
+        err = LLMConnectionError(provider="openai")
+        assert err.message == "Cannot connect to openai"
+
+    def test_str_contains_message_and_hint(self):
+        """__str__ includes both the connection message and the hint."""
+        err = LLMConnectionError(provider="ollama")
+        result = str(err)
+        assert "Cannot connect to ollama" in result
+        assert "Hint:" in result
+    
 
 # ---------------------------------------------------------------------------
 # TestLLMTimeoutError
@@ -469,7 +503,21 @@ class TestLLMTimeoutError:
     def test_is_llm_provider_error_subclass(self):
         """LLMTimeoutError inherits from LLMProviderError."""
         assert issubclass(LLMTimeoutError, LLMProviderError)
+    def test_is_docrawl_error_subclass(self):
+        """LLMTimeoutError inherits from DocrawlError."""
+        assert issubclass(LLMTimeoutError, DocrawlError)
 
+    def test_message_has_s_suffix_on_timeout(self):
+        """Timeout value in message is followed by the 's' seconds suffix."""
+        err = LLMTimeoutError(provider="ollama", timeout_s=30)
+        assert "30s" in err.message
+
+    def test_str_contains_hint(self):
+        """__str__ includes the user_hint for timeout errors."""
+        err = LLMTimeoutError(provider="openai", timeout_s=60)
+        result = str(err)
+        assert "Hint:" in result
+    
 
 # ---------------------------------------------------------------------------
 # TestLLMRateLimitError
@@ -508,7 +556,23 @@ class TestLLMRateLimitError:
     def test_is_llm_provider_error_subclass(self):
         """LLMRateLimitError inherits from LLMProviderError."""
         assert issubclass(LLMRateLimitError, LLMProviderError)
+    
+    def test_is_docrawl_error_subclass(self):
+        """LLMRateLimitError inherits from DocrawlError."""
+        assert issubclass(LLMRateLimitError, DocrawlError)
 
+    def test_retry_after_zero_treated_as_falsy(self):
+        """retry_after=0 is falsy so hint falls back to the generic wait message."""
+        err = LLMRateLimitError(provider="openai", retry_after=0)
+        assert "Wait" in err.user_hint or "retry" in err.user_hint.lower()
+        assert "0s" not in err.user_hint
+
+    def test_str_contains_hint(self):
+        """__str__ includes the user_hint for rate-limit errors."""
+        err = LLMRateLimitError(provider="openai")
+        result = str(err)
+        assert "Hint:" in result
+    
 
 # ---------------------------------------------------------------------------
 # TestLLMExceptionHierarchy
@@ -566,3 +630,29 @@ class TestLLMExceptionHierarchy:
             except Exception:
                 caught = True
             assert caught, f"{type(exc).__name__} not caught as Exception"
+    
+    def test_llm_errors_not_caught_as_unrelated_docrawl_subclass(self):
+        """LLM errors are not accidentally caught by unrelated DocrawlError subclasses."""
+        llm_exc = LLMConnectionError(provider="ollama")
+        caught_as_unrelated = False
+        try:
+            try:
+                raise llm_exc
+            except OllamaNotRunningError:
+                caught_as_unrelated = True
+        except LLMConnectionError:
+            pass  # expected: propagated because OllamaNotRunningError didn't match
+        assert not caught_as_unrelated, "LLMConnectionError should not be caught as OllamaNotRunningError"
+
+    def test_different_llm_subtypes_not_interchangeable(self):
+        """LLMTimeoutError is not caught by an except clause for LLMConnectionError."""
+        timeout_exc = LLMTimeoutError(provider="openai", timeout_s=5)
+        caught_as_connection = False
+        try:
+            try:
+                raise timeout_exc
+            except LLMConnectionError:
+                caught_as_connection = True
+        except LLMTimeoutError:
+            pass  # expected: propagated because LLMConnectionError didn't match
+        assert not caught_as_connection, "LLMTimeoutError should not be caught as LLMConnectionError"
