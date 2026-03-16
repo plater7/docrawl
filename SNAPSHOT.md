@@ -1,6 +1,6 @@
-# DocRawl Code Snapshot — v0.9.10
+# DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-03-16 14:44 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-03-16 14:47 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -3504,7 +3504,7 @@ async def lifespan(app: FastAPI):
 
 # ── App ───────────────────────────────────────────────────────────────────────
 
-API_VERSION = "0.9.10"
+API_VERSION = "0.10.0"
 
 app = FastAPI(title="Docrawl", version=API_VERSION, lifespan=lifespan)
 
