@@ -936,6 +936,11 @@
             gap: 0.5rem;
         }
         body.theme-basic .summary { background: #1e293b; border-radius: 0.75rem; }
+        body.theme-basic .summary::before { background: linear-gradient(90deg, #3b82f6, #6366f1, #8b5cf6); }
+        body.theme-basic .summary h3 { font-family: system-ui, -apple-system, sans-serif; color: #e2e8f0; font-size: 0.85rem; text-shadow: none; letter-spacing: 0.05em; }
+        body.theme-basic .stat-value { font-family: system-ui, -apple-system, sans-serif; color: #60a5fa; text-shadow: none; font-size: 1.5rem; font-weight: 700; }
+        body.theme-basic .stat-label { font-family: system-ui, -apple-system, sans-serif; color: #94a3b8; font-size: 0.7rem; }
+        body.theme-basic .models-section::before { background: linear-gradient(90deg, transparent, #3b82f6, transparent); }
         @keyframes pulse-basic { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         @keyframes blink-term { 50% { opacity: 0; } }
 
