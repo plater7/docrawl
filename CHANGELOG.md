@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **tests: Expanded testing coverage to support Python 3.13 in addition to existing versions** ([#200](https://github.com/plater7/docrawl/pull/200))
 - **feat(ui): UI improvements v2 — theme system refactor + Glassmorphism theme** ([#199](https://github.com/plater7/docrawl/pull/199))
 - **ci: bump ossf/scorecard-action from 2.4.1 to 2.4.3** ([#196](https://github.com/plater7/docrawl/pull/196))
+- **ci: bump softprops/action-gh-release from 2.5.0 to 2.6.1** ([#197](https://github.com/plater7/docrawl/pull/197))
 
 ## [v0.9.99] - 2026-03-14
 
