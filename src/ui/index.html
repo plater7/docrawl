@@ -1221,6 +1221,23 @@
         @media (prefers-reduced-motion: reduce) {
             body.theme-synthwave::before { animation: none; }
             #footerModels { animation: none !important; white-space: normal !important; }
+            /* Status and phase dots — suppress all pulsing/blinking */
+            .status-dot.ok,
+            .status-dot.warning,
+            .status-dot.error,
+            .status-dot.loading,
+            .phase-dot { animation: none; opacity: 1; }
+            /* BASIC theme overrides */
+            body.theme-basic .status-dot.ok,
+            body.theme-basic .status-dot.error { animation: none; opacity: 1; }
+            /* TERMINAL theme overrides */
+            body.theme-terminal .status-dot.ok,
+            body.theme-terminal .status-dot.loading,
+            body.theme-terminal .phase-dot { animation: none; opacity: 1; }
+            /* GLASSMORPHISM theme overrides */
+            body.theme-glassmorphism .status-dot.ok,
+            body.theme-glassmorphism .status-dot.error,
+            body.theme-glassmorphism .status-dot.loading { animation: none; opacity: 1; }
         }
 
         /* ── Footer marquee on small screens ─────────────────────────────── */
@@ -2111,6 +2128,7 @@
             if (eventSource) { eventSource.close(); eventSource = null; }
             currentJobId = null;
             setRunning(false);
+            summaryDiv.style.display = '';
         }
 
         document.getElementById('url').addEventListener('input', updateOutputPath);
