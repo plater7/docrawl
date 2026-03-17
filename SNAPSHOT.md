@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-03-17 14:39 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-03-17 15:38 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
