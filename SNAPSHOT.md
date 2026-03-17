@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-03-17 15:38 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-03-17 15:39 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -4843,7 +4843,7 @@ def validate_url_not_ssrf(url: str) -> None:
 
 ## `src/ui/index.html`
 
-*File truncated: showing first 500 of 1883 lines.*
+*File truncated: showing first 500 of 2195 lines.*
 
 ```html
 <!DOCTYPE html>
@@ -4872,6 +4872,10 @@ def validate_url_not_ssrf(url: str) -> None:
             --glow-cyan: 0 0 10px #00ffff, 0 0 20px #00ffff40;
             --glow-amber: 0 0 10px #ff6b00, 0 0 20px #ff6b0040;
             --scanline-opacity: 0.03;
+            /* Column panel variables (SYNTHWAVE defaults) */
+            --bg-secondary: #12121f;
+            --border: #2a2a4a;
+            --text-muted: #6a6a8a;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -4922,7 +4926,7 @@ def validate_url_not_ssrf(url: str) -> None:
         }
 
         .container {
-            max-width: min(1600px, calc(100vw - 48px));
+            max-width: min(1400px, calc(100vw - 48px));
             margin: 0 auto;
             position: relative;
             z-index: 1001;
@@ -4931,8 +4935,8 @@ def validate_url_not_ssrf(url: str) -> None:
         /* Two-column layout */
         .two-columns {
             display: grid;
-            grid-template-columns: 65% 35%;
-            gap: 32px;
+            grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+            gap: 24px;
             align-items: start;
         }
 
@@ -4941,6 +4945,16 @@ def validate_url_not_ssrf(url: str) -> None:
             border: 1px solid var(--border);
             border-radius: 8px;
             padding: 1.5rem;
+        }
+        body.theme-synthwave .left-column {
+            background: #10101e;
+            border: 1px solid #2a2a4a;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.03);
+        }
+        body.theme-synthwave .right-column {
+            background: #10101e;
+            border: 1px solid #2a2a4a;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.03);
         }
 
         .right-column {
@@ -5136,21 +5150,22 @@ def validate_url_not_ssrf(url: str) -> None:
             box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
         }
 
-        .status-dot.ok { 
-            background: var(--accent-green); 
+        .status-dot.ok {
+            background: var(--accent-green);
             box-shadow: var(--glow-cyan), inset 0 1px 2px rgba(0,0,0,0.3);
-            animation: blink-green 2s infinite;
+            animation: pulse-dot-ok 2s ease-in-out infinite;
         }
 
-        .status-dot.warning { 
-            background: var(--accent-amber); 
+        .status-dot.warning {
+            background: var(--accent-amber);
             box-shadow: var(--glow-amber);
             animation: blink-amber 1s infinite;
         }
 
-        .status-dot.error { 
-            background: #ff3366; 
+        .status-dot.error {
+            background: #ff3366;
             box-shadow: 0 0 10px #ff3366;
+            animation: blink-dot-error 0.7s step-end infinite;
         }
 
         .status-dot.loading { 
@@ -5159,7 +5174,8 @@ def validate_url_not_ssrf(url: str) -> None:
             animation: pulse 1s infinite;
         }
 
-        @keyframes blink-green { 0%, 90%, 100% { opacity: 1; } 95% { opacity: 0.5; } }
+        @keyframes pulse-dot-ok { 0%, 100% { opacity: 1; box-shadow: var(--glow-cyan), inset 0 1px 2px rgba(0,0,0,0.3); } 50% { opacity: 0.55; box-shadow: none; } }
+        @keyframes blink-dot-error { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         @keyframes blink-amber { 0%, 50%, 100% { opacity: 1; } 25%, 75% { opacity: 0.5; } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -5330,22 +5346,6 @@ def validate_url_not_ssrf(url: str) -> None:
             gap: 0.75rem;
             margin-bottom: 0.75rem;
         }
-
-        .model-row:last-child { margin-bottom: 0; }
-
-        .model-select { flex: 1; min-width: 0; }
-
-        .model-select label {
-            font-size: 0.8rem;
-            color: var(--accent-amber);
-            margin-bottom: 0.25rem;
-        }
-
-        .model-hint {
-            flex: 0 0 auto;
-            max-width: 280px;
-            display: flex;
-            align-items: flex-start;
 # ... truncated ...
 ```
 
