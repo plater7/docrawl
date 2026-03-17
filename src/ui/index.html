@@ -1634,10 +1634,11 @@
             glassmorphism: 'Docrawl ✦ Glassmorphism',
         };
         const themeSelect = document.getElementById('themeSelect');
-        const savedTheme = localStorage.getItem('docrawl-theme') || 'synthwave';
+        const rawTheme = localStorage.getItem('docrawl-theme');
+        const savedTheme = (rawTheme && Object.prototype.hasOwnProperty.call(THEME_TITLES, rawTheme)) ? rawTheme : 'synthwave';
         document.body.className = `theme-${savedTheme}`;
         themeSelect.value = savedTheme;
-        document.title = THEME_TITLES[savedTheme] || 'Docrawl';
+        document.title = THEME_TITLES[savedTheme];
         themeSelect.addEventListener('change', () => {
             document.body.className = `theme-${themeSelect.value}`;
             localStorage.setItem('docrawl-theme', themeSelect.value);
@@ -1673,6 +1674,13 @@
         const jobHistory = [];
         const MAX_JOB_HISTORY = 10;
 
+        function applyJobHistoryFilter() {
+            const q = (jobHistoryFilter ? jobHistoryFilter.value.trim().toLowerCase() : '');
+            document.querySelectorAll('.job-history-item').forEach(el => {
+                el.style.display = (!q || el.textContent.toLowerCase().includes(q)) ? '' : 'none';
+            });
+        }
+
         function updateJobHistoryUI() {
             if (jobHistory.length === 0) {
                 jobHistoryList.innerHTML = '<div class="job-history-empty">No jobs yet</div>';
@@ -1686,6 +1694,7 @@
                     ${job.status === 'running' ? `<button class="job-history-stop" onclick="stopJob('${job.id}')">STOP</button>` : ''}
                 </div>
             `).join('');
+            applyJobHistoryFilter();
         }
 
         async function stopJob(jobId) {
@@ -2151,13 +2160,7 @@
         // Job History filter
         const jobHistoryFilter = document.getElementById('jobHistoryFilter');
         if (jobHistoryFilter) {
-            jobHistoryFilter.addEventListener('input', () => {
-                const q = jobHistoryFilter.value.trim().toLowerCase();
-                document.querySelectorAll('.job-history-item').forEach(el => {
-                    const text = el.textContent.toLowerCase();
-                    el.style.display = (!q || text.includes(q)) ? '' : 'none';
-                });
-            });
+            jobHistoryFilter.addEventListener('input', applyJobHistoryFilter);
         }
 
         // Populate footer with live version from /api/info
