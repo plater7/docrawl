@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **test(exceptions): add coverage for LLMProviderError hierarchy** ([#194](https://github.com/plater7/docrawl/pull/194))
 - **test(main): add coverage for middleware, handlers, and serve_ui** ([#195](https://github.com/plater7/docrawl/pull/195))
 - **tests: Expanded testing coverage to support Python 3.13 in addition to existing versions** ([#200](https://github.com/plater7/docrawl/pull/200))
+- **feat(ui): UI improvements v2 — theme system refactor + Glassmorphism theme** ([#199](https://github.com/plater7/docrawl/pull/199))
 
 ## [v0.9.99] - 2026-03-14
 
