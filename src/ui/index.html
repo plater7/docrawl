@@ -288,21 +288,22 @@
             box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
         }
 
-        .status-dot.ok { 
-            background: var(--accent-green); 
+        .status-dot.ok {
+            background: var(--accent-green);
             box-shadow: var(--glow-cyan), inset 0 1px 2px rgba(0,0,0,0.3);
-            animation: blink-green 2s infinite;
+            animation: pulse-dot-ok 2s ease-in-out infinite;
         }
 
-        .status-dot.warning { 
-            background: var(--accent-amber); 
+        .status-dot.warning {
+            background: var(--accent-amber);
             box-shadow: var(--glow-amber);
             animation: blink-amber 1s infinite;
         }
 
-        .status-dot.error { 
-            background: #ff3366; 
+        .status-dot.error {
+            background: #ff3366;
             box-shadow: 0 0 10px #ff3366;
+            animation: blink-dot-error 0.7s step-end infinite;
         }
 
         .status-dot.loading { 
@@ -311,7 +312,8 @@
             animation: pulse 1s infinite;
         }
 
-        @keyframes blink-green { 0%, 90%, 100% { opacity: 1; } 95% { opacity: 0.5; } }
+        @keyframes pulse-dot-ok { 0%, 100% { opacity: 1; box-shadow: var(--glow-cyan), inset 0 1px 2px rgba(0,0,0,0.3); } 50% { opacity: 0.55; box-shadow: none; } }
+        @keyframes blink-dot-error { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         @keyframes blink-amber { 0%, 50%, 100% { opacity: 1; } 25%, 75% { opacity: 0.5; } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -507,7 +509,7 @@
 
         .hint-icon { color: #4a4a6a; flex-shrink: 0; }
 
-        @media (max-width: 640px) {
+        @media (max-width: 900px) {
             .model-row { flex-direction: column; }
             .model-hint { padding-top: 0; max-width: 100%; }
         }
@@ -713,12 +715,13 @@
 
         /* Summary Panel - Mission Report */
         .summary {
-            margin-top: 1.5rem;
-            padding: 1.25rem;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            padding: 1rem 1.25rem;
             background: linear-gradient(135deg, #0d0d1a 0%, #15152a 100%);
             border: 1px solid #2a2a5a;
             border-radius: 4px;
-            display: none;
+            display: block;
             position: relative;
             overflow: hidden;
         }
@@ -984,8 +987,8 @@
         /* models section */
         body.theme-terminal .models-section { background: #0b110d; border: 1px solid #1a2d20; border-radius: 0; }
         body.theme-terminal .section-label { font-family: 'IBM Plex Mono', monospace; color: #4a7055; font-size: .65rem; letter-spacing: .14em; font-weight: 400; }
-        body.theme-terminal .model-hint { color: #2d4a36; font-family: 'IBM Plex Mono', monospace; font-size: .62rem; }
-        body.theme-terminal .model-hint span { color: #1a2d20; }
+        body.theme-terminal .model-hint { color: #6a9a78; font-family: 'IBM Plex Mono', monospace; font-size: .62rem; }
+        body.theme-terminal .model-hint span { color: #4a7055; }
         /* checkboxes */
         body.theme-terminal .checkbox-group input[type=checkbox] { background: #0f1a12; border-color: #1a2d20; border-radius: 0; box-shadow: none; }
         body.theme-terminal .checkbox-group input[type=checkbox]:checked { background: #04200e; border-color: #3ddc84; }
@@ -1104,6 +1107,205 @@
         body.theme-basic .app-footer .footer-name { color: #94a3b8; }
         body.theme-basic .app-footer .footer-link { color: #3b82f6; opacity: 0.85; text-shadow: none; }
         body.theme-basic .app-footer .footer-link:hover { opacity: 1; }
+
+        /* ── Fix: BASIC theme model dropdown truncation ─────────────────── */
+        body.theme-basic .model-row { flex-wrap: nowrap; }
+        body.theme-basic .model-hint { max-width: 160px; flex-shrink: 1; }
+        body.theme-basic .model-select select { min-width: 0; width: 100%; }
+
+        /* ── Fix: BASIC + TERMINAL status dot animations ────────────────── */
+        body.theme-basic .status-dot.ok { animation: pulse-basic 2.5s ease-in-out infinite; }
+        body.theme-basic .status-dot.error { animation: blink-dot-error 0.7s step-end infinite; }
+        body.theme-terminal .status-dot.ok { animation: blink-term 2.5s step-end infinite; }
+        body.theme-terminal .status-dot.error { animation: blink-term 0.6s step-end infinite; }
+
+        /* ── Job History Filter Input ────────────────────────────────────── */
+        .job-history-filter { margin-bottom: 0.5rem; }
+        .job-history-search {
+            width: 100%;
+            padding: 0.3rem 0.65rem;
+            font-size: 0.75rem;
+            background: var(--bg-input, #0d0d18);
+            border: 1px solid #2a2a4a;
+            border-radius: 2px;
+            color: var(--text-primary, #e0e0e0);
+            font-family: 'VT323', monospace;
+        }
+        .job-history-search::placeholder { color: #3a3a5a; }
+        .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+        body.theme-basic .job-history-search {
+            background: #1e293b;
+            border-color: #334155;
+            color: #e2e8f0;
+            font-family: system-ui, -apple-system, sans-serif;
+            border-radius: 0.375rem;
+            font-size: 0.8rem;
+        }
+        body.theme-terminal .job-history-search {
+            background: #0f1a12;
+            border-color: #1a2d20;
+            color: #6a9a78;
+            font-family: 'IBM Plex Mono', monospace;
+            border-radius: 0;
+            font-size: 0.65rem;
+        }
+
+        /* ── Synthwave: animated scanline sweep ──────────────────────────── */
+        @keyframes scanlines-scroll {
+            from { background-position: 0 0, 0 0; }
+            to   { background-position: 0 4px, 0 0; }
+        }
+        body.theme-synthwave::before {
+            animation: scanlines-scroll 0.18s steps(1) infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            body.theme-synthwave::before { animation: none; }
+            #footerModels { animation: none !important; white-space: normal !important; }
+        }
+
+        /* ── Footer marquee on small screens ─────────────────────────────── */
+        @media (max-width: 768px) {
+            .footer-models { overflow: hidden; max-width: 180px; display: inline-block; vertical-align: middle; }
+            #footerModels { display: inline-block; animation: marquee-scroll 18s linear infinite; white-space: nowrap; }
+        }
+        @keyframes marquee-scroll {
+            0%   { transform: translateX(110%); }
+            100% { transform: translateX(-110%); }
+        }
+
+        /* ── GLASSMORPHISM theme ──────────────────────────────────────────── */
+        body.theme-glassmorphism {
+            font-family: 'IBM Plex Mono', monospace;
+            background: linear-gradient(135deg, #1a0533 0%, #0d1a3a 45%, #0a2545 70%, #1a0a3a 100%);
+            background-attachment: fixed;
+            color: rgba(255,255,255,0.92);
+            padding: 2rem;
+            font-size: 15px;
+        }
+        body.theme-glassmorphism::before {
+            background:
+                radial-gradient(ellipse at 20% 15%, rgba(138,43,226,0.18) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(59,130,246,0.14) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(147,51,234,0.06) 0%, transparent 70%);
+            animation: none;
+        }
+        body.theme-glassmorphism::after { background: none; }
+        body.theme-glassmorphism .container { max-width: min(1400px, calc(100vw - 48px)); }
+        body.theme-glassmorphism h1 {
+            font-family: 'IBM Plex Mono', monospace;
+            background: linear-gradient(90deg, #d8c7ff 0%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+            font-size: 2rem;
+            letter-spacing: 0.08em;
+        }
+        body.theme-glassmorphism h1::before { color: rgba(196,181,253,0.7); -webkit-text-fill-color: rgba(196,181,253,0.7); }
+        body.theme-glassmorphism h1::after { color: rgba(255,255,255,0.35); text-shadow: none; }
+        body.theme-glassmorphism .left-column,
+        body.theme-glassmorphism .right-column {
+            background: rgba(255,255,255,0.07);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+        }
+        body.theme-glassmorphism .status-bar {
+            background: rgba(255,255,255,0.06);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+        }
+        body.theme-glassmorphism .status-item {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px;
+        }
+        body.theme-glassmorphism .status-dot { background: rgba(255,255,255,0.2); }
+        body.theme-glassmorphism .status-dot.ok { background: #86efac; box-shadow: 0 0 8px rgba(134,239,172,0.5); animation: pulse-glass-ok 2s ease-in-out infinite; }
+        body.theme-glassmorphism .status-dot.warning { background: #fcd34d; box-shadow: 0 0 8px rgba(252,211,77,0.4); animation: none; }
+        body.theme-glassmorphism .status-dot.error { background: #fca5a5; box-shadow: 0 0 8px rgba(252,165,165,0.5); animation: blink-dot-error 0.7s step-end infinite; }
+        body.theme-glassmorphism .status-dot.loading { background: #93c5fd; box-shadow: 0 0 8px rgba(147,197,253,0.4); animation: pulse 1s infinite; }
+        @keyframes pulse-glass-ok { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        body.theme-glassmorphism .status-label { color: rgba(255,255,255,0.5); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
+        body.theme-glassmorphism .status-value { color: rgba(255,255,255,0.88); font-family: 'IBM Plex Mono', monospace; }
+        body.theme-glassmorphism label { color: rgba(255,255,255,0.6); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; letter-spacing: 0.08em; text-shadow: none; }
+        body.theme-glassmorphism input,
+        body.theme-glassmorphism select {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.92);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.85rem;
+            box-shadow: none;
+        }
+        body.theme-glassmorphism input:focus,
+        body.theme-glassmorphism select:focus {
+            border-color: rgba(147,51,234,0.65);
+            box-shadow: 0 0 0 3px rgba(147,51,234,0.15);
+            color: rgba(255,255,255,0.96);
+        }
+        body.theme-glassmorphism input::placeholder { color: rgba(255,255,255,0.28); }
+        body.theme-glassmorphism select option { background: #1a0a3a; color: rgba(255,255,255,0.9); }
+        body.theme-glassmorphism .models-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+        }
+        body.theme-glassmorphism .models-section::before { background: linear-gradient(90deg, transparent, rgba(196,181,253,0.4), transparent); }
+        body.theme-glassmorphism .section-label { color: rgba(255,255,255,0.75); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; text-shadow: none; }
+        body.theme-glassmorphism .model-hint { color: rgba(255,255,255,0.5); font-family: 'IBM Plex Mono', monospace; }
+        body.theme-glassmorphism .hint-icon { color: rgba(196,181,253,0.5); }
+        body.theme-glassmorphism .checkbox-group input[type="checkbox"] { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.25); border-radius: 4px; }
+        body.theme-glassmorphism .checkbox-group input[type="checkbox"]:checked { background: rgba(124,58,237,0.6); border-color: rgba(124,58,237,0.8); box-shadow: 0 0 8px rgba(124,58,237,0.4); }
+        body.theme-glassmorphism .checkbox-group label { color: rgba(255,255,255,0.78); font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; text-transform: none; letter-spacing: 0; }
+        body.theme-glassmorphism .btn-primary {
+            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+            color: white;
+            box-shadow: 0 4px 20px rgba(124,58,237,0.45);
+            border-radius: 8px;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+        body.theme-glassmorphism .btn-primary:hover { background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%); box-shadow: 0 6px 28px rgba(124,58,237,0.55); }
+        body.theme-glassmorphism .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); box-shadow: none; }
+        body.theme-glassmorphism .btn-danger { background: linear-gradient(135deg, #dc2626, #9f1239); color: white; box-shadow: 0 4px 16px rgba(220,38,38,0.4); border-radius: 8px; font-family: 'IBM Plex Mono', monospace; }
+        body.theme-glassmorphism .btn-danger:hover { background: linear-gradient(135deg, #ef4444, #be123c); }
+        body.theme-glassmorphism .phase-banner { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; }
+        body.theme-glassmorphism .phase-dot { background: rgba(196,181,253,0.8); box-shadow: 0 0 8px rgba(196,181,253,0.5); }
+        body.theme-glassmorphism .phase-name { color: #c4b5fd; border-color: rgba(196,181,253,0.3); background: rgba(124,58,237,0.15); border-radius: 4px; font-family: 'IBM Plex Mono', monospace; }
+        body.theme-glassmorphism .phase-separator, body.theme-glassmorphism .phase-detail { color: rgba(255,255,255,0.4); font-family: 'IBM Plex Mono', monospace; }
+        body.theme-glassmorphism .log { background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; }
+        body.theme-glassmorphism .log::before { display: none; }
+        body.theme-glassmorphism .log-entry { border-color: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); }
+        body.theme-glassmorphism .log-entry.error { color: #fca5a5; text-shadow: none; }
+        body.theme-glassmorphism .log-entry.success { color: #86efac; text-shadow: none; }
+        body.theme-glassmorphism .log-entry.info { color: #93c5fd; }
+        body.theme-glassmorphism .log-entry.warning { color: #fcd34d; text-shadow: none; }
+        body.theme-glassmorphism .summary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; }
+        body.theme-glassmorphism .summary::before { background: linear-gradient(90deg, rgba(196,181,253,0.5), rgba(147,197,253,0.5), rgba(134,239,172,0.5)); }
+        body.theme-glassmorphism .summary h3 { color: rgba(255,255,255,0.7); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; text-shadow: none; }
+        body.theme-glassmorphism .stat { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; }
+        body.theme-glassmorphism .stat-value { font-family: 'IBM Plex Mono', monospace; color: #c4b5fd; text-shadow: 0 0 12px rgba(196,181,253,0.45); }
+        body.theme-glassmorphism .stat-label { color: rgba(255,255,255,0.45); font-family: 'IBM Plex Mono', monospace; }
+        body.theme-glassmorphism #fetchStats { font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.5); font-size: 0.72rem; }
+        body.theme-glassmorphism .job-history-header { color: rgba(255,255,255,0.5); }
+        body.theme-glassmorphism .job-history-list { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); border-radius: 6px; }
+        body.theme-glassmorphism .job-history-item { border-color: rgba(255,255,255,0.07); }
+        body.theme-glassmorphism .job-history-id { color: #93c5fd; }
+        body.theme-glassmorphism .job-history-empty { color: rgba(255,255,255,0.35); }
+        body.theme-glassmorphism .job-history-search { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); color: rgba(255,255,255,0.8); font-family: 'IBM Plex Mono', monospace; border-radius: 6px; }
+        body.theme-glassmorphism .job-history-search::placeholder { color: rgba(255,255,255,0.25); }
+        body.theme-glassmorphism .theme-selector select { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: rgba(255,255,255,0.88); font-family: 'IBM Plex Mono', monospace; }
+        body.theme-glassmorphism .app-footer { color: rgba(255,255,255,0.38); background: rgba(0,0,0,0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        body.theme-glassmorphism .app-footer .footer-name { color: rgba(255,255,255,0.65); }
+        body.theme-glassmorphism .app-footer .footer-link { color: #93c5fd; text-shadow: none; }
+        body.theme-glassmorphism .app-footer .footer-link:hover { text-shadow: 0 0 8px rgba(147,197,253,0.6); }
+        body.theme-glassmorphism ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        body.theme-glassmorphism ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 4px; }
+        body.theme-glassmorphism ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.24); }
     </style>
 </head>
 <body>
@@ -1113,6 +1315,7 @@
             <option value="synthwave">SYNTHWAVE</option>
             <option value="basic">BASIC</option>
             <option value="terminal">TERMINAL</option>
+            <option value="glassmorphism">GLASSMORPHISM</option>
         </select>
     </div>
 
@@ -1318,9 +1521,24 @@
                 <!-- Job History Panel -->
                 <div class="job-history-panel">
                     <div class="job-history-header">// Job History</div>
+                    <div class="job-history-filter">
+                        <label for="jobHistoryFilter" class="visually-hidden">Filter job history</label>
+                        <input type="search" id="jobHistoryFilter" class="job-history-search" placeholder="Filter by ID or status…" aria-label="Filter job history">
+                    </div>
                     <div class="job-history-list" id="jobHistoryList">
                         <div class="job-history-empty">No jobs yet</div>
                     </div>
+                </div>
+
+                <!-- Mission Report - prominent position next to job history -->
+                <div class="summary" id="summary">
+                    <h3>// Mission Report</h3>
+                    <div>
+                        <span class="stat"><span class="stat-value" id="pagesOk">0</span><br><span class="stat-label">Complete</span></span>
+                        <span class="stat"><span class="stat-value" id="pagesPartial">0</span><br><span class="stat-label">Partial</span></span>
+                        <span class="stat"><span class="stat-value" id="pagesFailed">0</span><br><span class="stat-label">Failed</span></span>
+                    </div>
+                    <div id="fetchStats"></div>
                 </div>
 
                 <div class="phase-banner" id="phaseBanner">
@@ -1330,17 +1548,7 @@
                     <span class="phase-detail" id="phaseDetail"></span>
                 </div>
                 <div class="log" id="log"></div>
-
-                <div class="summary" id="summary">
-            <h3>// Mission Report</h3>
-            <div>
-                <span class="stat"><span class="stat-value" id="pagesOk">0</span><br><span class="stat-label">Complete</span></span>
-                <span class="stat"><span class="stat-value" id="pagesPartial">0</span><br><span class="stat-label">Partial</span></span>
-                <span class="stat"><span class="stat-value" id="pagesFailed">0</span><br><span class="stat-label">Failed</span></span>
             </div>
-            <div id="fetchStats"></div>
-        </div>
-        </div>
         </div>
 
     <footer class="app-footer">
@@ -1868,6 +2076,18 @@
                 diskDot.className = 'status-dot error'; diskStatus.textContent = 'ERROR';
                 writeDot.className = 'status-dot error'; writeStatus.textContent = 'ERROR';
             }
+        }
+
+        // Job History filter
+        const jobHistoryFilter = document.getElementById('jobHistoryFilter');
+        if (jobHistoryFilter) {
+            jobHistoryFilter.addEventListener('input', () => {
+                const q = jobHistoryFilter.value.trim().toLowerCase();
+                document.querySelectorAll('.job-history-item').forEach(el => {
+                    const text = el.textContent.toLowerCase();
+                    el.style.display = (!q || text.includes(q)) ? '' : 'none';
+                });
+            });
         }
 
         // Populate footer with live version from /api/info
