@@ -943,6 +943,7 @@
         body.theme-basic .models-section::before { background: linear-gradient(90deg, transparent, #3b82f6, transparent); }
         @keyframes pulse-basic { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         @keyframes blink-term { 50% { opacity: 0; } }
+        @keyframes pulse-term { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
         /* ── Terminal (Archival) Theme ─────────────────────────────────── */
         body.theme-terminal {
@@ -1175,7 +1176,7 @@
         /* ── Fix: BASIC + TERMINAL status dot animations ────────────────── */
         body.theme-basic .status-dot.ok { animation: pulse-basic 2.5s ease-in-out infinite; }
         body.theme-basic .status-dot.error { animation: blink-dot-error 0.7s step-end infinite; }
-        body.theme-terminal .status-dot.ok { animation: blink-term 2.5s step-end infinite; }
+        body.theme-terminal .status-dot.ok { animation: pulse-term 2.5s ease-in-out infinite; }
         body.theme-terminal .status-dot.error { animation: blink-term 0.6s step-end infinite; }
 
         /* ── Job History Filter Input ────────────────────────────────────── */
