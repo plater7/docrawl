@@ -96,7 +96,7 @@ Documentation
 
   README.md (13KB)
   ARCHITECTURE.md (19KB)
-  CHANGELOG.md (21KB)
+  CHANGELOG.md (22KB)
   CONTRIBUTING.md (3KB)
   SECURITY.md (2KB)
   LICENSE (1KB)
@@ -138,4 +138,4 @@ Approach & patterns
   Governance: Nebula for automation/monitoring, Claude Code for implementation, Notion for project planning
 
 ---
-<!-- content-hash: 87a41374d8682e0dd458aa1870ee624101b20825d65d779715fc443fd8d361c8 -->
+<!-- content-hash: 92144d415870b8e7e7fbc412e551fa0622a299a2bae3aeed19a43b1531a65328 -->
