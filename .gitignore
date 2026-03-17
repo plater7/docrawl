@@ -20,6 +20,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+pytest.ini.*
+test-runner-*/
 
 # Virtual environments
 venv/
