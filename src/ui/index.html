@@ -78,7 +78,7 @@
         }
 
         .container {
-            max-width: min(1600px, calc(100vw - 48px));
+            max-width: min(1400px, calc(100vw - 48px));
             margin: 0 auto;
             position: relative;
             z-index: 1001;
@@ -848,7 +848,7 @@
             font-family: system-ui, -apple-system, sans-serif;
             background: #0f172a;
             color: #e2e8f0;
-            padding: 2rem;
+            padding: 1.5rem;
         }
         body.theme-basic::before, body.theme-basic::after { display: none; }
         body.theme-basic .container { max-width: min(1400px, calc(100vw - 48px)); }
@@ -1238,7 +1238,7 @@
             background: linear-gradient(135deg, #1a0533 0%, #0d1a3a 45%, #0a2545 70%, #1a0a3a 100%);
             background-attachment: fixed;
             color: rgba(255,255,255,0.92);
-            padding: 2rem;
+            padding: 1.5rem;
             font-size: 15px;
         }
         body.theme-glassmorphism::before {
@@ -1627,13 +1627,21 @@
 
     <script>
         // Theme management
+        const THEME_TITLES = {
+            synthwave: 'Docrawl // SYNTHWAVE',
+            basic: 'Docrawl — Basic',
+            terminal: 'Docrawl > TERMINAL',
+            glassmorphism: 'Docrawl ✦ Glassmorphism',
+        };
         const themeSelect = document.getElementById('themeSelect');
         const savedTheme = localStorage.getItem('docrawl-theme') || 'synthwave';
         document.body.className = `theme-${savedTheme}`;
         themeSelect.value = savedTheme;
+        document.title = THEME_TITLES[savedTheme] || 'Docrawl';
         themeSelect.addEventListener('change', () => {
             document.body.className = `theme-${themeSelect.value}`;
             localStorage.setItem('docrawl-theme', themeSelect.value);
+            document.title = THEME_TITLES[themeSelect.value] || 'Docrawl';
         });
 
         const form = document.getElementById('crawlForm');
