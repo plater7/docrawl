@@ -8,3 +8,6 @@ raw/
 *.zip
 *.html
 *.csv
+
+# Allow design mockups and references in docs/designs/
+!designs/*.html

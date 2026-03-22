@@ -7,6 +7,7 @@ __pycache__/
 .python-version
 build/
 develop-eggs/
+default/
 dist/
 downloads/
 eggs/
@@ -22,6 +23,8 @@ wheels/
 *.egg
 pytest.ini.*
 test-runner-*/
+main.py
+pyproject.toml
 
 # Virtual environments
 venv/

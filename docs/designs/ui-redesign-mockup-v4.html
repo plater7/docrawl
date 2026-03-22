@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docrawl — UI Mockup v4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ─── Design Tokens ─────────────────────────────────────────────── */
+    :root {
+      /* Surfaces — stepped with enough delta to be readable at distance */
+      --bg:           #0c0c0c;
+      --bg-panel:     #111111;
+      --bg-input:     #181818;
+      --bg-raised:    #1d1d1d;
+      --bg-section:   #0f0f0f;
+
+      /* Borders — three levels of visibility */
+      --border:       #252525;
+      --border-mid:   #333333;
+      --border-hi:    #444444;
+
+      /* Text — clear three-tier system */
+      --text:         #e2e2e2;
+      --text-dim:     #999999;
+      --text-muted:   #5a5a5a;
+
+      /* Amber — used only for: primary action fill, active/running state */
+      --accent:       #c87941;
+      --accent-dim:   #6b3f1e;
+      --accent-hover: #d68f55;
+      --accent-bg:    rgba(200,121,65,0.06);
+      --accent-text:  rgba(200,121,65,0.80);
+
+      /* Semantic states */
+      --ok:           #5c8f5c;
+      --ok-dim:       rgba(92,143,92,0.25);
+      --warn:         #9e8638;
+      --warn-dim:     rgba(158,134,56,0.25);
+      --err:          #a05050;
+      --err-dim:      rgba(160,80,80,0.25);
+      --info:         #4f7a9a;
+      --info-dim:     rgba(79,122,154,0.25);
+
+      --font: 'IBM Plex Mono', 'Courier New', monospace;
+      --r: 2px;
+
+      /* Calibrated for 1920×1080 */
+      --fs-xs:   10px;
+      --fs-sm:   11px;
+      --fs-base: 13px;
+      --fs-url:  15px;
+      --fs-mark: 22px;
+      --fs-stat: 30px;
+    }
+
+    /* ─── Base ───────────────────────────────────────────────────────── */
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      font-size: var(--fs-base);
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Shell Grid ─────────────────────────────────────────────────── */
+    #shell {
+      display: grid;
+      grid-template-rows: 48px 1fr 30px;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ─── Header ─────────────────────────────────────────────────────── */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border-mid);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    #header-left {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    /* Wordmark — sized to read across a desk at 1920 */
+    #wordmark {
+      font-size: var(--fs-mark);
+      font-weight: 600;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      user-select: none;
+      line-height: 1;
+    }
+
+    #wordmark .w-doc  { color: var(--text-muted); }
+    #wordmark .w-rawl { color: var(--accent); }
+
+    /* Vertical rule separator between wordmark and subtitle */
+    #header-sep {
+      width: 1px;
+      height: 18px;
+      background: var(--border-mid);
+      flex-shrink: 0;
+    }
+
+    #header-sub {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* Status indicators — right-aligned, pipe separated */
+    #header-right {
+      display: flex;
+      align-items: center;
+    }
+
+    .hstat {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: var(--fs-xs);
+      color: var(--text-dim);
+      padding: 0 14px;
+    }
+
+    .hstat + .hstat {
+      border-left: 1px solid var(--border);
+    }
+
+    .hlabel {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+    }
+
+    .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot.on  { background: var(--ok); }
+    .dot.off { background: var(--text-muted); }
+
+    /* ─── Main ───────────────────────────────────────────────────────── */
+    #main {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* ─── Panels ─────────────────────────────────────────────────────── */
+    .panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+      background: var(--bg-panel);
+    }
+
+    #panel-left {
+      border-right: 1px solid var(--border-mid);
+    }
+
+    /* ─── Left panel inner — scrolls internally if advanced options overflow */
+    .panel-inner {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 16px 18px;
+      gap: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-mid) transparent;
+    }
+
+    /* ─── Section label ──────────────────────────────────────────────── */
+    .sec-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      padding: 11px 0 6px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .sec-label:first-child {
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+    }
+
+    /* ─── Field ─────────────────────────────────────────────────────── */
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    /* Field label — clear separation from section labels */
+    .fl {
+      font-size: 9px;
+      font-weight: 400;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+    }
+
+    /* ─── Inputs / Selects ───────────────────────────────────────────── */
+    input[type="text"],
+    input[type="url"],
+    input[type="number"],
+    select {
+      font-family: var(--font);
+      font-size: var(--fs-sm);
+      background: var(--bg-input);
+      color: var(--text);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--r);
+      padding: 6px 9px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.1s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent-dim);
+      background: #1c1c1c;
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+    }
+
+    select {
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23555555'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 22px;
+    }
+
+    /* URL — primary input — visually anchored, clearly most important */
+    #url-field {
+      margin-bottom: 2px;
+    }
+
+    #input-url {
+      font-size: var(--fs-url);
+      padding: 10px 12px;
+      border-color: var(--border-hi);
+      background: #1a1a1a;
+      letter-spacing: 0.01em;
+    }
+
+    #input-url:focus {
+      border-color: var(--accent);
+      background: #1c1c1c;
+    }
+
+    /* ─── Execute + Controls — dominant action block ─────────────────── */
+    /* Placed immediately after Output/Language, before Options */
+    .execute-wrap {
+      flex-shrink: 0;
+      padding: 10px 0 2px;
+    }
+
+    .btn-execute {
+      font-family: var(--font);
+      font-size: var(--fs-base);
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      width: 100%;
+      height: 42px;
+      background: var(--accent);
+      color: #0f0f0f;
+      border: none;
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: background 0.1s;
+      outline: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .btn-execute:hover {
+      background: var(--accent-hover);
+    }
+
+    .ctrl-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 5px;
+    }
+
+    .btn-ctrl {
+      font-family: var(--font);
+      font-size: var(--fs-xs);
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 6px 0;
+      cursor: not-allowed;
+      transition: opacity 0.1s, border-color 0.1s, color 0.1s;
+      outline: none;
+      text-align: center;
+    }
+
+    .btn-ctrl.active {
+      cursor: pointer;
+      color: var(--text-dim);
+      border-color: var(--border-mid);
+    }
+
+    .btn-ctrl.cancel {
+      color: var(--err);
+      border-color: var(--err-dim);
+    }
+
+    /* ─── Grid helpers ───────────────────────────────────────────────── */
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      flex-shrink: 0;
+    }
+
+    .row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 7px;
+      flex-shrink: 0;
+    }
+
+    .row-2-3 {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 7px;
+      flex-shrink: 0;
+    }
+
+    .mb6  { margin-bottom: 6px; }
+    .mb8  { margin-bottom: 8px; }
+    .mb10 { margin-bottom: 10px; }
+
+    /* ─── Options section ────────────────────────────────────────────── */
+    /* Two-column: left col = number inputs + checkboxes, right col = checkboxes */
+    .opts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 16px;
+      flex-shrink: 0;
+    }
+
+    .opt-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 0;
+    }
+
+    .opt-row .ol {
+      font-size: var(--fs-sm);
+      color: var(--text-dim);
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .opt-row input[type="number"] {
+      font-size: var(--fs-sm);
+      padding: 3px 6px;
+      width: auto;
+      flex-shrink: 0;
+    }
+
+    .opt-num-56 { width: 56px; }
+    .opt-num-48 { width: 48px; }
+
+    .opt-fullrow {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 0;
+    }
+
+    .opt-fullrow .ol {
+      font-size: var(--fs-sm);
+      color: var(--text-dim);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .opt-fullrow select {
+      flex: 1;
+      font-size: var(--fs-sm);
+      padding: 3px 22px 3px 7px;
+    }
+
+    /* ─── Checkbox ───────────────────────────────────────────────────── */
+    input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      border: 1px solid var(--border-mid);
+      border-radius: 1px;
+      background: var(--bg-input);
+      cursor: pointer;
+      flex-shrink: 0;
+      position: relative;
+      transition: border-color 0.1s, background 0.1s;
+    }
+
+    input[type="checkbox"]:checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 1px;
+      width: 4px;
+      height: 7px;
+      border: 1.5px solid #0d0d0d;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg);
+    }
+
+    input[type="checkbox"]:focus { outline: none; border-color: var(--accent-dim); }
+
+    .cb-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 3px 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cb-row .ol {
+      font-size: var(--fs-sm);
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
+    /* ─── Advanced Collapsible ───────────────────────────────────────── */
+    .adv-trigger {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      cursor: pointer;
+      padding: 10px 0 6px;
+      border-top: 1px solid var(--border);
+      user-select: none;
+      flex-shrink: 0;
+      margin-top: 4px;
+      transition: color 0.1s;
+    }
+
+    .adv-trigger:hover { color: var(--text-dim); }
+
+    .adv-chevron {
+      font-style: normal;
+      font-size: 8px;
+      transition: transform 0.15s;
+      display: inline-block;
+    }
+
+    .adv-trigger.open .adv-chevron { transform: rotate(180deg); }
+
+    .adv-body {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      padding: 4px 0 0;
+      flex-shrink: 0;
+    }
+
+    .adv-body.open {
+      display: flex;
+      padding-bottom: 8px;
+    }
+
+    .adv-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 16px;
+    }
+
+    #proxy-url-wrap {
+      display: none;
+      margin-top: 0;
+    }
+    #proxy-url-wrap.on { display: block; }
+
+    .resume-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .resume-row input {
+      flex: 1;
+      font-size: var(--fs-sm);
+      padding: 5px 8px;
+    }
+
+    .btn-xs {
+      font-family: var(--font);
+      font-size: var(--fs-xs);
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--r);
+      padding: 5px 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      outline: none;
+    }
+    .btn-xs:hover { border-color: var(--border-hi); color: var(--text); }
+
+    /* ─── Chip Input ─────────────────────────────────────────────────── */
+    .chip-input-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--r);
+      min-height: 38px;
+      padding: 5px 7px;
+      cursor: text;
+    }
+
+    .chip-input-wrap:focus-within {
+      border-color: var(--accent-dim);
+    }
+
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-raised);
+      border: 1px solid var(--border-mid);
+      color: var(--text-dim);
+      font-size: var(--fs-xs);
+      font-family: var(--font);
+      padding: 2px 7px;
+      border-radius: 2px;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .chip-remove {
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: var(--font);
+      padding: 0;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      transition: color 0.1s;
+    }
+
+    .chip-remove:hover { color: var(--err); }
+
+    .chip-text-input {
+      flex: 1;
+      min-width: 100px;
+      border: none;
+      background: var(--bg-input);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: var(--fs-xs);
+      outline: none;
+      padding: 1px 2px;
+      width: auto;
+    }
+
+    .chip-text-input::placeholder { color: var(--text-muted); }
+
+    /* ─── RIGHT PANEL ────────────────────────────────────────────────── */
+    #panel-right {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* A. Active Crawl Strip */
+    .crawl-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 44px;
+      min-height: 44px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--border-mid);
+      flex-shrink: 0;
+      background: #0f0f0f;
+    }
+
+    .crawl-strip-label {
+      font-size: var(--fs-xs);
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      flex-shrink: 0;
+    }
+
+    .crawl-strip-label.running {
+      color: var(--accent);
+    }
+
+    /* URL left-aligned, monospace, truncated */
+    .crawl-strip-url {
+      font-size: var(--fs-sm);
+      color: var(--text-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .crawl-strip-idle {
+      font-size: var(--fs-sm);
+      color: var(--text-muted);
+    }
+
+    .pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      flex-shrink: 0;
+      animation: pulse-anim 1.6s ease-in-out infinite;
+    }
+
+    @keyframes pulse-anim {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.12; }
+    }
+
+    /* B. Mission Report */
+    .mon-report {
+      display: flex;
+      flex-direction: column;
+      padding: 16px 18px 14px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-mid);
+    }
+
+    .rpt-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .rpt-title {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+
+    .rpt-meta {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+    }
+
+    /* 2x2 stat grid — equal cells */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat-cell {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 13px 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+    }
+
+    /* Number first, label to its right — left-anchored, scannable */
+    .stat-n {
+      font-size: var(--fs-stat);
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      flex-shrink: 0;
+    }
+
+    .stat-n.complete { color: var(--ok);   }
+    .stat-n.partial  { color: var(--warn); }
+    .stat-n.failed   { color: var(--err);  }
+    .stat-n.retried  { color: var(--info); }
+
+    .stat-l {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    /* C. Job History */
+    .mon-history {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      padding: 14px 18px 16px;
+    }
+
+    .hist-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 9px;
+      flex-shrink: 0;
+    }
+
+    .hist-title {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+
+    .hist-meta {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+    }
+
+    /* Filter input — visually distinct from config inputs */
+    .hist-filter {
+      flex-shrink: 0;
+      margin-bottom: 8px;
+    }
+
+    #job-search {
+      font-size: var(--fs-sm);
+      padding: 5px 9px;
+      background: var(--bg-section);
+      border-color: var(--border);
+      color: var(--text-dim);
+    }
+
+    #job-search::placeholder {
+      color: var(--text-muted);
+      font-style: normal;
+    }
+
+    /* Job list */
+    .job-scroll {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Layout: status badge SECOND — immediately after ID, then URL, then time */
+    .job-item {
+      display: grid;
+      grid-template-columns: 40px 72px 1fr 60px;
+      align-items: center;
+      gap: 11px;
+      padding: 6px 9px;
+      border: 1px solid transparent;
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s;
+      flex-shrink: 0;
+    }
+
+    .job-item:hover {
+      background: rgba(255,255,255,0.02);
+      border-color: var(--border);
+    }
+
+    .job-item.active {
+      border-color: var(--accent-dim);
+      background: var(--accent-bg);
+    }
+
+    .job-id {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    /* Active job ID gets accent — only the running one */
+    .job-item.active .job-id {
+      color: var(--accent-text);
+    }
+
+    .job-url {
+      font-size: var(--fs-sm);
+      color: var(--text-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .job-time {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+      white-space: nowrap;
+      text-align: right;
+    }
+
+    /* Status badges */
+    .badge {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 1px;
+      border: 1px solid transparent;
+      white-space: nowrap;
+      display: inline-block;
+    }
+
+    .badge.running   { color: var(--accent);    border-color: var(--accent-dim);  background: var(--accent-bg); }
+    .badge.completed { color: var(--ok);         border-color: var(--ok-dim);      background: transparent;      }
+    .badge.failed    { color: var(--err);         border-color: var(--err-dim);     background: transparent;      }
+    .badge.paused    { color: var(--warn);        border-color: var(--warn-dim);    background: transparent;      }
+    .badge.cancelled { color: var(--text-muted);  border-color: var(--border);      background: transparent;      }
+
+    /* ─── Footer ─────────────────────────────────────────────────────── */
+    #footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      height: 30px;
+      flex-shrink: 0;
+    }
+
+    #footer-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fi {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    .fi a {
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+    .fi a:hover { color: var(--text-dim); }
+
+    .fsep {
+      width: 1px;
+      height: 11px;
+      background: var(--border);
+    }
+
+    #footer-right {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+    }
+
+    /* ─── Utility ────────────────────────────────────────────────────── */
+    .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+  </style>
+</head>
+<body>
+
+<div id="shell">
+
+  <!-- HEADER -->
+  <header id="header">
+
+    <div id="header-left">
+      <div id="wordmark"><span class="w-doc">DOC</span><span class="w-rawl">RAWL</span></div>
+      <div id="header-sep"></div>
+      <div id="header-sub">documentation crawler</div>
+    </div>
+
+    <div id="header-right">
+
+      <div class="hstat">
+        <span class="hlabel">Ollama</span>
+        <span class="dot on"></span>
+        <span>online</span>
+        <span style="color:var(--text-muted)">&thinsp;/&thinsp;28 models</span>
+      </div>
+
+      <div class="hstat">
+        <span class="hlabel">LMStudio</span>
+        <span class="dot off"></span>
+        <span style="color:var(--text-muted)">offline</span>
+      </div>
+
+      <div class="hstat">
+        <span class="hlabel">Disk</span>
+        <span>57.9 GB free</span>
+      </div>
+
+      <div class="hstat">
+        <span class="hlabel">Write</span>
+        <span style="color:var(--ok)">OK</span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main id="main">
+
+    <!-- LEFT: Config -->
+    <div class="panel" id="panel-left">
+      <div class="panel-inner">
+
+        <!-- 1. Target URL — primary, most prominent input -->
+        <div class="field mb8" id="url-field">
+          <label class="fl" for="input-url">Target URL</label>
+          <input
+            type="url"
+            id="input-url"
+            placeholder="https://docs.example.com"
+            value="https://docs.anthropic.com/en/api/getting-started"
+          >
+        </div>
+
+        <!-- 2. LLM -->
+        <div class="sec-label">// LLM</div>
+
+        <div class="field mb6">
+          <label class="fl" for="sel-provider">Provider</label>
+          <select id="sel-provider">
+            <option selected>OLLAMA</option>
+            <option>LMSTUDIO</option>
+            <option>OPENROUTER</option>
+            <option>OPENCODE</option>
+          </select>
+        </div>
+
+        <div class="row-3 mb10">
+          <div class="field">
+            <label class="fl" for="sel-crawl">Crawl Model</label>
+            <select id="sel-crawl">
+              <option selected>mistral:7b</option>
+              <option>llama3.2:3b</option>
+              <option>gemma3:4b</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="fl" for="sel-pipeline">Pipeline Model</label>
+            <select id="sel-pipeline">
+              <option>mistral:7b</option>
+              <option selected>qwen2.5:14b</option>
+              <option>llama3.1:8b</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="fl" for="sel-reasoning">Reasoning Model</label>
+            <select id="sel-reasoning">
+              <option selected>qwen3:14b</option>
+              <option>deepseek-r1:8b</option>
+              <option>&#8212; none &#8212;</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 3. Output -->
+        <div class="sec-label">// Output</div>
+
+        <div class="row-2-3 mb6">
+          <div class="field">
+            <label class="fl" for="input-out">Output Path</label>
+            <input type="text" id="input-out" placeholder="./data/output" value="./data/anthropic-api">
+          </div>
+          <div class="field">
+            <label class="fl" for="sel-format">Format</label>
+            <select id="sel-format">
+              <option selected>Markdown</option>
+              <option>JSON</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field mb2">
+          <label class="fl" for="sel-lang">Language</label>
+          <select id="sel-lang">
+            <option selected>English</option>
+            <option>Spanish</option>
+            <option>French</option>
+            <option>German</option>
+            <option>Any</option>
+          </select>
+        </div>
+
+        <!-- 4. Execute + Controls — directly after output config, before options -->
+        <div class="execute-wrap">
+          <button class="btn-execute">&#9654;&ensp;Execute Crawl</button>
+          <div class="ctrl-row">
+            <button class="btn-ctrl" disabled>&#9646;&#9646;&ensp;Pause</button>
+            <button class="btn-ctrl" disabled>&#9654;&ensp;Resume</button>
+            <button class="btn-ctrl cancel" disabled>&#10005;&ensp;Cancel</button>
+          </div>
+        </div>
+
+        <!-- 5. Options -->
+        <div class="sec-label">// Options</div>
+
+        <div class="opts-grid">
+
+          <div class="opt-row">
+            <span class="ol">Request Delay (ms)</span>
+            <input type="number" class="opt-num-56" value="500">
+          </div>
+
+          <div class="opt-row">
+            <span class="ol">Max Concurrent</span>
+            <input type="number" class="opt-num-48" value="3">
+          </div>
+
+          <div class="opt-row">
+            <span class="ol">Max Depth</span>
+            <input type="number" class="opt-num-48" value="4">
+          </div>
+
+          <div class="opt-row"><!-- pad --></div>
+
+          <label class="cb-row" data-tooltip="Obey crawl exclusion rules from the target site">
+            <input type="checkbox" id="cb-robots" checked>
+            <span class="ol">Respect robots.txt</span>
+          </label>
+
+          <label class="cb-row" data-tooltip="Only crawl URLs that share the base path of the target URL">
+            <input type="checkbox" id="cb-sitemap" checked>
+            <span class="ol">Filter sitemap by path</span>
+          </label>
+
+          <label class="cb-row" data-tooltip="Try plain HTTP before launching Playwright (faster for static sites)">
+            <input type="checkbox" id="cb-http" checked>
+            <span class="ol">HTTP Fast-Path</span>
+          </label>
+
+          <label class="cb-row" data-tooltip="Skip re-fetching pages seen in the last 24h">
+            <input type="checkbox" id="cb-cache">
+            <span class="ol">Cache (24h)</span>
+          </label>
+
+          <label class="cb-row" data-tooltip="Fetch and LLM-cleanup pages in parallel (experimental)">
+            <input type="checkbox" id="cb-pipeline-mode" checked>
+            <span class="ol">Pipeline Mode</span>
+          </label>
+
+          <label class="cb-row" data-tooltip="Request text/markdown directly when the server supports it">
+            <input type="checkbox" id="cb-native-md" checked>
+            <span class="ol">Native Markdown</span>
+          </label>
+
+          <div class="opt-fullrow" data-tooltip="HTML to Markdown conversion engine">
+            <span class="ol">Converter</span>
+            <select>
+              <option selected>markdownify</option>
+              <option>trafilatura</option>
+              <option>html2text</option>
+              <option>ReaderLM</option>
+            </select>
+          </div>
+
+        </div>
+
+        <!-- 6. Advanced — collapsible -->
+        <div class="adv-trigger" id="adv-trigger" onclick="toggleAdv()">
+          <i class="adv-chevron" id="adv-chevron">&#9660;</i>
+          // Advanced
+        </div>
+
+        <div class="adv-body" id="adv-body">
+
+          <div class="adv-2col">
+            <label class="cb-row" data-tooltip="Skip the LLM cleanup pass (use with ReaderLM converter)">
+              <input type="checkbox" id="cb-skip-llm">
+              <span class="ol">Skip LLM Cleanup</span>
+            </label>
+            <label class="cb-row" data-tooltip="Route markdown requests through an external proxy">
+              <input type="checkbox" id="cb-md-proxy" onchange="toggleProxy()">
+              <span class="ol">Markdown Proxy</span>
+            </label>
+          </div>
+
+          <div id="proxy-url-wrap">
+            <input type="url" placeholder="https://mdproxy.example.com" style="font-size:11px;">
+          </div>
+
+          <div class="row-2">
+            <div class="field" data-tooltip="CSS selectors for main content extraction (prepended before defaults)">
+              <label class="fl">Content Selectors</label>
+              <div class="chip-input-wrap" id="content-chip-wrap">
+                <span class="chip">main.content <button class="chip-remove" onclick="removeChip(this)" tabindex="-1">&times;</button></span>
+                <span class="chip">.docs-body <button class="chip-remove" onclick="removeChip(this)" tabindex="-1">&times;</button></span>
+                <input type="text" class="chip-text-input" placeholder="add selector&#x2026;" id="content-chip-input" onkeydown="handleChipKey(event,'content-chip-wrap')">
+              </div>
+            </div>
+            <div class="field" data-tooltip="CSS selectors for elements to remove before extraction">
+              <label class="fl">Noise Selectors</label>
+              <div class="chip-input-wrap" id="noise-chip-wrap">
+                <span class="chip">nav.sidebar <button class="chip-remove" onclick="removeChip(this)" tabindex="-1">&times;</button></span>
+                <span class="chip">footer <button class="chip-remove" onclick="removeChip(this)" tabindex="-1">&times;</button></span>
+                <input type="text" class="chip-text-input" placeholder="add selector&#x2026;" id="noise-chip-input" onkeydown="handleChipKey(event,'noise-chip-wrap')">
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="fl">Resume from State</label>
+            <div class="resume-row">
+              <input type="text" placeholder=".job_state.json">
+              <button class="btn-xs">Resume</button>
+            </div>
+          </div>
+
+        </div>
+
+      </div><!-- /panel-inner -->
+    </div><!-- /panel-left -->
+
+    <!-- RIGHT: Monitor -->
+    <div class="panel" id="panel-right">
+
+      <!-- A. Active Crawl Strip -->
+      <div class="crawl-strip">
+        <span class="pulse"></span>
+        <span class="crawl-strip-label running">crawling</span>
+        <span class="crawl-strip-url">https://docs.anthropic.com/en/api/getting-started</span>
+      </div>
+
+      <!-- B. Mission Report -->
+      <div class="mon-report">
+        <div class="rpt-header">
+          <span class="rpt-title">Mission Report</span>
+          <span class="rpt-meta">#0012 &mdash; in progress</span>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-cell">
+            <span class="stat-n complete">47</span>
+            <span class="stat-l">Complete</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-n partial">12</span>
+            <span class="stat-l">Partial</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-n failed">3</span>
+            <span class="stat-l">Failed</span>
+          </div>
+          <div class="stat-cell">
+            <span class="stat-n retried">8</span>
+            <span class="stat-l">Retried</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- C. Job History -->
+      <div class="mon-history">
+
+        <div class="hist-header">
+          <span class="hist-title">Job History</span>
+          <span class="hist-meta">12 jobs</span>
+        </div>
+
+        <div class="hist-filter">
+          <input type="text" id="job-search" placeholder="filter by URL or status&#x2026;">
+        </div>
+
+        <div class="job-scroll">
+
+          <div class="job-item active">
+            <span class="job-id">#0012</span>
+            <span class="badge running">running</span>
+            <span class="job-url">docs.anthropic.com/en/api/getting-started</span>
+            <span class="job-time">just now</span>
+          </div>
+
+          <div class="job-item">
+            <span class="job-id">#0011</span>
+            <span class="badge completed">completed</span>
+            <span class="job-url">docs.stripe.com/api</span>
+            <span class="job-time">2h ago</span>
+          </div>
+
+          <div class="job-item">
+            <span class="job-id">#0010</span>
+            <span class="badge failed">failed</span>
+            <span class="job-url">docs.aws.amazon.com/lambda/latest</span>
+            <span class="job-time">5h ago</span>
+          </div>
+
+          <div class="job-item">
+            <span class="job-id">#0009</span>
+            <span class="badge paused">paused</span>
+            <span class="job-url">pytorch.org/docs/stable</span>
+            <span class="job-time">1d ago</span>
+          </div>
+
+          <div class="job-item">
+            <span class="job-id">#0008</span>
+            <span class="badge completed">completed</span>
+            <span class="job-url">docs.python.org/3</span>
+            <span class="job-time">2d ago</span>
+          </div>
+
+        </div>
+
+      </div><!-- /mon-history -->
+
+    </div><!-- /panel-right -->
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer id="footer">
+    <div id="footer-left">
+      <span class="fi">v0.10.0</span>
+      <div class="fsep"></div>
+      <span class="fi"><a href="https://github.com/plater7/docrawl" target="_blank">github.com/plater7/docrawl</a></span>
+      <div class="fsep"></div>
+      <span class="fi">MIT License</span>
+    </div>
+    <div id="footer-right">
+      <span class="fi">models:&ensp;mistral:7b &bull; qwen2.5:14b &bull; qwen3:14b</span>
+    </div>
+  </footer>
+
+</div><!-- /shell -->
+
+<script>
+  /* ── Advanced options toggle ──────────────────────────────────────── */
+  function toggleAdv() {
+    var trigger = document.getElementById('adv-trigger');
+    var body    = document.getElementById('adv-body');
+    var open    = body.classList.contains('open');
+    body.classList.toggle('open', !open);
+    trigger.classList.toggle('open', !open);
+  }
+
+  /* ── Proxy URL visibility ─────────────────────────────────────────── */
+  function toggleProxy() {
+    var cb   = document.getElementById('cb-md-proxy');
+    var wrap = document.getElementById('proxy-url-wrap');
+    wrap.classList.toggle('on', cb.checked);
+  }
+
+  /* ── Chip input ───────────────────────────────────────────────────── */
+  function handleChipKey(e, wrapId) {
+    var input = e.target;
+    var wrap  = document.getElementById(wrapId);
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      var val = input.value.trim();
+      if (!val) return;
+      var chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.innerHTML =
+        val +
+        ' <button class="chip-remove" onclick="removeChip(this)" tabindex="-1">&times;</button>';
+      wrap.insertBefore(chip, input);
+      input.value = '';
+    }
+
+    if (e.key === 'Escape') {
+      input.value = '';
+    }
+  }
+
+  function removeChip(btn) {
+    btn.closest('.chip').remove();
+  }
+
+  /* ── Focus chip wrap on click ─────────────────────────────────────── */
+  document.querySelectorAll('.chip-input-wrap').forEach(function(wrap) {
+    wrap.addEventListener('click', function(e) {
+      if (e.target === wrap) {
+        wrap.querySelector('.chip-text-input').focus();
+      }
+    });
+  });
+
+  /* ── JS Tooltip — body-appended, bypasses overflow:hidden ────────── */
+  (function() {
+    var tip = document.createElement('div');
+    tip.id = 'js-tooltip';
+    tip.style.cssText = [
+      'position:fixed',
+      'pointer-events:none',
+      'opacity:0',
+      'transition:opacity 0.12s',
+      'background:#1e1e1e',
+      'border:1px solid #3a3a3a',
+      'color:#999999',
+      'font-size:10px',
+      'font-family:\'IBM Plex Mono\',monospace',
+      'line-height:1.55',
+      'padding:5px 10px',
+      'max-width:260px',
+      'white-space:normal',
+      'z-index:9000',
+      'border-radius:2px',
+      'box-shadow:0 4px 14px rgba(0,0,0,0.55)'
+    ].join(';');
+    document.body.appendChild(tip);
+
+    document.addEventListener('mouseover', function(e) {
+      var el = e.target.closest('[data-tooltip]');
+      if (!el) return;
+      tip.textContent = el.getAttribute('data-tooltip');
+      tip.style.opacity = '1';
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (tip.style.opacity === '0') return;
+      var x = e.clientX + 14;
+      var y = e.clientY - 32;
+      if (x + 270 > window.innerWidth) x = e.clientX - 280;
+      if (y < 8) y = e.clientY + 16;
+      tip.style.left = x + 'px';
+      tip.style.top = y + 'px';
+    });
+
+    document.addEventListener('mouseout', function(e) {
+      var el = e.target.closest('[data-tooltip]');
+      if (!el) return;
+      tip.style.opacity = '0';
+    });
+  })();
+</script>
+
+</body>
+</html>
