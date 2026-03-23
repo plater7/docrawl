@@ -1098,5 +1098,170 @@
     <div class="footer-models" id="footerModels"></div>
   </footer>
 
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       INITIALIZATION SCRIPT
+  ════════════════════════════════════════════════════════════════════ -->
+  <script>
+    'use strict';
+
+    // ── Constants & shared state ──────────────────────────────────────
+    const MAX_JOB_HISTORY = 50;
+    const jobHistory = [];
+    let currentJobId = null;
+    let eventSource = null;
+
+    // ── DOM reference shortcuts ───────────────────────────────────────
+    const $ = id => document.getElementById(id);
+
+    const crawlUrl         = $('crawlUrl');
+    const providerSelect   = $('providerSelect');
+    const crawlModel       = $('crawlModel');
+    const pipelineModel    = $('pipelineModel');
+    const reasoningModel   = $('reasoningModel');
+    const outputPath       = $('outputPath');
+    const outputFormat     = $('outputFormat');
+    const language         = $('language');
+    const btnExecute       = $('btnExecute');
+    const btnPause         = $('btnPause');
+    const btnResume        = $('btnResume');
+    const btnCancel        = $('btnCancel');
+    const btnResumeState   = $('btnResumeState');
+    const pulseDot         = $('pulseDot');
+    const currentUrl       = $('currentUrl');
+    const idleText         = $('idleText');
+    const jobList          = $('jobList');
+    const jobHistoryFilter = $('jobHistoryFilter');
+    const resumeStatePath  = $('resumeStatePath');
+
+    // ── loadInfo ──────────────────────────────────────────────────────
+    async function loadInfo() {
+      try {
+        const info = await fetch('/api/info').then(r => r.json());
+        $('footerVersion').textContent = `v${info.version}`;
+      } catch (e) {
+        console.warn('GET /api/info failed', e);
+      }
+    }
+
+    // ── updateProviderIndicators ──────────────────────────────────────
+    function updateProviderIndicators(providers) {
+      const find = id => providers.find(p => p.id === id);
+      const updateIndicator = (dotId, providerId) => {
+        const dot = $(dotId);
+        if (!dot) return;
+        const p = find(providerId);
+        dot.classList.toggle('offline', !p || !p.configured);
+      };
+      updateIndicator('dot-ollama',   'ollama');
+      updateIndicator('dot-lmstudio', 'lmstudio');
+    }
+
+    // ── updateIndicatorModelCount ─────────────────────────────────────
+    function updateIndicatorModelCount(providerId, modelCount) {
+      const labelMap = { ollama: 'label-ollama', lmstudio: 'label-lmstudio' };
+      const nameMap  = { ollama: 'Ollama',       lmstudio: 'LMStudio' };
+      const labelId = labelMap[providerId];
+      if (!labelId) return;
+      const label = $(labelId);
+      if (!label) return;
+      const name = nameMap[providerId];
+      label.textContent = modelCount > 0 ? `${name} (${modelCount} models)` : name;
+    }
+
+    // ── loadProviders ─────────────────────────────────────────────────
+    async function loadProviders() {
+      try {
+        const data = await fetch('/api/providers').then(r => r.json());
+        const providers = data.providers || [];
+        providerSelect.innerHTML = providers.map(p =>
+          `<option value="${p.id}">${p.name}${!p.configured ? ' (not configured)' : ''}</option>`
+        ).join('');
+        updateProviderIndicators(providers);
+        if (providers.length > 0) {
+          await loadModels(providers[0].id);
+        }
+      } catch (e) {
+        console.warn('GET /api/providers failed — using fallback', e);
+        providerSelect.innerHTML = `
+          <option value="ollama">Ollama</option>
+          <option value="lmstudio">LMStudio</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="opencode">OpenCode</option>
+          <option value="llamacpp">llama.cpp</option>
+        `;
+      }
+    }
+
+    // ── loadModels ────────────────────────────────────────────────────
+    async function loadModels(provider) {
+      const placeholder = '<option value="">—</option>';
+      [crawlModel, pipelineModel, reasoningModel].forEach(s => s.innerHTML = placeholder);
+      if (!provider) return;
+      try {
+        const data = await fetch(`/api/models?provider=${encodeURIComponent(provider)}`).then(r => r.json());
+        const models = Array.isArray(data) ? data : (data.models || []);
+        const options = placeholder + models.map(m => `<option value="${m}">${m}</option>`).join('');
+        [crawlModel, pipelineModel, reasoningModel].forEach(s => s.innerHTML = options);
+        updateIndicatorModelCount(provider, models.length);
+      } catch (e) {
+        console.warn('GET /api/models failed', e);
+      }
+    }
+
+    providerSelect.addEventListener('change', () => loadModels(providerSelect.value));
+
+    // ── loadConverters ────────────────────────────────────────────────
+    async function loadConverters() {
+      try {
+        const data = await fetch('/api/converters').then(r => r.json());
+        const converters = Array.isArray(data) ? data : (data.converters || []);
+        const sel = $('converter');
+        if (converters.length > 0) {
+          sel.innerHTML = converters.map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+      } catch (e) {
+        console.warn('GET /api/converters failed', e);
+      }
+    }
+
+    // ── renderJobList ─────────────────────────────────────────────────
+    function renderJobList() {
+      const q = jobHistoryFilter.value.trim().toLowerCase();
+      const filtered = q
+        ? jobHistory.filter(j => j.id.includes(q) || (j.url || '').toLowerCase().includes(q))
+        : jobHistory;
+
+      if (filtered.length === 0) {
+        jobList.innerHTML = '<div class="job-empty">No jobs yet</div>';
+        return;
+      }
+
+      jobList.innerHTML = filtered.map(j => {
+        const idClass = j.status === 'running' ? 'job-id running' : 'job-id';
+        const dotClass = { running: 'running', completed: 'completed', failed: 'failed', cancelled: 'failed', paused: 'partial' }[j.status] || '';
+        const ts = j.ts ? new Date(j.ts).toLocaleTimeString() : '';
+        return `
+          <div class="job-item" data-id="${j.id}">
+            <span class="${idClass}">#${j.id.slice(0, 8)}</span>
+            <span class="job-status-badge ${dotClass}" title="${j.status}"></span>
+            <span class="job-url" title="${j.url || ''}">${j.url || '—'}</span>
+            <span class="job-timestamp">${ts}</span>
+          </div>`;
+      }).join('');
+    }
+
+    function initJobHistoryFilter() {
+      jobHistoryFilter.addEventListener('input', renderJobList);
+    }
+
+    // ── DOMContentLoaded ──────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', async () => {
+      await Promise.all([loadInfo(), loadProviders(), loadConverters()]);
+      initJobHistoryFilter();
+      renderJobList();
+    });
+  </script>
+
 </body>
 </html>
