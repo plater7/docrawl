@@ -1255,6 +1255,152 @@
       jobHistoryFilter.addEventListener('input', renderJobList);
     }
 
+    // ── Job Execution ─────────────────────────────────────────────────
+
+    function collectFormData() {
+      const getChips = containerId => {
+        return Array.from(document.querySelectorAll(`#${containerId} .chip`))
+          .map(c => c.dataset.value)
+          .filter(Boolean);
+      };
+
+      const body = {
+        url:                    crawlUrl.value.trim(),
+        provider:               providerSelect.value,
+        crawl_model:            crawlModel.value || undefined,
+        pipeline_model:         pipelineModel.value || undefined,
+        reasoning_model:        reasoningModel.value || undefined,
+        output_path:            outputPath.value.trim() || undefined,
+        output_format:          outputFormat.value || 'markdown',
+        language:               language.value || 'en',
+        delay_ms:               parseInt($('delayMs').value) || 1000,
+        max_concurrent:         parseInt($('maxConcurrent').value) || 5,
+        max_depth:              parseInt($('maxDepth').value) || 10,
+        respect_robots_txt:     $('respectRobots').checked,
+        filter_sitemap_by_path: $('filterSitemap').checked,
+        http_fast_path:         $('httpFastPath').checked,
+        use_cache:              $('useCache').checked,
+        pipeline_mode:          $('pipelineMode').checked,
+        native_markdown:        $('nativeMarkdown').checked,
+        converter:              $('converter').value || 'markdownify',
+        skip_llm_cleanup:       $('skipLlmCleanup').checked,
+        use_markdown_proxy:     $('markdownProxy').checked,
+        markdown_proxy_url:     $('markdownProxy').checked ? $('markdownProxyUrl').value.trim() : undefined,
+        content_selectors:      getChips('contentSelectorsContainer'),
+        noise_selectors:        getChips('noiseSelectorContainer'),
+      };
+
+      Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+      return body;
+    }
+
+    async function startJob() {
+      if (!crawlUrl.value.trim()) {
+        crawlUrl.focus();
+        return;
+      }
+
+      setExecuteState('running');
+      resetMissionReport();
+
+      let jobId;
+      try {
+        const res = await fetch('/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(collectFormData()),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        jobId = data.job_id;
+      } catch (e) {
+        console.error('POST /api/jobs failed', e);
+        setExecuteState('idle');
+        return;
+      }
+
+      currentJobId = jobId;
+      addJobToHistory({ id: jobId, status: 'running', url: crawlUrl.value.trim(), ts: Date.now() });
+      openEventSource(jobId);
+    }
+
+    btnExecute.addEventListener('click', startJob);
+
+    function openEventSource(jobId) {
+      if (eventSource) { eventSource.close(); eventSource = null; }
+
+      eventSource = new EventSource(`/api/jobs/${jobId}/events`);
+
+      eventSource.addEventListener('phase_change', e => {
+        const data = JSON.parse(e.data);
+        if (data.current_url) {
+          setActiveUrl(data.current_url);
+        }
+        if (typeof data.pages_completed === 'number') {
+          $('stat-complete').textContent = data.pages_completed;
+        }
+        if (typeof data.pages_retried === 'number') {
+          $('stat-retried').textContent = data.pages_retried;
+        }
+      });
+
+      eventSource.addEventListener('job_done', e => {
+        const data = JSON.parse(e.data);
+        updateMissionReport(data);
+        updateControlButtons(data.status);
+        setActiveIdle();
+        updateJobInHistory(jobId, data.status);
+        updateFooterModels();
+        eventSource.close();
+        eventSource = null;
+        currentJobId = null;
+      });
+
+      eventSource.onerror = () => {
+        eventSource.close();
+        eventSource = null;
+        updateControlButtons('failed');
+        setActiveIdle();
+      };
+
+      setActiveUrl('Connecting…');
+      updateControlButtons('running');
+    }
+
+    function updateMissionReport(data) {
+      // pages_partial and pages_failed come ONLY from job_done SSE payload
+      $('stat-complete').textContent = data.pages_ok       ?? 0;
+      $('stat-partial').textContent  = data.pages_partial  ?? 0;
+      $('stat-failed').textContent   = data.pages_failed   ?? 0;
+      $('stat-retried').textContent  = data.pages_retried  ?? 0;
+    }
+
+    function resetMissionReport() {
+      ['stat-complete','stat-partial','stat-failed','stat-retried']
+        .forEach(id => $(id).textContent = '0');
+    }
+
+    function setActiveUrl(url) {
+      pulseDot.classList.add('running');
+      currentUrl.textContent = url;
+      currentUrl.style.display = '';
+      idleText.style.display = 'none';
+    }
+
+    function setActiveIdle() {
+      pulseDot.classList.remove('running');
+      currentUrl.textContent = '';
+      currentUrl.style.display = 'none';
+      idleText.style.display = '';
+    }
+
+    function setExecuteState(state) {
+      btnExecute.disabled = state === 'running';
+    }
+
     // ── DOMContentLoaded ──────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async () => {
       await Promise.all([loadInfo(), loadProviders(), loadConverters()]);
@@ -1267,6 +1413,229 @@
       initJobHistoryFilter();
       renderJobList();
     });
+
+    // ── Controls ──────────────────────────────────────────────────────
+
+    function updateControlButtons(status) {
+      const isRunning = status === 'running';
+      const isPaused  = status === 'paused';
+      const isActive  = isRunning || isPaused;
+
+      btnPause.disabled   = !isRunning;
+      btnResume.disabled  = !isPaused;
+      btnCancel.disabled  = !isActive;
+      btnExecute.disabled = isActive;
+    }
+
+    async function pollStatus(jobId) {
+      try {
+        const s = await fetch(`/api/jobs/${jobId}/status`).then(r => r.json());
+        updateControlButtons(s.status);
+        if (s.status === 'paused') {
+          setActiveUrl('Paused');
+        }
+      } catch (e) {
+        console.warn('GET /api/jobs/status failed', e);
+      }
+    }
+
+    btnPause.addEventListener('click', async () => {
+      if (!currentJobId) return;
+      await fetch(`/api/jobs/${currentJobId}/pause`, { method: 'POST' });
+      await pollStatus(currentJobId);
+    });
+
+    btnResume.addEventListener('click', async () => {
+      if (!currentJobId) return;
+      await fetch(`/api/jobs/${currentJobId}/resume`, { method: 'POST' });
+      await pollStatus(currentJobId);
+      if (eventSource === null && currentJobId) {
+        openEventSource(currentJobId);
+      }
+    });
+
+    btnCancel.addEventListener('click', async () => {
+      if (!currentJobId) return;
+      await fetch(`/api/jobs/${currentJobId}/cancel`, { method: 'POST' });
+      updateControlButtons('cancelled');
+      setActiveIdle();
+      updateJobInHistory(currentJobId, 'cancelled');
+      if (eventSource) { eventSource.close(); eventSource = null; }
+      currentJobId = null;
+    });
+
+    // ── Job History ────────────────────────────────────────────────────
+
+    function addJobToHistory(job) {
+      jobHistory.unshift(job);
+      if (jobHistory.length > MAX_JOB_HISTORY) jobHistory.pop();
+      renderJobList();
+    }
+
+    function updateJobInHistory(jobId, status) {
+      const job = jobHistory.find(j => j.id === jobId);
+      if (job) { job.status = status; renderJobList(); }
+    }
+
+    function renderJobList() {
+      const q = jobHistoryFilter.value.trim().toLowerCase();
+      const filtered = q
+        ? jobHistory.filter(j => j.id.includes(q) || (j.url || '').toLowerCase().includes(q))
+        : jobHistory;
+
+      if (filtered.length === 0) {
+        jobList.innerHTML = '<div class="job-empty">No jobs yet</div>';
+        return;
+      }
+
+      // .job-id is always amber per spec; running class adds pulse animation only.
+      // .job-status-badge is an empty 8px circle — color from CSS class, no text content.
+      jobList.innerHTML = filtered.map(j => {
+        const idClass  = j.status === 'running' ? 'job-id running' : 'job-id';
+        const dotClass = { running: 'running', completed: 'completed', failed: 'failed', cancelled: 'failed', paused: 'partial' }[j.status] || '';
+        const ts = j.ts ? new Date(j.ts).toLocaleTimeString() : '';
+        return `
+          <div class="job-item" data-id="${j.id}">
+            <span class="${idClass}">#${j.id.slice(0,8)}</span>
+            <span class="job-status-badge ${dotClass}" title="${j.status}"></span>
+            <span class="job-url" title="${j.url || ''}">${j.url || '—'}</span>
+            <span class="job-timestamp">${ts}</span>
+          </div>`;
+      }).join('');
+    }
+
+    // ── Advanced Panel ─────────────────────────────────────────────────
+
+    function initAdvancedToggle() {
+      const toggle  = document.querySelector('.advanced-toggle');
+      const content = document.querySelector('.advanced-content');
+      toggle.addEventListener('click', () => {
+        const expanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!expanded));
+        content.setAttribute('aria-hidden', String(expanded));
+      });
+    }
+
+    function initMarkdownProxyToggle() {
+      const cb      = $('markdownProxy');
+      const wrapper = document.querySelector('.markdown-proxy-url-wrapper');
+      cb.addEventListener('change', () => {
+        wrapper.style.display = cb.checked ? 'block' : 'none';
+      });
+    }
+
+    // ── Chip Inputs ────────────────────────────────────────────────────
+
+    function addChip(container, value) {
+      const input = container.querySelector('.chip-input');
+      const max   = parseInt(input.dataset.max) || 20;
+      if (container.querySelectorAll('.chip').length >= max) return;
+
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.dataset.value = value;
+      chip.innerHTML = `${value} <span class="chip-remove" role="button" aria-label="Remove">×</span>`;
+      chip.querySelector('.chip-remove').addEventListener('click', () => chip.remove());
+      container.insertBefore(chip, input);
+    }
+
+    function initChipInputs() {
+      document.querySelectorAll('.chip-input').forEach(input => {
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = input.value.trim();
+            if (val) {
+              const container = input.closest('.chip-input-container');
+              const max = parseInt(input.dataset.max) || 20;
+              if (container.querySelectorAll('.chip').length < max) {
+                addChip(container, val);
+                input.value = '';
+              }
+            }
+          } else if (e.key === 'Escape') {
+            input.value = '';
+          }
+        });
+      });
+    }
+
+    // ── Resume from State ──────────────────────────────────────────────
+
+    function initResumeStateButton() {
+      resumeStatePath.addEventListener('input', () => {
+        btnResumeState.disabled = !resumeStatePath.value.trim();
+      });
+
+      btnResumeState.addEventListener('click', async () => {
+        const path = resumeStatePath.value.trim();
+        if (!path) return;
+        try {
+          const res = await fetch('/api/jobs/resume-from-state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ state_path: path }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const jobId = data.job_id;
+          currentJobId = jobId;
+          addJobToHistory({ id: jobId, status: 'running', url: path, ts: Date.now() });
+          openEventSource(jobId);
+        } catch (e) {
+          console.error('POST /api/jobs/resume-from-state failed', e);
+        }
+      });
+    }
+
+    // ── Tooltips ───────────────────────────────────────────────────────
+    // Must be body-appended with position:fixed — CSS ::after is clipped by overflow:hidden panels
+
+    function initTooltips() {
+      let activeTooltip = null;
+
+      document.addEventListener('mouseenter', e => {
+        const target = e.target.closest('[data-tooltip]');
+        if (!target) return;
+
+        if (activeTooltip) { activeTooltip.remove(); activeTooltip = null; }
+
+        const tt = document.createElement('div');
+        tt.className = 'tooltip';
+        tt.textContent = target.dataset.tooltip;
+        document.body.appendChild(tt);
+        activeTooltip = tt;
+
+        const rect   = target.getBoundingClientRect();
+        const ttRect = tt.getBoundingClientRect();
+        let left = rect.left + rect.width / 2 - ttRect.width / 2;
+        let top  = rect.top - ttRect.height - 6;
+
+        left = Math.max(4, Math.min(left, window.innerWidth  - ttRect.width  - 4));
+        if (top < 4) top = rect.bottom + 6;
+
+        tt.style.left = left + 'px';
+        tt.style.top  = top  + 'px';
+
+        let autoHideTimer;
+        const hide = () => {
+          clearTimeout(autoHideTimer);
+          tt.remove();
+          if (activeTooltip === tt) activeTooltip = null;
+          target.removeEventListener('mouseleave', hide);
+        };
+        target.addEventListener('mouseleave', hide);
+        autoHideTimer = setTimeout(hide, 5000);
+      }, true);
+    }
+
+    // ── Footer Models ──────────────────────────────────────────────────
+
+    function updateFooterModels() {
+      const models  = [crawlModel, pipelineModel, reasoningModel].map(s => s.value).filter(Boolean);
+      const unique  = [...new Set(models)];
+      $('footerModels').textContent = unique.length ? `Models: ${unique.join(', ')}` : '';
+    }
   </script>
 
 </body>
