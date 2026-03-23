@@ -1,2195 +1,1735 @@
 <!DOCTYPE html>
-<!-- 🤖 Generated with AI assistance by DocCrawler 🕷️ (model: qwen3-coder:free) and human review. -->
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Docrawl // SYNTHWAVE interface</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=VT323&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-deep: #0a0a12;
-            --bg-panel: #12121f;
-            --bg-input: #0d0d18;
-            --accent-magenta: #ff00ff;
-            --accent-cyan: #00ffff;
-            --accent-amber: #ff6b00;
-            --accent-green: #00ff88;
-            --text-primary: #e0e0e0;
-            --text-dim: #6a6a8a;
-            --chrome-border: linear-gradient(180deg, #3a3a5a 0%, #1a1a2a 50%, #2a2a4a 100%);
-            --glow-magenta: 0 0 10px #ff00ff, 0 0 20px #ff00ff40;
-            --glow-cyan: 0 0 10px #00ffff, 0 0 20px #00ffff40;
-            --glow-amber: 0 0 10px #ff6b00, 0 0 20px #ff6b0040;
-            --scanline-opacity: 0.03;
-            /* Column panel variables (SYNTHWAVE defaults) */
-            --bg-secondary: #12121f;
-            --border: #2a2a4a;
-            --text-muted: #6a6a8a;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: 'VT323', monospace;
-            background: var(--bg-deep);
-            color: var(--text-primary);
-            min-height: 100vh;
-            padding: 1.5rem;
-            padding-bottom: 3rem;
-            font-size: 18px;
-            line-height: 1.4;
-            position: relative;
-            overflow-x: hidden;
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: 
-                repeating-linear-gradient(
-                    0deg,
-                    transparent,
-                    transparent 2px,
-                    rgba(0, 255, 255, var(--scanline-opacity)) 2px,
-                    rgba(0, 255, 255, var(--scanline-opacity)) 4px
-                ),
-                linear-gradient(180deg, #0a0a12 0%, #0f0f1a 50%, #0a0a12 100%);
-            pointer-events: none;
-            z-index: 1000;
-        }
-
-        body::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(ellipse at 50% 0%, rgba(255, 0, 255, 0.1) 0%, transparent 60%);
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        .container {
-            max-width: min(1400px, calc(100vw - 48px));
-            margin: 0 auto;
-            position: relative;
-            z-index: 1001;
-        }
-
-        /* Two-column layout */
-        .two-columns {
-            display: grid;
-            grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
-            gap: 24px;
-            align-items: start;
-        }
-
-        .left-column {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-        }
-        body.theme-synthwave .left-column {
-            background: #10101e;
-            border: 1px solid #2a2a4a;
-            box-shadow: 0 0 20px rgba(0, 255, 255, 0.03);
-        }
-        body.theme-synthwave .right-column {
-            background: #10101e;
-            border: 1px solid #2a2a4a;
-            box-shadow: 0 0 20px rgba(255, 0, 255, 0.03);
-        }
-
-        .right-column {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            position: sticky;
-            top: 16px;
-            max-height: calc(100vh - 80px);
-            overflow-y: auto;
-        }
-
-        /* Job History Panel */
-        .job-history-panel {
-            min-height: 0;
-            margin-bottom: 1.5rem;
-        }
-
-        .job-history-header {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin-bottom: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        .job-history-list {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            background: var(--bg);
-        }
-
-        .job-history-empty {
-            padding: 1rem;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-        }
-
-        .job-history-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.5rem 0.75rem;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.8rem;
-        }
-
-        .job-history-item:last-child {
-            border-bottom: none;
-        }
-
-        .job-history-id {
-            font-family: monospace;
-            color: var(--accent-cyan);
-        }
-
-        .job-history-status {
-            padding: 0.15rem 0.5rem;
-            border-radius: 3px;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-        }
-
-        .job-history-status.running {
-            background: rgba(59, 130, 246, 0.2);
-            color: #3b82f6;
-        }
-
-        .job-history-status.completed {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-        }
-
-        .job-history-status.failed {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-
-        .job-history-status.cancelled {
-            background: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-        }
-
-        .job-history-converter {
-            padding: 0.15rem 0.4rem;
-            border-radius: 3px;
-            font-size: 0.65rem;
-            background: rgba(139, 92, 246, 0.15);
-            color: #a78bfa;
-            margin-left: 0.3rem;
-        }
-
-        .job-history-stop {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid #ef4444;
-            color: #ef4444;
-            padding: 0.15rem 0.5rem;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            transition: all 0.2s;
-        }
-
-        .job-history-stop:hover {
-            background: #ef4444;
-            color: white;
-        }
-
-        /* Wide layout reverts to single column below 1100px */
-        @media (max-width: 1100px) {
-            .two-columns { grid-template-columns: 1fr; }
-            .right-column { position: static; max-height: none; overflow-y: visible; }
-        }
-
-        /* Responsive: stack on mobile */
-        @media (max-width: 900px) {
-            .two-columns {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        h1 {
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 900;
-            font-size: 2.5rem;
-            text-transform: uppercase;
-            letter-spacing: 0.3em;
-            margin-bottom: 1.5rem;
-            background: linear-gradient(90deg, var(--accent-magenta), var(--accent-cyan));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: var(--glow-magenta);
-            position: relative;
-            display: inline-block;
-        }
-
-        h1::before {
-            content: '//';
-            color: var(--accent-cyan);
-            margin-right: 0.5em;
-            opacity: 0.7;
-        }
-
-        h1::after {
-            content: 'DOCUMENTATION FLEET COMMAND';
-            position: absolute;
-            bottom: -1.5rem;
-            left: 0;
-            font-size: 0.5rem;
-            letter-spacing: 0.5em;
-            color: var(--text-dim);
-            font-family: 'VT323', monospace;
-            font-weight: normal;
-        }
-
-        /* Status Bar - Systems Diagnostics Panel */
-        .status-bar {
-            display: flex;
-            gap: 0.5rem;
-            padding: 0.75rem 1rem;
-            background: var(--bg-panel);
-            border: 1px solid #2a2a4a;
-            border-radius: 4px;
-            margin-bottom: 1.5rem;
-            box-shadow: 
-                inset 0 1px 0 rgba(255,255,255,0.05),
-                0 0 20px rgba(0,0,0,0.5);
-            flex-wrap: wrap;
-        }
-
-        .status-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.25rem 0.75rem;
-            background: linear-gradient(180deg, #1a1a2a 0%, #0d0d18 100%);
-            border: 1px solid #2a2a4a;
-            border-radius: 2px;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--text-dim);
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
-        }
-
-        .status-dot.ok {
-            background: var(--accent-green);
-            box-shadow: var(--glow-cyan), inset 0 1px 2px rgba(0,0,0,0.3);
-            animation: pulse-dot-ok 2s ease-in-out infinite;
-        }
-
-        .status-dot.warning {
-            background: var(--accent-amber);
-            box-shadow: var(--glow-amber);
-            animation: blink-amber 1s infinite;
-        }
-
-        .status-dot.error {
-            background: #ff3366;
-            box-shadow: 0 0 10px #ff3366;
-            animation: blink-dot-error 0.7s step-end infinite;
-        }
-
-        .status-dot.loading { 
-            background: var(--accent-cyan); 
-            box-shadow: var(--glow-cyan);
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse-dot-ok { 0%, 100% { opacity: 1; box-shadow: var(--glow-cyan), inset 0 1px 2px rgba(0,0,0,0.3); } 50% { opacity: 0.55; box-shadow: none; } }
-        @keyframes blink-dot-error { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-        @keyframes blink-amber { 0%, 50%, 100% { opacity: 1; } 25%, 75% { opacity: 0.5; } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-        .status-label { 
-            color: var(--accent-cyan); 
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        .status-value { 
-            color: var(--text-primary); 
-            font-size: 0.9rem;
-        }
-
-        /* Form Groups */
-        .form-group { margin-bottom: 1rem; }
-
-        label {
-            display: block;
-            margin-bottom: 0.4rem;
-            color: var(--accent-cyan);
-            font-size: 0.95rem;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            text-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
-        }
-
-        label span {
-            color: var(--text-dim);
-            font-size: 0.8rem;
-            text-transform: none;
-            letter-spacing: 0;
-        }
-
-        input, select {
-            width: 100%;
-            padding: 0.7rem 1rem;
-            background: var(--bg-input);
-            border: 1px solid #2a2a4a;
-            border-radius: 2px;
-            color: var(--accent-green);
-            font-family: 'VT323', monospace;
-            font-size: 1.1rem;
-            transition: all 0.2s;
-            box-shadow: 
-                inset 0 2px 4px rgba(0,0,0,0.3),
-                0 0 0 1px transparent;
-        }
-
-        input:focus, select:focus {
-            outline: none;
-            border-color: var(--accent-magenta);
-            box-shadow: 
-                inset 0 2px 4px rgba(0,0,0,0.3),
-                0 0 15px rgba(255, 0, 255, 0.3),
-                inset 0 0 10px rgba(255, 0, 255, 0.1);
-            color: var(--accent-magenta);
-        }
-
-        input::placeholder { color: #3a3a5a; }
-
-        input[type="url"] {
-            background: var(--bg-input);
-            position: relative;
-        }
-
-        input[type="url"]::before {
-            content: '>';
-            position: absolute;
-            left: 1rem;
-            color: var(--accent-cyan);
-        }
-
-        .row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        @media (max-width: 600px) {
-            .row { grid-template-columns: 1fr; }
-        }
-
-        /* Checkbox - Retro toggle */
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.5rem 0;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            appearance: none;
-            background: var(--bg-input);
-            border: 2px solid #3a3a5a;
-            border-radius: 2px;
-            cursor: pointer;
-            position: relative;
-        }
-
-        .checkbox-group input[type="checkbox"]:checked {
-            background: var(--accent-magenta);
-            border-color: var(--accent-magenta);
-            box-shadow: var(--glow-magenta);
-        }
-
-        .checkbox-group input[type="checkbox"]:checked::after {
-            content: '✓';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: var(--bg-deep);
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .checkbox-group label {
-            margin: 0;
-            color: var(--text-primary);
-            text-transform: none;
-            letter-spacing: 0;
-            cursor: pointer;
-        }
-
-        /* Models Section - Holographic Panel */
-        .models-section {
-            margin-bottom: 1rem;
-            background: linear-gradient(180deg, #15152a 0%, #0d0d1a 100%);
-            border: 1px solid #2a2a5a;
-            border-radius: 4px;
-            padding: 1rem;
-            box-shadow: 
-                0 0 30px rgba(0, 255, 255, 0.05),
-                inset 0 1px 0 rgba(255, 255, 255, 0.05);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .models-section::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
-        }
-
-        .section-label {
-            display: block;
-            color: var(--accent-magenta);
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.85rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            margin-bottom: 0.75rem;
-            text-shadow: var(--glow-magenta);
-        }
-
-        .model-row {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .model-row:last-child { margin-bottom: 0; }
-
-        .model-select { flex: 1; min-width: 0; }
-
-        .model-select label {
-            font-size: 0.8rem;
-            color: var(--accent-amber);
-            margin-bottom: 0.25rem;
-        }
-
-        .model-hint {
-            flex: 0 0 auto;
-            max-width: 280px;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.35rem;
-            padding-top: 1.5rem;
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            line-height: 1.3;
-        }
-
-        .hint-icon { color: #4a4a6a; flex-shrink: 0; }
-
-        @media (max-width: 900px) {
-            .model-row { flex-direction: column; }
-            .model-hint { padding-top: 0; max-width: 100%; }
-        }
-
-        /* Buttons */
-        .buttons { display: flex; gap: 1rem; margin-top: 1.5rem; }
-
-        button {
-            padding: 0.8rem 2rem;
-            border: none;
-            border-radius: 2px;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-primary {
-            background: linear-gradient(180deg, #ff00ff 0%, #aa00aa 100%);
-            color: white;
-            box-shadow: var(--glow-magenta), inset 0 1px 0 rgba(255,255,255,0.3);
-        }
-
-        .btn-primary:hover { 
-            background: linear-gradient(180deg, #ff33ff 0%, #cc00cc 100%);
-            transform: translateY(-2px);
-        }
-
-        .btn-primary:disabled {
-            background: #3a3a4a;
-            color: #6a6a8a;
-            box-shadow: none;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-danger {
-            background: linear-gradient(180deg, #ff3366 0%, #cc0033 100%);
-            color: white;
-            box-shadow: 0 0 15px rgba(255, 51, 102, 0.5);
-            display: none;
-        }
-
-        .btn-danger:hover { 
-            background: linear-gradient(180deg, #ff4477 0%, #ff0044 100%);
-            transform: translateY(-2px);
-        }
-
-        /* Phase Banner - HUD Element */
-        .phase-banner {
-            margin-top: 1.5rem;
-            margin-bottom: 0;
-            padding: 0.6rem 1rem;
-            background: var(--bg-panel);
-            border: 1px solid #2a2a4a;
-            border-left: 3px solid var(--accent-cyan);
-            border-radius: 0 4px 4px 0;
-            display: none;
-            align-items: center;
-            gap: 0.75rem;
-            font-family: 'VT323', monospace;
-            font-size: 1rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .phase-banner::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.1), transparent);
-            animation: scan 2s linear infinite;
-        }
-
-        @keyframes scan {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-
-        .phase-banner.active { display: flex; }
-
-        .phase-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--accent-cyan);
-            box-shadow: var(--glow-cyan);
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        .phase-name {
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            padding: 0.2rem 0.5rem;
-            background: rgba(0, 255, 255, 0.1);
-            border: 1px solid var(--accent-cyan);
-            border-radius: 2px;
-        }
-
-        .phase-separator { color: #4a4a6a; }
-        .phase-detail { color: var(--text-dim); }
-
-        /* Phase Colors */
-        .phase-init .phase-name { color: #8a8aaa; border-color: #8a8aaa; background: rgba(138, 138, 170, 0.1); }
-        .phase-discovery .phase-name { color: #ffaa00; border-color: #ffaa00; background: rgba(255, 170, 0, 0.1); }
-        .phase-discovery .phase-dot { background: #ffaa00; box-shadow: 0 0 10px #ffaa00; }
-        .phase-filtering .phase-name { color: #aa66ff; border-color: #aa66ff; background: rgba(170, 102, 255, 0.1); }
-        .phase-filtering .phase-dot { background: #aa66ff; box-shadow: 0 0 10px #aa66ff; }
-        .phase-scraping .phase-name { color: #00aaff; border-color: #00aaff; background: rgba(0, 170, 255, 0.1); }
-        .phase-scraping .phase-dot { background: #00aaff; box-shadow: 0 0 10px #00aaff; }
-        .phase-cleanup .phase-name { color: #00ffaa; border-color: #00ffaa; background: rgba(0, 255, 170, 0.1); }
-        .phase-cleanup .phase-dot { background: #00ffaa; box-shadow: 0 0 10px #00ffaa; }
-        .phase-save .phase-name { color: #66ff66; border-color: #66ff66; background: rgba(102, 255, 102, 0.1); }
-        .phase-save .phase-dot { background: #66ff66; box-shadow: 0 0 10px #66ff66; }
-        .phase-done .phase-name { color: var(--accent-green); border-color: var(--accent-green); background: rgba(0, 255, 136, 0.1); }
-        .phase-done .phase-dot { background: var(--accent-green); box-shadow: var(--glow-cyan); animation: none; }
-        .phase-failed .phase-name { color: #ff3366; border-color: #ff3366; background: rgba(255, 51, 102, 0.1); }
-        .phase-failed .phase-dot { background: #ff3366; box-shadow: 0 0 10px #ff3366; animation: none; }
-        .phase-cancelled .phase-name { color: #ff8800; border-color: #ff8800; background: rgba(255, 136, 0, 0.1); }
-        .phase-cancelled .phase-dot { background: #ff8800; box-shadow: 0 0 10px #ff8800; animation: none; }
-
-        /* Log Console - CRT Terminal */
-        .log {
-            margin-top: 0;
-            padding: 1rem;
-            background: #080810;
-            border: 1px solid #2a2a4a;
-            border-radius: 0 0 4px 4px;
-            font-family: 'VT323', monospace;
-            font-size: 0.95rem;
-            max-height: 350px;
-            overflow-y: auto;
-            position: relative;
-        }
-
-        .log::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: 
-                repeating-linear-gradient(
-                    0deg,
-                    transparent,
-                    transparent 1px,
-                    rgba(0, 255, 255, 0.02) 1px,
-                    rgba(0, 255, 255, 0.02) 2px
-                );
-            pointer-events: none;
-        }
-
-        .log-entry { 
-            padding: 0.2rem 0; 
-            border-bottom: 1px solid #1a1a2a;
-            position: relative;
-        }
-
-        .log-entry.error { color: #ff3366; text-shadow: 0 0 5px rgba(255, 51, 102, 0.5); }
-        .log-entry.success { color: var(--accent-green); text-shadow: 0 0 5px rgba(0, 255, 136, 0.5); }
-        .log-entry.info { color: var(--accent-cyan); }
-        .log-entry.warning { color: var(--accent-amber); text-shadow: 0 0 5px rgba(255, 107, 0, 0.5); }
-
-        .log-badge {
-            display: inline-block;
-            padding: 0.1rem 0.4rem;
-            border-radius: 2px;
-            font-size: 0.7rem;
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-right: 0.5rem;
-            min-width: 60px;
-            text-align: center;
-        }
-
-        .badge-init { background: #1a1a2a; color: #8a8aaa; border: 1px solid #3a3a5a; }
-        .badge-discovery { background: #2a1a00; color: #ffaa00; border: 1px solid #4a3a00; }
-        .badge-filtering { background: #1a0a2a; color: #aa66ff; border: 1px solid #3a1a4a; }
-        .badge-scraping { background: #001a2a; color: #00aaff; border: 1px solid #003a4a; }
-        .badge-cleanup { background: #002a1a; color: #00ffaa; border: 1px solid #004a3a; }
-        .badge-save { background: #001a1a; color: #66ff66; border: 1px solid #003a3a; }
-        .badge-done { background: #002a0a; color: var(--accent-green); border: 1px solid #004a1a; }
-        .badge-failed { background: #2a001a; color: #ff3366; border: 1px solid #4a003a; }
-
-        .log-model {
-            color: #5a5a7a;
-            font-size: 0.8rem;
-            margin-left: 0.5rem;
-        }
-
-        /* Summary Panel - Mission Report */
-        .summary {
-            margin-top: 1rem;
-            margin-bottom: 1rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, #0d0d1a 0%, #15152a 100%);
-            border: 1px solid #2a2a5a;
-            border-radius: 4px;
-            display: block;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .summary::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--accent-magenta), var(--accent-cyan), var(--accent-green));
-        }
-
-        .summary h3 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1rem;
-            color: var(--accent-magenta);
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            margin-bottom: 1rem;
-            text-shadow: var(--glow-magenta);
-        }
-
-        .stats-row {
-            display: flex;
-            flex-direction: row;
-            flex-wrap: nowrap;
-            gap: 0.75rem;
-            align-items: flex-start;
-        }
-        .stat {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            flex: 1;
-            min-width: 0;
-            padding: 0.5rem 0.75rem;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid #2a2a4a;
-            border-radius: 2px;
-        }
-
-        .stat-value { 
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.5rem; 
-            font-weight: 700;
-            color: var(--accent-cyan);
-            text-shadow: var(--glow-cyan);
-        }
-
-        .stat-label {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-
-        #fetchStats {
-            margin-top: 1rem;
-            font-family: 'VT323', monospace;
-            font-size: 0.9rem;
-            color: var(--accent-green);
-            display: none;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #0a0a12; }
-        ::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #3a3a5a; }
-
-        /* Mobile */
-        @media (max-width: 480px) {
-            body { padding: 1rem; }
-            h1 { font-size: 1.8rem; }
-            .status-bar { flex-direction: column; gap: 0.5rem; }
-            .buttons { flex-direction: column; }
-            button { width: 100%; }
-        }
-
-        /* Theme Selector */
-        .theme-selector {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 1002;
-        }
-        .theme-selector select {
-            width: auto;
-            padding: 0.4rem 0.75rem;
-            background: var(--bg-input);
-            border: 1px solid #2a2a4a;
-            border-radius: 2px;
-            color: var(--accent-cyan);
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.7rem;
-            cursor: pointer;
-        }
-        body.theme-basic .theme-selector select {
-            background: #1e293b;
-            border-color: #334155;
-            color: #e2e8f0;
-            font-family: system-ui, -apple-system, sans-serif;
-            border-radius: 0.5rem;
-        }
-
-        /* Basic Theme */
-        body.theme-basic {
-            font-family: system-ui, -apple-system, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            padding: 1.5rem;
-        }
-        body.theme-basic::before, body.theme-basic::after { display: none; }
-        body.theme-basic .container { max-width: min(1400px, calc(100vw - 48px)); }
-        body.theme-basic h1 {
-            font-family: system-ui, -apple-system, sans-serif;
-            font-weight: 700;
-            font-size: 1.75rem;
-            background: none;
-            -webkit-text-fill-color: #f8fafc;
-            text-shadow: none;
-            margin-bottom: 1.5rem;
-        }
-        body.theme-basic h1::before, body.theme-basic h1::after { display: none; }
-        body.theme-basic .status-bar {
-            background: #1e293b;
-            border-color: #334155;
-            margin-bottom: 1.5rem;
-        }
-        body.theme-basic .status-item {
-            background: #0f172a;
-            border-color: #334155;
-        }
-        body.theme-basic .status-dot { background: #64748b; }
-        body.theme-basic .status-dot.ok { background: #22c55e; animation: none; }
-        body.theme-basic .status-dot.warning { background: #f59e0b; animation: none; }
-        body.theme-basic .status-dot.error { background: #ef4444; animation: none; }
-        body.theme-basic .status-dot.loading { background: #3b82f6; animation: pulse-basic 1s infinite; }
-        body.theme-basic .status-label { color: #94a3b8; }
-        body.theme-basic .status-value { color: #e2e8f0; }
-        body.theme-basic label { color: #94a3b8; font-size: 0.875rem; }
-        body.theme-basic input, body.theme-basic select {
-            background: #1e293b;
-            border-color: #334155;
-            color: #e2e8f0;
-            border-radius: 0.5rem;
-            box-shadow: none;
-        }
-        body.theme-basic input:focus, body.theme-basic select:focus {
-            border-color: #3b82f6;
-            box-shadow: none;
-        }
-        body.theme-basic .models-section {
-            background: #1a2332;
-            border-color: #334155;
-            border-radius: 0.5rem;
-        }
-        body.theme-basic .section-label { color: #e2e8f0; font-weight: 600; }
-        body.theme-basic .model-hint { color: #64748b; }
-        body.theme-basic .checkbox-group input[type="checkbox"] {
-            background: #1e293b;
-            border-color: #334155;
-        }
-        body.theme-basic .checkbox-group input[type="checkbox"]:checked { background: #3b82f6; border-color: #3b82f6; }
-        body.theme-basic .btn-primary {
-            background: #3b82f6;
-            box-shadow: none;
-        }
-        body.theme-basic .btn-primary:hover { background: #2563eb; }
-        body.theme-basic .btn-danger { background: #ef4444; }
-        body.theme-basic .phase-banner { background: #1e293b; border-color: #334155; }
-        body.theme-basic .phase-dot { background: #3b82f6; animation: pulse-basic 1.5s infinite; }
-        body.theme-basic .log {
-            background: #1e293b;
-            border-color: #334155;
-            font-family: monospace;
-            border-radius: 0.5rem;
-        }
-        body.theme-basic .log::before { display: none; }
-        body.theme-basic .log-entry { border-color: #334155; }
-        body.theme-basic .left-column {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 0.75rem;
-        }
-        body.theme-basic .right-column {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 0.75rem;
-        }
-        body.theme-basic .stat {
-            background: #0f172a;
-            border-color: #334155;
-        }
-        body.theme-basic .stats-row {
-            gap: 0.5rem;
-        }
-        body.theme-basic .summary { background: #1e293b; border-radius: 0.75rem; }
-        body.theme-basic .summary::before { background: linear-gradient(90deg, #3b82f6, #6366f1, #8b5cf6); }
-        body.theme-basic .summary h3 { font-family: system-ui, -apple-system, sans-serif; color: #e2e8f0; font-size: 0.85rem; text-shadow: none; letter-spacing: 0.05em; }
-        body.theme-basic .stat-value { font-family: system-ui, -apple-system, sans-serif; color: #60a5fa; text-shadow: none; font-size: 1.5rem; font-weight: 700; }
-        body.theme-basic .stat-label { font-family: system-ui, -apple-system, sans-serif; color: #94a3b8; font-size: 0.7rem; }
-        body.theme-basic .models-section::before { background: linear-gradient(90deg, transparent, #3b82f6, transparent); }
-        @keyframes pulse-basic { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-        @keyframes blink-term { 50% { opacity: 0; } }
-        @keyframes pulse-term { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-
-        /* ── Terminal (Archival) Theme ─────────────────────────────────── */
-        body.theme-terminal {
-            font-family: 'IBM Plex Mono', monospace;
-            background: #060908;
-            color: #3ddc84;
-            padding: 1.5rem;
-            font-size: 14px;
-        }
-        body.theme-terminal::before {
-            background:
-                repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.12) 3px,rgba(0,0,0,.12) 4px),
-                radial-gradient(ellipse 90% 80% at 50% 40%,transparent 55%,rgba(0,0,0,.65) 100%);
-        }
-        body.theme-terminal::after { background: none; }
-        body.theme-terminal .container { max-width: min(1400px, calc(100vw - 48px)); }
-        /* header */
-        body.theme-terminal h1 {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 1.05rem;
-            font-weight: 700;
-            background: none;
-            -webkit-text-fill-color: #00ff6a;
-            color: #00ff6a;
-            text-shadow: 0 0 18px #00ff6a;
-            letter-spacing: .18em;
-            border: 1px solid #3ddc84;
-            box-shadow: 0 0 8px #3ddc84;
-            display: block;
-            padding: .45rem .8rem;
-            margin-bottom: .9rem;
-            animation: none;
-        }
-        body.theme-terminal h1::before { content: '▊  '; color: #00ff6a; margin-right: 0; opacity: 1; }
-        body.theme-terminal h1::after {
-            content: 'DOCUMENTATION ARCHIVAL SYSTEM  v1.0';
-            font-size: .55rem;
-            letter-spacing: .3em;
-            color: #4a7055;
-            text-shadow: none;
-            font-family: 'IBM Plex Mono', monospace;
-            bottom: -1.3rem;
-        }
-        /* status bar */
-        body.theme-terminal .status-bar {
-            background: #0b110d;
-            border: 1px solid #1a2d20;
-            border-top: 2px solid #3ddc84;
-            border-radius: 0;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: .68rem;
-            box-shadow: none;
-            margin-bottom: 1rem;
-        }
-        body.theme-terminal .status-item {
-            background: transparent;
-            border: none;
-            border-radius: 0;
-            padding: 0;
-        }
-        body.theme-terminal .status-dot { background: #2d4a36; border-radius: 0; width: 6px; height: 6px; box-shadow: none; }
-        body.theme-terminal .status-dot.ok { background: #3ddc84; box-shadow: 0 0 6px #3ddc84; animation: none; }
-        body.theme-terminal .status-dot.warning { background: #ffb300; box-shadow: none; animation: none; }
-        body.theme-terminal .status-dot.error { background: #ff4d4d; box-shadow: none; animation: none; }
-        body.theme-terminal .status-dot.loading { background: #3ddc84; box-shadow: none; animation: blink-term .9s step-end infinite; }
-        body.theme-terminal .status-label { color: #4a7055; font-family: 'IBM Plex Mono', monospace; }
-        body.theme-terminal .status-value { color: #3ddc84; font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
-        /* form */
-        body.theme-terminal label {
-            font-family: 'IBM Plex Mono', monospace;
-            color: #4a7055;
-            font-size: .65rem;
-            text-transform: uppercase;
-            letter-spacing: .1em;
-        }
-        body.theme-terminal input, body.theme-terminal select {
-            font-family: 'IBM Plex Mono', monospace;
-            background: #0f1a12;
-            border: 1px solid #1a2d20;
-            border-radius: 0;
-            color: #00ff6a;
-            box-shadow: none;
-            font-size: .78rem;
-            caret-color: #00ff6a;
-        }
-        body.theme-terminal input:focus, body.theme-terminal select:focus { border-color: #3ddc84; box-shadow: none; }
-        body.theme-terminal select option { background: #0f1a12; }
-        /* models section */
-        body.theme-terminal .models-section { background: #0b110d; border: 1px solid #1a2d20; border-radius: 0; }
-        body.theme-terminal .section-label { font-family: 'IBM Plex Mono', monospace; color: #4a7055; font-size: .65rem; letter-spacing: .14em; font-weight: 400; }
-        body.theme-terminal .model-hint { color: #6a9a78; font-family: 'IBM Plex Mono', monospace; font-size: .62rem; }
-        body.theme-terminal .model-hint span { color: #4a7055; }
-        /* checkboxes */
-        body.theme-terminal .checkbox-group input[type=checkbox] { background: #0f1a12; border-color: #1a2d20; border-radius: 0; box-shadow: none; }
-        body.theme-terminal .checkbox-group input[type=checkbox]:checked { background: #04200e; border-color: #3ddc84; }
-        body.theme-terminal .checkbox-group label { color: #6a9a78; font-family: 'IBM Plex Mono', monospace; font-size: .72rem; text-transform: none; letter-spacing: 0; }
-        /* buttons */
-        body.theme-terminal .btn-primary {
-            font-family: 'IBM Plex Mono', monospace;
-            background: transparent;
-            border: 1px solid #3ddc84;
-            color: #3ddc84;
-            border-radius: 0;
-            box-shadow: none;
-            letter-spacing: .1em;
-            text-transform: uppercase;
-        }
-        body.theme-terminal .btn-primary:hover { background: #04200e; box-shadow: 0 0 8px #3ddc84; }
-        body.theme-terminal .btn-primary:disabled { border-color: #2d4a36; color: #2d4a36; background: transparent; box-shadow: none; }
-        body.theme-terminal .btn-danger { font-family: 'IBM Plex Mono', monospace; background: transparent; border: 1px solid #ff4d4d; color: #ff4d4d; border-radius: 0; box-shadow: none; }
-        body.theme-terminal .btn-danger:hover { background: #200505; box-shadow: none; }
-        /* phase banner */
-        body.theme-terminal .phase-banner {
-            background: #0b110d;
-            border: 1px solid #1a2d20;
-            border-radius: 0;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: .72rem;
-        }
-        body.theme-terminal .phase-dot { background: #3ddc84; box-shadow: 0 0 6px #3ddc84; width: 6px; height: 6px; border-radius: 0; animation: blink-term 1.2s step-end infinite; }
-        body.theme-terminal .phase-name { font-family: 'IBM Plex Mono', monospace; background: transparent; border: none; padding: 0; font-size: .72rem; letter-spacing: .12em; color: #3ddc84; text-shadow: none; }
-        body.theme-terminal .phase-separator { color: #2d4a36; }
-        body.theme-terminal .phase-detail { color: #4a7055; font-family: 'IBM Plex Mono', monospace; font-size: .68rem; }
-        /* phase colors */
-        body.theme-terminal .phase-discovery .phase-name { color: #ffb300; background: transparent; border: none; text-shadow: none; }
-        body.theme-terminal .phase-discovery .phase-dot { background: #ffb300; box-shadow: 0 0 6px #ffb300; }
-        body.theme-terminal .phase-filtering .phase-name { color: #c97bea; background: transparent; border: none; text-shadow: none; }
-        body.theme-terminal .phase-filtering .phase-dot { background: #c97bea; box-shadow: none; }
-        body.theme-terminal .phase-scraping .phase-name { color: #6ab4f5; background: transparent; border: none; text-shadow: none; }
-        body.theme-terminal .phase-scraping .phase-dot { background: #6ab4f5; box-shadow: none; }
-        body.theme-terminal .phase-cleanup .phase-name { color: #5ec8d4; background: transparent; border: none; text-shadow: none; }
-        body.theme-terminal .phase-cleanup .phase-dot { background: #5ec8d4; box-shadow: none; }
-        body.theme-terminal .phase-done .phase-name { color: #00ff6a; background: transparent; border: none; text-shadow: 0 0 10px #00ff6a; }
-        body.theme-terminal .phase-done .phase-dot { background: #00ff6a; box-shadow: 0 0 10px #00ff6a; animation: none; }
-        body.theme-terminal .phase-failed .phase-name { color: #ff4d4d; background: transparent; border: none; text-shadow: none; }
-        body.theme-terminal .phase-failed .phase-dot { background: #ff4d4d; box-shadow: none; animation: none; }
-        body.theme-terminal .phase-cancelled .phase-name { color: #ffb300; background: transparent; border: none; text-shadow: none; }
-        body.theme-terminal .phase-cancelled .phase-dot { background: #ffb300; box-shadow: none; animation: none; }
-        /* log */
-        body.theme-terminal .log {
-            background: #0b110d;
-            border: 1px solid #1a2d20;
-            border-radius: 0;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: .7rem;
-        }
-        body.theme-terminal .log::before { display: none; }
-        body.theme-terminal .log-entry { border-color: #0e1f13; color: #8dbfa0; }
-        body.theme-terminal .log-entry.error { color: #ff4d4d; text-shadow: none; }
-        body.theme-terminal .log-entry.success { color: #00ff6a; text-shadow: none; }
-        body.theme-terminal .log-entry.info { color: #6ab4f5; }
-        body.theme-terminal .log-entry.warning { color: #ffb300; text-shadow: none; }
-        body.theme-terminal .log-badge { font-family: 'IBM Plex Mono', monospace; font-size: .58rem; border-radius: 0; min-width: 56px; }
-        body.theme-terminal .badge-init { background: transparent; color: #4a7055; border: 1px solid #2d4a36; }
-        body.theme-terminal .badge-discovery { background: #180d00; color: #fbbf24; border: none; }
-        body.theme-terminal .badge-filtering { background: #180826; color: #c97bea; border: none; }
-        body.theme-terminal .badge-scraping { background: #020e1e; color: #6ab4f5; border: none; }
-        body.theme-terminal .badge-cleanup { background: #021418; color: #5ec8d4; border: none; }
-        body.theme-terminal .badge-save, body.theme-terminal .badge-done { background: #04200e; color: #00ff6a; border: none; }
-        body.theme-terminal .badge-failed { background: #1c0000; color: #ff4d4d; border: none; }
-        body.theme-terminal .log-model { color: #2d4a36; font-family: 'IBM Plex Mono', monospace; }
-        /* summary */
-        body.theme-terminal .left-column {
-            background: #0b110d;
-            border: 1px solid #1a2d20;
-            border-radius: 0;
-        }
-        body.theme-terminal .right-column {
-            background: #0b110d;
-            border: 1px solid #1a2d20;
-            border-radius: 0;
-        }
-        body.theme-terminal .stats-row {
-            gap: 1rem;
-        }
-        body.theme-terminal .summary { background: #0b110d; border: 1px solid #3ddc84; border-radius: 0; box-shadow: inset 0 0 20px rgba(0,255,106,.04); }
-        body.theme-terminal .summary::before { display: none; }
-        body.theme-terminal .summary h3 { font-family: 'IBM Plex Mono', monospace; color: #4a7055; font-size: .6rem; letter-spacing: .2em; text-shadow: none; }
-        body.theme-terminal .stat { background: transparent; border: 1px solid #1a2d20; padding: 0.4rem 0.5rem; margin-right: 0; border-radius: 0; }
-        body.theme-terminal .stat-value { font-family: 'IBM Plex Mono', monospace; color: #00ff6a; text-shadow: 0 0 14px #00ff6a; font-size: 1.35rem; }
-        body.theme-terminal .stat-label { font-family: 'IBM Plex Mono', monospace; color: #4a7055; font-size: .58rem; }
-        body.theme-terminal #fetchStats { font-family: 'IBM Plex Mono', monospace; color: #4a7055; font-size: .67rem; }
-        /* theme selector */
-        body.theme-terminal .theme-selector select {
-            font-family: 'IBM Plex Mono', monospace;
-            background: #0b110d;
-            border: 1px solid #1a2d20;
-            color: #3ddc84;
-            border-radius: 0;
-        }
-        /* scrollbar */
-        body.theme-terminal ::-webkit-scrollbar-track { background: #060908; }
-        body.theme-terminal ::-webkit-scrollbar-thumb { background: #1a2d20; border-radius: 0; }
-        body.theme-terminal ::-webkit-scrollbar-thumb:hover { background: #253d2c; }
-
-        /* ── App Footer ──────────────────────────────────────────────────── */
-        .app-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 1001;
-            text-align: center;
-            padding: 0.45rem 1rem;
-            font-size: 0.72em;
-            color: var(--text-dim);
-            letter-spacing: 0.05em;
-            background: rgba(0,0,0,0.55);
-            backdrop-filter: blur(4px);
-        }
-        .app-footer .footer-name { font-weight: bold; color: var(--text-primary); opacity: 0.7; }
-        .app-footer .footer-sep { opacity: 0.3; margin: 0 0.45em; }
-        .app-footer .footer-link { color: var(--accent-cyan); text-decoration: none; opacity: 0.75; }
-        .app-footer .footer-link:hover { opacity: 1; text-shadow: var(--glow-cyan); }
-        .app-footer .footer-models { opacity: 0.55; }
-        body.theme-terminal .app-footer { color: rgba(61,220,132,0.45); font-family: 'IBM Plex Mono', monospace; font-size: 0.62em; }
-        body.theme-terminal .app-footer .footer-name { color: rgba(61,220,132,0.7); }
-        body.theme-terminal .app-footer .footer-link { color: #00ff6a; opacity: 0.6; text-shadow: none; }
-        body.theme-terminal .app-footer .footer-link:hover { opacity: 1; text-shadow: 0 0 8px #00ff6a; }
-        body.theme-basic .app-footer { color: #64748b; font-family: monospace; }
-        body.theme-basic .app-footer .footer-name { color: #94a3b8; }
-        body.theme-basic .app-footer .footer-link { color: #3b82f6; opacity: 0.85; text-shadow: none; }
-        body.theme-basic .app-footer .footer-link:hover { opacity: 1; }
-
-        /* ── Fix: BASIC theme model dropdown truncation ─────────────────── */
-        body.theme-basic .model-row { flex-wrap: nowrap; }
-        body.theme-basic .model-hint { max-width: 160px; flex-shrink: 1; }
-        body.theme-basic .model-select select { min-width: 0; width: 100%; }
-
-        /* ── Fix: BASIC + TERMINAL status dot animations ────────────────── */
-        body.theme-basic .status-dot.ok { animation: pulse-basic 2.5s ease-in-out infinite; }
-        body.theme-basic .status-dot.error { animation: blink-dot-error 0.7s step-end infinite; }
-        body.theme-terminal .status-dot.ok { animation: pulse-term 2.5s ease-in-out infinite; }
-        body.theme-terminal .status-dot.error { animation: blink-term 0.6s step-end infinite; }
-
-        /* ── Job History Filter Input ────────────────────────────────────── */
-        .job-history-filter { margin-bottom: 0.5rem; }
-        .job-history-search {
-            width: 100%;
-            padding: 0.3rem 0.65rem;
-            font-size: 0.75rem;
-            background: var(--bg-input, #0d0d18);
-            border: 1px solid #2a2a4a;
-            border-radius: 2px;
-            color: var(--text-primary, #e0e0e0);
-            font-family: 'VT323', monospace;
-        }
-        .job-history-search::placeholder { color: #3a3a5a; }
-        .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-        body.theme-basic .job-history-search {
-            background: #1e293b;
-            border-color: #334155;
-            color: #e2e8f0;
-            font-family: system-ui, -apple-system, sans-serif;
-            border-radius: 0.375rem;
-            font-size: 0.8rem;
-        }
-        body.theme-terminal .job-history-search {
-            background: #0f1a12;
-            border-color: #1a2d20;
-            color: #6a9a78;
-            font-family: 'IBM Plex Mono', monospace;
-            border-radius: 0;
-            font-size: 0.65rem;
-        }
-
-        /* ── Synthwave: animated scanline sweep ──────────────────────────── */
-        @keyframes scanlines-scroll {
-            from { background-position: 0 0, 0 0; }
-            to   { background-position: 0 4px, 0 0; }
-        }
-        body.theme-synthwave::before {
-            animation: scanlines-scroll 0.18s steps(1) infinite;
-        }
-        @media (prefers-reduced-motion: reduce) {
-            body.theme-synthwave::before { animation: none; }
-            #footerModels { animation: none !important; white-space: normal !important; }
-            /* Status and phase dots — suppress all pulsing/blinking */
-            .status-dot.ok,
-            .status-dot.warning,
-            .status-dot.error,
-            .status-dot.loading,
-            .phase-dot { animation: none; opacity: 1; }
-            /* BASIC theme overrides */
-            body.theme-basic .status-dot.ok,
-            body.theme-basic .status-dot.error { animation: none; opacity: 1; }
-            /* TERMINAL theme overrides */
-            body.theme-terminal .status-dot.ok,
-            body.theme-terminal .status-dot.loading,
-            body.theme-terminal .phase-dot { animation: none; opacity: 1; }
-            /* GLASSMORPHISM theme overrides */
-            body.theme-glassmorphism .status-dot.ok,
-            body.theme-glassmorphism .status-dot.error,
-            body.theme-glassmorphism .status-dot.loading { animation: none; opacity: 1; }
-        }
-
-        /* ── Footer marquee on small screens ─────────────────────────────── */
-        @media (max-width: 768px) {
-            .footer-models { overflow: hidden; max-width: 180px; display: inline-block; vertical-align: middle; }
-            #footerModels { display: inline-block; animation: marquee-scroll 18s linear infinite; white-space: nowrap; }
-        }
-        @keyframes marquee-scroll {
-            0%   { transform: translateX(110%); }
-            100% { transform: translateX(-110%); }
-        }
-
-        /* ── GLASSMORPHISM theme ──────────────────────────────────────────── */
-        body.theme-glassmorphism {
-            font-family: 'IBM Plex Mono', monospace;
-            background: linear-gradient(135deg, #1a0533 0%, #0d1a3a 45%, #0a2545 70%, #1a0a3a 100%);
-            background-attachment: fixed;
-            color: rgba(255,255,255,0.92);
-            padding: 1.5rem;
-            font-size: 15px;
-        }
-        body.theme-glassmorphism::before {
-            background:
-                radial-gradient(ellipse at 20% 15%, rgba(138,43,226,0.18) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 80%, rgba(59,130,246,0.14) 0%, transparent 50%),
-                radial-gradient(ellipse at 50% 50%, rgba(147,51,234,0.06) 0%, transparent 70%);
-            animation: none;
-        }
-        body.theme-glassmorphism::after { background: none; }
-        body.theme-glassmorphism .container { max-width: min(1400px, calc(100vw - 48px)); }
-        body.theme-glassmorphism h1 {
-            font-family: 'IBM Plex Mono', monospace;
-            background: linear-gradient(90deg, #d8c7ff 0%, #93c5fd 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-shadow: none;
-            font-size: 2rem;
-            letter-spacing: 0.08em;
-        }
-        body.theme-glassmorphism h1::before { color: rgba(196,181,253,0.7); -webkit-text-fill-color: rgba(196,181,253,0.7); }
-        body.theme-glassmorphism h1::after { color: rgba(255,255,255,0.35); text-shadow: none; }
-        body.theme-glassmorphism .left-column,
-        body.theme-glassmorphism .right-column {
-            background: rgba(255,255,255,0.07);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 16px;
-        }
-        body.theme-glassmorphism .status-bar {
-            background: rgba(255,255,255,0.06);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 10px;
-        }
-        body.theme-glassmorphism .status-item {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-        }
-        body.theme-glassmorphism .status-dot { background: rgba(255,255,255,0.2); }
-        body.theme-glassmorphism .status-dot.ok { background: #86efac; box-shadow: 0 0 8px rgba(134,239,172,0.5); animation: pulse-glass-ok 2s ease-in-out infinite; }
-        body.theme-glassmorphism .status-dot.warning { background: #fcd34d; box-shadow: 0 0 8px rgba(252,211,77,0.4); animation: none; }
-        body.theme-glassmorphism .status-dot.error { background: #fca5a5; box-shadow: 0 0 8px rgba(252,165,165,0.5); animation: blink-dot-error 0.7s step-end infinite; }
-        body.theme-glassmorphism .status-dot.loading { background: #93c5fd; box-shadow: 0 0 8px rgba(147,197,253,0.4); animation: pulse 1s infinite; }
-        @keyframes pulse-glass-ok { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        body.theme-glassmorphism .status-label { color: rgba(255,255,255,0.5); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; }
-        body.theme-glassmorphism .status-value { color: rgba(255,255,255,0.88); font-family: 'IBM Plex Mono', monospace; }
-        body.theme-glassmorphism label { color: rgba(255,255,255,0.6); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; letter-spacing: 0.08em; text-shadow: none; }
-        body.theme-glassmorphism input,
-        body.theme-glassmorphism select {
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            color: rgba(255,255,255,0.92);
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.85rem;
-            box-shadow: none;
-        }
-        body.theme-glassmorphism input:focus,
-        body.theme-glassmorphism select:focus {
-            border-color: rgba(147,51,234,0.65);
-            box-shadow: 0 0 0 3px rgba(147,51,234,0.15);
-            color: rgba(255,255,255,0.96);
-        }
-        body.theme-glassmorphism input::placeholder { color: rgba(255,255,255,0.28); }
-        body.theme-glassmorphism select option { background: #1a0a3a; color: rgba(255,255,255,0.9); }
-        body.theme-glassmorphism .models-section {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 10px;
-        }
-        body.theme-glassmorphism .models-section::before { background: linear-gradient(90deg, transparent, rgba(196,181,253,0.4), transparent); }
-        body.theme-glassmorphism .section-label { color: rgba(255,255,255,0.75); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; text-shadow: none; }
-        body.theme-glassmorphism .model-hint { color: rgba(255,255,255,0.5); font-family: 'IBM Plex Mono', monospace; }
-        body.theme-glassmorphism .hint-icon { color: rgba(196,181,253,0.5); }
-        body.theme-glassmorphism .checkbox-group input[type="checkbox"] { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.25); border-radius: 4px; }
-        body.theme-glassmorphism .checkbox-group input[type="checkbox"]:checked { background: rgba(124,58,237,0.6); border-color: rgba(124,58,237,0.8); box-shadow: 0 0 8px rgba(124,58,237,0.4); }
-        body.theme-glassmorphism .checkbox-group label { color: rgba(255,255,255,0.78); font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; text-transform: none; letter-spacing: 0; }
-        body.theme-glassmorphism .btn-primary {
-            background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
-            color: white;
-            box-shadow: 0 4px 20px rgba(124,58,237,0.45);
-            border-radius: 8px;
-            font-family: 'IBM Plex Mono', monospace;
-        }
-        body.theme-glassmorphism .btn-primary:hover { background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%); box-shadow: 0 6px 28px rgba(124,58,237,0.55); }
-        body.theme-glassmorphism .btn-primary:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); box-shadow: none; }
-        body.theme-glassmorphism .btn-danger { background: linear-gradient(135deg, #dc2626, #9f1239); color: white; box-shadow: 0 4px 16px rgba(220,38,38,0.4); border-radius: 8px; font-family: 'IBM Plex Mono', monospace; }
-        body.theme-glassmorphism .btn-danger:hover { background: linear-gradient(135deg, #ef4444, #be123c); }
-        body.theme-glassmorphism .phase-banner { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; }
-        body.theme-glassmorphism .phase-dot { background: rgba(196,181,253,0.8); box-shadow: 0 0 8px rgba(196,181,253,0.5); }
-        body.theme-glassmorphism .phase-name { color: #c4b5fd; border-color: rgba(196,181,253,0.3); background: rgba(124,58,237,0.15); border-radius: 4px; font-family: 'IBM Plex Mono', monospace; }
-        body.theme-glassmorphism .phase-separator, body.theme-glassmorphism .phase-detail { color: rgba(255,255,255,0.4); font-family: 'IBM Plex Mono', monospace; }
-        body.theme-glassmorphism .log { background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; }
-        body.theme-glassmorphism .log::before { display: none; }
-        body.theme-glassmorphism .log-entry { border-color: rgba(255,255,255,0.06); color: rgba(255,255,255,0.75); }
-        body.theme-glassmorphism .log-entry.error { color: #fca5a5; text-shadow: none; }
-        body.theme-glassmorphism .log-entry.success { color: #86efac; text-shadow: none; }
-        body.theme-glassmorphism .log-entry.info { color: #93c5fd; }
-        body.theme-glassmorphism .log-entry.warning { color: #fcd34d; text-shadow: none; }
-        body.theme-glassmorphism .summary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 10px; }
-        body.theme-glassmorphism .summary::before { background: linear-gradient(90deg, rgba(196,181,253,0.5), rgba(147,197,253,0.5), rgba(134,239,172,0.5)); }
-        body.theme-glassmorphism .summary h3 { color: rgba(255,255,255,0.7); font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; text-shadow: none; }
-        body.theme-glassmorphism .stats-row {
-            gap: 0.75rem;
-        }
-        body.theme-glassmorphism .stat { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; }
-        body.theme-glassmorphism .stat-value { font-family: 'IBM Plex Mono', monospace; color: #c4b5fd; text-shadow: 0 0 12px rgba(196,181,253,0.45); }
-        body.theme-glassmorphism .stat-label { color: rgba(255,255,255,0.45); font-family: 'IBM Plex Mono', monospace; }
-        body.theme-glassmorphism #fetchStats { font-family: 'IBM Plex Mono', monospace; color: rgba(255,255,255,0.5); font-size: 0.72rem; }
-        body.theme-glassmorphism .job-history-header { color: rgba(255,255,255,0.5); }
-        body.theme-glassmorphism .job-history-list { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); border-radius: 6px; }
-        body.theme-glassmorphism .job-history-item { border-color: rgba(255,255,255,0.07); }
-        body.theme-glassmorphism .job-history-id { color: #93c5fd; }
-        body.theme-glassmorphism .job-history-empty { color: rgba(255,255,255,0.35); }
-        body.theme-glassmorphism .job-history-search { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); color: rgba(255,255,255,0.8); font-family: 'IBM Plex Mono', monospace; border-radius: 6px; }
-        body.theme-glassmorphism .job-history-search::placeholder { color: rgba(255,255,255,0.25); }
-        body.theme-glassmorphism .theme-selector select { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: rgba(255,255,255,0.88); font-family: 'IBM Plex Mono', monospace; }
-        body.theme-glassmorphism .app-footer { color: rgba(255,255,255,0.38); background: rgba(0,0,0,0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-        body.theme-glassmorphism .app-footer .footer-name { color: rgba(255,255,255,0.65); }
-        body.theme-glassmorphism .app-footer .footer-link { color: #93c5fd; text-shadow: none; }
-        body.theme-glassmorphism .app-footer .footer-link:hover { text-shadow: 0 0 8px rgba(147,197,253,0.6); }
-        body.theme-glassmorphism ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-        body.theme-glassmorphism ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 4px; }
-        body.theme-glassmorphism ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.24); }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docrawl</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Reset ───────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ─── Design Tokens ───────────────────────────────────────────────── */
+    :root {
+      --bg:           #0e0e0e;
+      --bg-panel:     #111111;
+      --bg-input:     #181818;
+      --bg-raised:    #1d1d1d;
+      --bg-section:   #0f0f0f;
+
+      --border:       #252525;
+      --border-mid:   #333333;
+      --border-hi:    #444444;
+
+      --text:         #e8e8e8;
+      --text-dim:     #909090;
+      --text-muted:   #686868;
+
+      --accent:       #c87941;
+      --accent-dim:   #6b3f1e;
+      --accent-hover: #d68f55;
+      --accent-bg:    rgba(200,121,65,0.06);
+      --accent-text:  rgba(200,121,65,0.80);
+
+      --ok:           #5c8f5c;
+      --ok-dim:       rgba(92,143,92,0.25);
+      --warn:         #9e8638;
+      --warn-dim:     rgba(158,134,56,0.25);
+      --err:          #a05050;
+      --err-dim:      rgba(160,80,80,0.25);
+
+      --font: 'IBM Plex Mono', 'Courier New', monospace;
+      --r: 2px;
+
+      --fs-xs:   10px;
+      --fs-sm:   11px;
+      --fs-base: 13px;
+      --fs-url:  15px;
+      --fs-mark: 22px;
+      --fs-stat: 30px;
+    }
+
+    /* ─── Base ────────────────────────────────────────────────────────── */
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: 48px 1fr 30px;
+      height: 100vh;
+      width: 100vw;
+      font-family: var(--font);
+      font-size: var(--fs-base);
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Header ──────────────────────────────────────────────────────── */
+    header {
+      grid-row: 1;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border-mid);
+      border-left: 2px solid var(--accent);
+      background: var(--bg-panel);
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .wordmark {
+      font-size: var(--fs-mark);
+      font-weight: 600;
+      letter-spacing: 0.4em;
+      color: var(--text-dim);
+      user-select: none;
+      line-height: 1;
+    }
+
+    .wordmark-accent {
+      color: var(--accent);
+    }
+
+    /* Status indicators */
+    .header-status-indicators {
+      display: flex;
+      align-items: center;
+    }
+
+    .indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: var(--fs-xs);
+      color: var(--text-dim);
+      padding: 0 14px;
+    }
+
+    .indicator + .indicator {
+      border-left: 1px solid var(--border);
+    }
+
+    .indicator-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--text-muted);
+    }
+
+    .indicator-dot.online  { background: var(--ok); }
+    .indicator-dot.offline { background: var(--text-muted); }
+    .indicator-dot.warn    { background: var(--warn); }
+
+    .indicator-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: var(--fs-xs);
+      letter-spacing: 0.12em;
+    }
+
+    /* ─── Main ────────────────────────────────────────────────────────── */
+    .main {
+      grid-row: 2;
+      display: grid;
+      grid-template-columns: 1fr 1px 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .divider {
+      background: var(--border);
+    }
+
+    /* ─── Left Panel ──────────────────────────────────────────────────── */
+    .left-panel {
+      grid-column: 1;
+      padding: 16px;
+      background: var(--bg-panel);
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .left-panel::-webkit-scrollbar { width: 6px; }
+    .left-panel::-webkit-scrollbar-track { background: transparent; }
+    .left-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ─── Right Panel ─────────────────────────────────────────────────── */
+    .right-panel {
+      grid-column: 3;
+      background: var(--bg-panel);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── Footer ──────────────────────────────────────────────────────── */
+    footer {
+      grid-row: 3;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-top: 1px solid var(--border-mid);
+      background: var(--bg-section);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+
+    footer a { color: var(--text-dim); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    .footer-version { display: flex; align-items: center; gap: 8px; }
+    .footer-models { font-size: 10px; color: var(--text-muted); }
+
+    /* ─── Form Groups ─────────────────────────────────────────────────── */
+    .form-group {
+      flex-shrink: 0;
+    }
+
+    .form-group + .form-group {
+      margin-top: 2px;
+    }
+
+    .group-header {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      padding: 11px 0 6px;
+      border-top: 1px solid var(--border);
+      margin-top: 2px;
+    }
+
+    .group-target .group-header,
+    .group-target:first-child .group-header {
+      border-top: none;
+      padding-top: 0;
+      margin-top: 0;
+    }
+
+    /* ─── Inputs / Selects base ───────────────────────────────────────── */
+    input[type="text"],
+    input[type="url"],
+    input[type="number"],
+    input[type="search"],
+    select {
+      font-family: var(--font);
+      font-size: var(--fs-sm);
+      background: var(--bg-input);
+      color: var(--text);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--r);
+      padding: 6px 9px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.1s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent-dim);
+      background: var(--bg-raised);
+    }
+
+    input::placeholder { color: var(--text-muted); }
+
+    select {
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23555555'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 22px;
+    }
+
+    /* URL input — primary, more prominent */
+    #crawlUrl {
+      font-size: var(--fs-url);
+      padding: 10px 12px;
+      border-color: var(--border-hi);
+      background: var(--bg-input);
+      letter-spacing: 0.01em;
+    }
+
+    #crawlUrl:focus {
+      border-color: var(--accent);
+      background: var(--bg-raised);
+    }
+
+    /* ─── Field Wrap (label + input stacked) ─────────────────────────── */
+    .field-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .field-wrap label {
+      font-size: 9px;
+      font-weight: 400;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      cursor: default;
+    }
+
+    /* ─── LLM Group ───────────────────────────────────────────────────── */
+    .group-llm-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 7px;
+      margin-top: 6px;
+    }
+
+    /* ─── Output Group ────────────────────────────────────────────────── */
+    .group-output-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 7px;
+      margin-bottom: 6px;
+    }
+
+    /* ─── Controls Group ──────────────────────────────────────────────── */
+    .group-controls {
+      padding: 10px 0 2px;
+    }
+
+    .btn-execute {
+      width: 100%;
+      height: 42px;
+      padding: 0;
+      font-size: var(--fs-base);
+      font-weight: 600;
+      font-family: var(--font);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: var(--accent);
+      color: var(--bg-section);
+      border: none;
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: background 0.1s;
+      outline: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .btn-execute:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-execute:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-execute:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .btn-ghost {
+      flex: 1;
+      padding: 6px 0;
+      font-size: var(--fs-xs);
+      font-weight: 500;
+      font-family: var(--font);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      cursor: not-allowed;
+      transition: color 0.1s, border-color 0.1s;
+      outline: none;
+      text-align: center;
+    }
+
+    .btn-ghost:not(:disabled):hover {
+      color: var(--text-dim);
+      border-color: var(--border-mid);
+      cursor: pointer;
+    }
+
+    .btn-ghost:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-ghost:focus-visible { outline: 2px solid var(--border-mid); outline-offset: 2px; }
+
+    .btn-cancel {
+      color: var(--err);
+      border-color: var(--err-dim);
+    }
+
+    .controls-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+    }
+
+    /* ─── Options Group ───────────────────────────────────────────────── */
+    /* NOTE: 2-col grid — 3 number inputs means Max Depth wraps to row 2. Intentional. */
+    .options-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 6px;
+    }
+
+    /* ─── Checkbox Row ────────────────────────────────────────────────── */
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 3px 0;
+      cursor: pointer;
+      user-select: none;
+      font-size: var(--fs-sm);
+      color: var(--text-dim);
+    }
+
+    input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      border: 1px solid var(--border-mid);
+      border-radius: 1px;
+      background: var(--bg-input);
+      cursor: pointer;
+      flex-shrink: 0;
+      position: relative;
+      transition: border-color 0.1s, background 0.1s;
+    }
+
+    input[type="checkbox"]:checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 3px;
+      top: 1px;
+      width: 4px;
+      height: 7px;
+      border: 1.5px solid var(--bg);
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg);
+    }
+
+    input[type="checkbox"]:focus { outline: none; border-color: var(--accent-dim); }
+
+    /* Converter select in options */
+    .converter-select {
+      margin-top: 4px;
+    }
+
+    /* ─── Advanced Collapsible ────────────────────────────────────────── */
+    .advanced-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      cursor: pointer;
+      padding: 10px 0 6px;
+      border: none;
+      border-top: 1px solid var(--border);
+      background: transparent;
+      font-family: var(--font);
+      user-select: none;
+      flex-shrink: 0;
+      margin-top: 4px;
+      transition: color 0.1s;
+      width: 100%;
+      text-align: left;
+    }
+
+    .advanced-toggle:hover { color: var(--text-dim); }
+
+    .advanced-toggle::before {
+      content: '▼';
+      display: inline-block;
+      font-size: 8px;
+      transition: transform 0.15s;
+      width: 1em;
+    }
+
+    .advanced-toggle[aria-expanded="false"]::before {
+      transform: rotate(-90deg);
+    }
+
+    .advanced-content {
+      display: none;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .advanced-content[aria-hidden="false"] {
+      display: block;
+    }
+
+    /* Advanced inner layout */
+    .advanced-content .checkbox-row + .checkbox-row {
+      margin-top: 0;
+    }
+
+    .markdown-proxy-url-wrapper {
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
+
+    /* ─── Chip Field ──────────────────────────────────────────────────── */
+    .chip-field {
+      margin-top: 8px;
+    }
+
+    .chip-field label {
+      font-size: 9px;
+      font-weight: 400;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .chip-count {
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .chip-input-container {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-mid);
+      border-radius: var(--r);
+      min-height: 38px;
+      padding: 5px 7px;
+      cursor: text;
+    }
+
+    .chip-input-container:focus-within {
+      border-color: var(--accent-dim);
+    }
+
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-raised);
+      border: 1px solid var(--border-mid);
+      color: var(--text-dim);
+      font-size: var(--fs-xs);
+      font-family: var(--font);
+      padding: 2px 7px;
+      border-radius: 2px;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    .chip-remove {
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: var(--font);
+      padding: 0;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      transition: color 0.1s;
+    }
+
+    .chip-remove:hover { color: var(--err); }
+
+    .chip-input {
+      flex: 1;
+      min-width: 100px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: var(--fs-xs);
+      outline: none;
+      padding: 1px 2px;
+      width: auto;
+    }
+
+    .chip-input::placeholder { color: var(--text-muted); }
+
+    /* ─── Resume State Wrap ───────────────────────────────────────────── */
+    .resume-state-wrap {
+      margin-top: 8px;
+    }
+
+    .resume-state-wrap label {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .resume-state-wrap .btn-ghost.btn-resume-state {
+      margin-top: 4px;
+      padding: 5px 11px;
+      font-size: var(--fs-xs);
+      width: 100%;
+      cursor: not-allowed;
+    }
+
+    /* ─── Active Crawl Strip ──────────────────────────────────────────── */
+    .active-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 18px;
+      height: 44px;
+      min-height: 44px;
+      background: var(--bg-section);
+      border-bottom: 1px solid var(--border-mid);
+      font-size: var(--fs-base);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: none;
+      flex-shrink: 0;
+    }
+
+    .pulse-dot.running {
+      display: block;
+      animation: pulse 1s ease-in-out infinite;
+      will-change: opacity;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+
+    .current-url {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: var(--fs-sm);
+      color: var(--text-dim);
+      min-width: 0;
+    }
+
+    .idle-text {
+      font-size: var(--fs-sm);
+      color: var(--text-muted);
+    }
+
+    /* ─── Mission Report ──────────────────────────────────────────────── */
+    .mission-report {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 16px 18px 14px;
+      background: var(--bg-section);
+      border-bottom: 1px solid var(--border-mid);
+      flex-shrink: 0;
+    }
+
+    .metric-card {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 13px 14px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+    }
+
+    .metric-number {
+      font-size: var(--fs-stat);
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      flex-shrink: 0;
+      color: var(--text);
+    }
+
+    .metric-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    /* ─── Job History ─────────────────────────────────────────────────── */
+    .log-console {
+      flex: 0 0 130px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-top: 1px solid var(--border);
+      background: var(--bg-section);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-mid) transparent;
+      padding: 6px 10px;
+    }
+    .log-line {
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--text-dim);
+      white-space: pre-wrap;
+      word-break: break-all;
+      padding: 1px 0;
+    }
+    .log-line.phase { color: var(--text-muted); font-style: italic; }
+    .log-line.error { color: var(--err); }
+    .log-empty-msg {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
+    .job-history {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+      padding: 14px 18px 16px;
+    }
+
+    .job-history-filter {
+      flex-shrink: 0;
+      margin-bottom: 8px;
+      padding: 5px 9px;
+      font-size: var(--fs-sm);
+      font-family: var(--font);
+      background: var(--bg-section);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text-dim);
+      outline: none;
+      width: 100%;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .job-history-filter::placeholder {
+      color: var(--text-muted);
+      font-style: normal;
+    }
+
+    .job-history-filter:focus {
+      border-color: var(--accent-dim);
+    }
+
+    .job-list {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-height: 0;
+    }
+
+    .job-list::-webkit-scrollbar { width: 6px; }
+    .job-list::-webkit-scrollbar-track { background: transparent; }
+    .job-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .job-item {
+      display: grid;
+      grid-template-columns: 40px 72px 1fr 60px;
+      align-items: center;
+      gap: 11px;
+      padding: 6px 9px;
+      border: 1px solid transparent;
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s;
+      flex-shrink: 0;
+    }
+
+    .job-item:hover {
+      background: rgba(255,255,255,0.02);
+      border-color: var(--border);
+    }
+
+    .job-item.active {
+      border-color: var(--accent-dim);
+      background: var(--accent-bg);
+    }
+
+    .job-id {
+      font-family: var(--font);
+      font-size: var(--fs-xs);
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .job-id.running {
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    /* Status badge — 8x8 CSS circle, no text */
+    .job-status-badge {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .job-status-badge.completed { background: var(--ok); }
+    .job-status-badge.partial   { background: var(--warn); }
+    .job-status-badge.failed    { background: var(--err); }
+    .job-status-badge.running   { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+    .job-status-badge.paused    { background: var(--warn); }
+    .job-status-badge.cancelled { background: var(--text-muted); }
+
+    /* Badge (text label variant used alongside job items) */
+    .badge {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 1px;
+      border: 1px solid transparent;
+      white-space: nowrap;
+      display: inline-block;
+    }
+
+    .badge.running   { color: var(--accent);    border-color: var(--accent-dim);  background: var(--accent-bg); }
+    .badge.completed { color: var(--ok);         border-color: var(--ok-dim);      background: transparent; }
+    .badge.failed    { color: var(--err);         border-color: var(--err-dim);     background: transparent; }
+    .badge.paused    { color: var(--warn);        border-color: var(--warn-dim);    background: transparent; }
+    .badge.cancelled { color: var(--text-muted);  border-color: var(--border);      background: transparent; }
+
+    .job-url {
+      font-size: var(--fs-sm);
+      color: var(--text-dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .job-timestamp {
+      font-size: var(--fs-xs);
+      color: var(--text-muted);
+      white-space: nowrap;
+      text-align: right;
+    }
+
+    .job-empty {
+      padding: 16px 9px;
+      color: var(--text-muted);
+      font-size: var(--fs-sm);
+    }
+
+    /* ─── Tooltip (body-appended, position:fixed escapes overflow:hidden) */
+    .tooltip {
+      position: fixed;
+      max-width: 200px;
+      padding: 6px 10px;
+      font-size: 11px;
+      background: var(--bg-raised);
+      border: 1px solid var(--border-mid);
+      color: var(--text-dim);
+      border-radius: 3px;
+      z-index: 10000;
+      pointer-events: none;
+      word-wrap: break-word;
+      line-height: 1.4;
+    }
+
+  </style>
 </head>
 <body>
-    <!-- Theme Selector -->
-    <div class="theme-selector">
-        <select id="themeSelect">
-            <option value="synthwave">SYNTHWAVE</option>
-            <option value="basic">BASIC</option>
-            <option value="terminal">TERMINAL</option>
-            <option value="glassmorphism">GLASSMORPHISM</option>
-        </select>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       HEADER
+  ════════════════════════════════════════════════════════════════════ -->
+  <header>
+    <div class="header-left">
+      <span class="wordmark">DOC<span class="wordmark-accent">RAWL</span></span>
     </div>
+    <div class="header-status-indicators">
+      <div class="indicator ollama-indicator" id="ind-ollama">
+        <span class="indicator-dot" id="dot-ollama"></span>
+        <span class="indicator-label" id="label-ollama">Ollama</span>
+      </div>
+      <div class="indicator lmstudio-indicator" id="ind-lmstudio">
+        <span class="indicator-dot" id="dot-lmstudio"></span>
+        <span class="indicator-label" id="label-lmstudio">LMStudio</span>
+      </div>
+      <div class="indicator disk-indicator">
+        <span class="indicator-label" id="label-disk">Disk: —</span>
+      </div>
+      <div class="indicator write-indicator">
+        <span class="indicator-label" id="label-write">Write: —</span>
+      </div>
+    </div>
+  </header>
 
-    <div class="container">
-        <h1>Docrawl</h1>
+  <!-- ═══════════════════════════════════════════════════════════════════
+       MAIN — two panels, 50/50 split
+  ════════════════════════════════════════════════════════════════════ -->
+  <main class="main">
 
-        <!-- Status Bar -->
-        <div class="status-bar" id="statusBar">
-            <div class="status-item">
-                <span class="status-dot loading" id="ollamaDot"></span>
-                <span class="status-label">Ollama:</span>
-                <span class="status-value" id="ollamaStatus">INIT...</span>
-            </div>
-            <div class="status-item">
-                <span class="status-dot loading" id="lmstudioDot"></span>
-                <span class="status-label">LMStudio:</span>
-                <span class="status-value" id="lmstudioStatus">INIT...</span>
-            </div>
-            <div class="status-item">
-                <span class="status-dot loading" id="diskDot"></span>
-                <span class="status-label">Disk:</span>
-                <span class="status-value" id="diskStatus">INIT...</span>
-            </div>
-            <div class="status-item">
-                <span class="status-dot loading" id="writeDot"></span>
-                <span class="status-label">Write:</span>
-                <span class="status-value" id="writeStatus">INIT...</span>
-            </div>
+    <!-- ── LEFT PANEL ─────────────────────────────────────────────── -->
+    <div class="left-panel">
+
+      <!-- 1. TARGET -->
+      <section class="form-group group-target">
+        <div class="group-header">// TARGET</div>
+        <input type="url" id="crawlUrl" name="url" placeholder="https://..." autocomplete="off" required>
+      </section>
+
+      <!-- 2. LLM -->
+      <section class="form-group group-llm">
+        <div class="group-header">// LLM</div>
+        <select id="providerSelect" name="provider">
+          <option value="">Loading providers…</option>
+        </select>
+        <div class="group-llm-grid">
+          <div class="field-wrap">
+            <label for="crawlModel">Crawl Model</label>
+            <select id="crawlModel" name="crawl_model"><option value="">—</option></select>
+          </div>
+          <div class="field-wrap">
+            <label for="pipelineModel">Pipeline Model</label>
+            <select id="pipelineModel" name="pipeline_model"><option value="">—</option></select>
+          </div>
+          <div class="field-wrap">
+            <label for="reasoningModel">Reasoning Model</label>
+            <select id="reasoningModel" name="reasoning_model"><option value="">—</option></select>
+          </div>
         </div>
+      </section>
 
-        <div class="two-columns">
-            <div class="left-column">
-                <form id="crawlForm">
-            <div class="form-group">
-                <label for="url">[URL] Target Documentation</label>
-                <input type="url" id="url" required placeholder="https://docs.example.com">
-            </div>
-
-            <div class="form-group">
-                <label for="provider">// LLM Provider</label>
-                <select id="provider">
-                    <option value="ollama">◈ OLLAMA (Local)</option>
-                    <option value="lmstudio">◈ LMSTUDIO (Local)</option>
-                    <option value="openrouter">◉ OPENROUTER (API)</option>
-                    <option value="opencode">◉ OPENCODE (API)</option>
-                </select>
-            </div>
-
-            <!-- Data exfiltration warning — closes CONS-021 / issue #67 -->
-            <div id="externalProviderWarning" style="display:none;background:#3a1a1a;border:1px solid #c06060;color:#e08080;padding:8px 12px;margin:8px 0;font-size:0.85em;">
-                &#9888; External provider selected — scraped content will be sent to a third-party API.
-            </div>
-
-            <div class="models-section">
-                <label class="section-label">// Neural Network Configuration</label>
-
-                <div class="model-row">
-                    <div class="model-select">
-                        <label for="crawlModel">▸ Crawl Model</label>
-                        <select id="crawlModel" required>
-                            <option value="">Loading models...</option>
-                        </select>
-                    </div>
-                    <div class="model-hint">
-                        <span class="hint-icon">◈</span>
-                        <span class="hint-text" id="crawlHint">URL discovery & filtering. Modelos rapidos: 3b-8b.</span>
-                    </div>
-                </div>
-
-                <div class="model-row">
-                    <div class="model-select">
-                        <label for="pipelineModel">▸ Pipeline Model</label>
-                        <select id="pipelineModel" required>
-                            <option value="">Loading models...</option>
-                        </select>
-                    </div>
-                    <div class="model-hint">
-                        <span class="hint-icon">◈</span>
-                        <span class="hint-text" id="pipelineHint">Markdown cleanup. 6b-14b (incluye 8b y quant).</span>
-                    </div>
-                </div>
-
-                <div class="model-row">
-                    <div class="model-select">
-                        <label for="reasoningModel">▸ Reasoning Model</label>
-                        <select id="reasoningModel" required>
-                            <option value="">Loading models...</option>
-                        </select>
-                    </div>
-                    <div class="model-hint">
-                        <span class="hint-icon">◈</span>
-                        <span class="hint-text" id="reasoningHint">Analisis complejo. Modelos grandes: +14b o reasoning.</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="outputPath">[PATH] Output Directory <span>(auto-generated from URL)</span></label>
-                <input type="text" id="outputPath" value="/data/output">
-            </div>
-
-            <div class="row">
-                <div class="form-group">
-                    <label for="delayMs">[MS] Request Delay</label>
-                    <input type="number" id="delayMs" value="500" min="0">
-                </div>
-                <div class="form-group">
-                    <label for="maxConcurrent">[N] Max Concurrent</label>
-                    <input type="number" id="maxConcurrent" value="3" min="1" max="10">
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="form-group">
-                    <label for="maxDepth">[N] Max Depth</label>
-                    <input type="number" id="maxDepth" value="5" min="1" max="20">
-                </div>
-                <div class="form-group">
-                    <label for="language">[LANG] Language Filter</label>
-                    <select id="language">
-                        <option value="en">English (en)</option>
-                        <option value="es">Spanish (es)</option>
-                        <option value="fr">French (fr)</option>
-                        <option value="de">German (de)</option>
-                        <option value="ja">Japanese (ja)</option>
-                        <option value="zh">Chinese (zh)</option>
-                        <option value="pt">Portuguese (pt)</option>
-                        <option value="all">All Languages</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="buttons">
-                <button type="submit" class="btn-primary" id="startBtn">▶ EXECUTE CRAWL</button>
-                <button type="button" class="btn-danger" id="cancelBtn">■ ABORT</button>
-            </div>
-
-            <div class="checkbox-group">
-                <input type="checkbox" id="respectRobots" checked>
-                <label for="respectRobots">Respect robots.txt Protocol</label>
-            </div>
-
-            <div class="checkbox-group">
-                <input type="checkbox" id="usePagePool" checked>
-                <label for="usePagePool">Use Page Pool (reuse browser pages across requests)</label>
-            </div>
-
-            <div class="checkbox-group">
-                <input type="checkbox" id="useHttpFastPath" checked>
-                <label for="useHttpFastPath">HTTP Fast-Path (skip Playwright for static pages)</label>
-            </div>
-
-            <div class="checkbox-group">
-                <input type="checkbox" id="useCache">
-                <label for="useCache">Page Cache (24h TTL — skip re-fetching unchanged pages)</label>
-            </div>
-
-            <div class="checkbox-group">
-                <input type="checkbox" id="filterSitemapByPath" checked>
-                <label for="filterSitemapByPath">Filter Sitemap URLs by base path</label>
-            </div>
-
-            <div class="checkbox-group">
-                <input type="checkbox" id="usePipelineMode">
-                <label for="usePipelineMode">Pipeline Mode (fetch and cleanup in parallel)</label>
-            </div>
-
-            <div class="form-group">
-                <label for="outputFormat">[FORMAT] Output Format</label>
-                <select id="outputFormat">
-                    <option value="markdown" selected>Markdown (.md)</option>
-                    <option value="json">Structured JSON (.json)</option>
-                </select>
-            </div>
-
-            <div class="form-group" style="margin-top: 0.75rem;">
-                <label for="converterSelect">[CONV] HTML→Markdown Converter</label>
-                <select id="converterSelect">
-                    <option value="markdownify" selected>markdownify (default)</option>
-                </select>
-            </div>
-
-            <div class="models-section" style="margin-top: 1rem;">
-                <label class="section-label">// Markdown Optimization</label>
-                <div class="checkbox-group" style="margin-bottom: 0.75rem;">
-                    <input type="checkbox" id="useNativeMarkdown" checked>
-                    <label for="useNativeMarkdown">Native Markdown (Accept: text/markdown)</label>
-                </div>
-                <div class="checkbox-group" style="margin-bottom: 0.75rem;">
-                    <input type="checkbox" id="useMarkdownProxy">
-                    <label for="useMarkdownProxy">Use markdown proxy as fallback</label>
-                </div>
-                <div class="form-group" id="proxyUrlGroup" style="display: none;">
-                    <label for="markdownProxyUrl">[URL] Proxy Endpoint</label>
-                    <input type="text" id="markdownProxyUrl" value="https://markdown.new" placeholder="https://markdown.new">
-                </div>
-            </div>
-
-        </form>
-            </div>
-
-            <div class="right-column">
-                <!-- Job History Panel -->
-                <div class="job-history-panel">
-                    <div class="job-history-header">// Job History</div>
-                    <div class="job-history-filter">
-                        <label for="jobHistoryFilter" class="visually-hidden">Filter job history</label>
-                        <input type="search" id="jobHistoryFilter" class="job-history-search" placeholder="Filter by ID or status…" aria-label="Filter job history">
-                    </div>
-                    <div class="job-history-list" id="jobHistoryList">
-                        <div class="job-history-empty">No jobs yet</div>
-                    </div>
-                </div>
-
-                <!-- Mission Report - prominent position next to job history -->
-                <div class="summary" id="summary">
-                    <h3>// Mission Report</h3>
-                    <div class="stats-row">
-                        <div class="stat"><div class="stat-value" id="pagesOk">0</div><div class="stat-label">Complete</div></div>
-                        <div class="stat"><div class="stat-value" id="pagesPartial">0</div><div class="stat-label">Partial</div></div>
-                        <div class="stat"><div class="stat-value" id="pagesFailed">0</div><div class="stat-label">Failed</div></div>
-                    </div>
-                    <div id="fetchStats"></div>
-                </div>
-
-                <div class="phase-banner" id="phaseBanner">
-                    <span class="phase-dot" id="phaseDot"></span>
-                    <span class="phase-name" id="phaseName">INIT</span>
-                    <span class="phase-separator">│</span>
-                    <span class="phase-detail" id="phaseDetail"></span>
-                </div>
-                <div class="log" id="log"></div>
-            </div>
+      <!-- 3. OUTPUT -->
+      <section class="form-group group-output">
+        <div class="group-header">// OUTPUT</div>
+        <div class="group-output-row">
+          <input type="text" id="outputPath" name="output_path" placeholder="/output/path">
+          <select id="outputFormat" name="output_format">
+            <option value="markdown">markdown</option>
+            <option value="json">json</option>
+          </select>
         </div>
+        <select id="language" name="language">
+          <option value="en">English (en)</option>
+          <option value="es">Spanish (es)</option>
+          <option value="fr">French (fr)</option>
+          <option value="de">German (de)</option>
+          <option value="zh">Chinese (zh)</option>
+          <option value="ja">Japanese (ja)</option>
+          <option value="pt">Portuguese (pt)</option>
+          <option value="ru">Russian (ru)</option>
+          <option value="ar">Arabic (ar)</option>
+          <option value="ko">Korean (ko)</option>
+        </select>
+      </section>
 
-    <footer class="app-footer">
-        <span class="footer-name">🕷️ Docrawl</span>
-        <span class="footer-sep">·</span>
-        <span id="footerVersion">v0.9.6a</span>
-        <span class="footer-sep">·</span>
-        <a class="footer-link" href="https://github.com/plater7/docrawl" target="_blank" rel="noopener">github.com/plater7/docrawl</a>
-        <span class="footer-sep">·</span>
-        <span class="footer-author">by plater7</span>
-        <span class="footer-sep">·</span>
-        <span class="footer-models">models: <span id="footerModels">qwen3-coder:free · glm-4.7-free · claude-sonnet-4-6</span></span>
-    </footer>
+      <!-- 4. CONTROLS -->
+      <section class="form-group group-controls">
+        <button class="btn-execute" id="btnExecute" type="button">&#9670; EXECUTE CRAWL</button>
+        <div class="controls-row">
+          <button class="btn-ghost btn-pause"  id="btnPause"  type="button" disabled>PAUSE</button>
+          <button class="btn-ghost btn-resume" id="btnResume" type="button" disabled>RESUME</button>
+          <button class="btn-ghost btn-cancel" id="btnCancel" type="button" disabled>CANCEL</button>
+        </div>
+      </section>
 
-    <script>
-        // Theme management
-        const THEME_TITLES = {
-            synthwave: 'Docrawl // SYNTHWAVE',
-            basic: 'Docrawl — Basic',
-            terminal: 'Docrawl > TERMINAL',
-            glassmorphism: 'Docrawl ✦ Glassmorphism',
-        };
-        const themeSelect = document.getElementById('themeSelect');
-        const rawTheme = localStorage.getItem('docrawl-theme');
-        const savedTheme = (rawTheme && Object.prototype.hasOwnProperty.call(THEME_TITLES, rawTheme)) ? rawTheme : 'synthwave';
-        document.body.className = `theme-${savedTheme}`;
-        themeSelect.value = savedTheme;
-        document.title = THEME_TITLES[savedTheme];
-        themeSelect.addEventListener('change', () => {
-            document.body.className = `theme-${themeSelect.value}`;
-            localStorage.setItem('docrawl-theme', themeSelect.value);
-            document.title = THEME_TITLES[themeSelect.value] || 'Docrawl';
+      <!-- 5. OPTIONS
+           NOTE: .options-2col is grid-template-columns: 1fr 1fr
+           3 number inputs in a 2-col grid = Max Depth wraps to row 2. Intentional per spec. -->
+      <section class="form-group group-options">
+        <div class="group-header">// OPTIONS</div>
+        <div class="options-2col">
+          <div class="field-wrap">
+            <label for="delayMs" data-tooltip="Delay between requests in milliseconds. Min 100, max 60000.">Request Delay (ms)</label>
+            <input type="number" id="delayMs" name="delay_ms" value="1000" min="100" max="60000" step="100"
+              data-tooltip="Delay between requests in milliseconds. Min 100, max 60000.">
+          </div>
+          <div class="field-wrap">
+            <label for="maxConcurrent" data-tooltip="Maximum concurrent HTTP requests. Min 1, max 10.">Max Concurrent</label>
+            <input type="number" id="maxConcurrent" name="max_concurrent" value="5" min="1" max="10"
+              data-tooltip="Maximum concurrent HTTP requests. Min 1, max 10.">
+          </div>
+          <div class="field-wrap">
+            <label for="maxDepth" data-tooltip="Maximum crawl depth from the start URL.">Max Depth</label>
+            <input type="number" id="maxDepth" name="max_depth" value="10" min="1" max="20"
+              data-tooltip="Maximum crawl depth from the start URL.">
+          </div>
+        </div>
+        <label class="checkbox-row" data-tooltip="Honor robots.txt exclusion rules.">
+          <input type="checkbox" id="respectRobots" name="respect_robots_txt" checked> Respect robots.txt
+        </label>
+        <label class="checkbox-row" data-tooltip="Only crawl pages under the same path as the start URL.">
+          <input type="checkbox" id="filterSitemap" name="filter_sitemap_by_path" checked> Filter sitemap by path
+        </label>
+        <label class="checkbox-row" data-tooltip="Use lightweight HTTP requests to quickly probe pages.">
+          <input type="checkbox" id="httpFastPath" name="http_fast_path"> HTTP Fast-Path
+        </label>
+        <label class="checkbox-row" data-tooltip="Cache pages for 24 hours to skip re-fetching unchanged content.">
+          <input type="checkbox" id="useCache" name="use_cache" checked> Cache (24h)
+        </label>
+        <label class="checkbox-row" data-tooltip="Fetch and clean up pages in parallel for faster throughput.">
+          <input type="checkbox" id="pipelineMode" name="pipeline_mode"> Pipeline Mode
+        </label>
+        <label class="checkbox-row" data-tooltip="Use browser native Markdown rendering instead of conversion.">
+          <input type="checkbox" id="nativeMarkdown" name="native_markdown"> Native Markdown
+        </label>
+        <div class="field-wrap" style="margin-top: 6px;">
+          <label for="converter">Converter</label>
+          <select id="converter" name="converter" class="converter-select">
+            <option value="markdownify">markdownify</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- 6. ADVANCED (collapsible, closed by default) -->
+      <section class="form-group group-advanced">
+        <button class="advanced-toggle" aria-expanded="false" type="button">ADVANCED OPTIONS</button>
+        <div class="advanced-content" aria-hidden="true">
+          <label class="checkbox-row" data-tooltip="Skip the LLM post-processing cleanup step.">
+            <input type="checkbox" id="skipLlmCleanup" name="skip_llm_cleanup"> Skip LLM Cleanup
+          </label>
+          <label class="checkbox-row" data-tooltip="Proxy markdown conversion through an external URL.">
+            <input type="checkbox" id="markdownProxy" name="use_markdown_proxy"> Markdown Proxy
+          </label>
+          <div class="markdown-proxy-url-wrapper" style="display:none;">
+            <input type="url" id="markdownProxyUrl" name="markdown_proxy_url"
+              placeholder="https://proxy.example.com"
+              data-tooltip="URL of the markdown proxy service.">
+          </div>
+
+          <div class="chip-field">
+            <label for="contentSelectorsInput">Content Selectors <span class="chip-count">(max 20)</span></label>
+            <div class="chip-input-container" id="contentSelectorsContainer">
+              <input type="text" class="chip-input" id="contentSelectorsInput"
+                placeholder="Enter CSS selector, press Enter"
+                data-chip-target="contentSelectorsContainer"
+                data-max="20">
+            </div>
+          </div>
+
+          <div class="chip-field">
+            <label for="noiseSelectorInput">Noise Selectors <span class="chip-count">(max 20)</span></label>
+            <div class="chip-input-container" id="noiseSelectorContainer">
+              <input type="text" class="chip-input" id="noiseSelectorInput"
+                placeholder="Enter CSS selector, press Enter"
+                data-chip-target="noiseSelectorContainer"
+                data-max="20">
+            </div>
+          </div>
+
+          <div class="resume-state-wrap">
+            <label for="resumeStatePath">Resume from State</label>
+            <input type="text" id="resumeStatePath" name="resume_state_path"
+              placeholder="/path/to/.job_state.json">
+            <button class="btn-ghost btn-resume-state" id="btnResumeState" type="button" disabled>
+              RESUME
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- end .left-panel -->
+
+    <div class="divider"></div>
+
+    <!-- ── RIGHT PANEL ──────────────────────────────────────────────── -->
+    <div class="right-panel">
+
+      <!-- A. Active crawl strip (44px fixed) -->
+      <div class="active-status" id="activeStatus">
+        <span class="pulse-dot" id="pulseDot"></span>
+        <span class="current-url" id="currentUrl" style="display:none;"></span>
+        <span class="idle-text" id="idleText">Idle</span>
+      </div>
+
+      <!-- B. Mission Report 2×2 grid -->
+      <div class="mission-report">
+        <div class="metric-card">
+          <div class="metric-number" id="stat-complete">0</div>
+          <div class="metric-label">COMPLETE</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-number" id="stat-partial">0</div>
+          <div class="metric-label">PARTIAL</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-number" id="stat-failed">0</div>
+          <div class="metric-label">FAILED</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-number" id="stat-retried">0</div>
+          <div class="metric-label">RETRIED</div>
+        </div>
+      </div>
+
+      <!-- C. Live log console -->
+      <div class="log-console" id="logConsole">
+        <div class="log-empty-msg" id="logEmpty">No output</div>
+      </div>
+
+      <!-- D. Job History (fills remaining space) -->
+      <div class="job-history">
+        <input type="search" class="job-history-filter" id="jobHistoryFilter"
+          placeholder="Search job ID or URL…" autocomplete="off">
+        <div class="job-list" id="jobList">
+          <div class="job-empty">No jobs yet</div>
+        </div>
+      </div>
+
+    </div><!-- end .right-panel -->
+
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       FOOTER
+  ════════════════════════════════════════════════════════════════════ -->
+  <footer>
+    <div class="footer-version">
+      <span id="footerVersion">v—</span>
+      <span>•</span>
+      <a href="https://github.com/plateeater/docrawl" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <div class="footer-models" id="footerModels"></div>
+  </footer>
+
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       INITIALIZATION SCRIPT
+  ════════════════════════════════════════════════════════════════════ -->
+  <script>
+    'use strict';
+
+    // ── Constants & shared state ──────────────────────────────────────
+    const MAX_JOB_HISTORY = 50;
+    const jobHistory = [];
+    let currentJobId = null;
+    let eventSource = null;
+
+    const esc = s => String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    // ── DOM reference shortcuts ───────────────────────────────────────
+    const $ = id => document.getElementById(id);
+
+    const crawlUrl         = $('crawlUrl');
+    const providerSelect   = $('providerSelect');
+    const crawlModel       = $('crawlModel');
+    const pipelineModel    = $('pipelineModel');
+    const reasoningModel   = $('reasoningModel');
+    const outputPath       = $('outputPath');
+    const outputFormat     = $('outputFormat');
+    const language         = $('language');
+    const btnExecute       = $('btnExecute');
+    const btnPause         = $('btnPause');
+    const btnResume        = $('btnResume');
+    const btnCancel        = $('btnCancel');
+    const btnResumeState   = $('btnResumeState');
+    const pulseDot         = $('pulseDot');
+    const currentUrl       = $('currentUrl');
+    const idleText         = $('idleText');
+    const jobList          = $('jobList');
+    const jobHistoryFilter = $('jobHistoryFilter');
+    const resumeStatePath  = $('resumeStatePath');
+
+    // ── loadInfo ──────────────────────────────────────────────────────
+    async function loadInfo() {
+      try {
+        const info = await fetch('/api/info').then(r => r.json());
+        $('footerVersion').textContent = `v${info.version}`;
+      } catch (e) {
+        console.warn('GET /api/info failed', e);
+      }
+    }
+
+    // ── updateProviderIndicators ──────────────────────────────────────
+    function updateProviderIndicators(providers) {
+      const find = id => providers.find(p => p.id === id);
+      const updateIndicator = (dotId, providerId) => {
+        const dot = $(dotId);
+        if (!dot) return;
+        const p = find(providerId);
+        const ok = !!p && p.configured;
+        dot.classList.toggle('online',  ok);
+        dot.classList.toggle('offline', !ok);
+      };
+      updateIndicator('dot-ollama',   'ollama');
+      updateIndicator('dot-lmstudio', 'lmstudio');
+    }
+
+    // ── updateIndicatorModelCount ─────────────────────────────────────
+    function updateIndicatorModelCount(providerId, modelCount) {
+      const labelMap = { ollama: 'label-ollama', lmstudio: 'label-lmstudio' };
+      const nameMap  = { ollama: 'Ollama',       lmstudio: 'LMStudio' };
+      const labelId = labelMap[providerId];
+      if (!labelId) return;
+      const label = $(labelId);
+      if (!label) return;
+      const name = nameMap[providerId];
+      label.textContent = modelCount > 0 ? `${name} (${modelCount} models)` : name;
+    }
+
+    // ── loadProviders ─────────────────────────────────────────────────
+    async function loadProviders() {
+      try {
+        const data = await fetch('/api/providers').then(r => r.json());
+        const providers = data.providers || [];
+        providerSelect.innerHTML = providers.map(p =>
+          `<option value="${p.id}">${p.name}${!p.configured ? ' (not configured)' : ''}</option>`
+        ).join('');
+        updateProviderIndicators(providers);
+        if (providers.length > 0) {
+          await loadModels(providers[0].id);
+        }
+      } catch (e) {
+        console.warn('GET /api/providers failed — using fallback', e);
+        providerSelect.innerHTML = `
+          <option value="ollama">Ollama</option>
+          <option value="lmstudio">LMStudio</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="opencode">OpenCode</option>
+          <option value="llamacpp">llama.cpp</option>
+        `;
+      }
+    }
+
+    // ── loadModels ────────────────────────────────────────────────────
+    async function loadModels(provider) {
+      const placeholder = '<option value="">—</option>';
+      [crawlModel, pipelineModel, reasoningModel].forEach(s => s.innerHTML = placeholder);
+      if (!provider) return;
+      try {
+        const data = await fetch(`/api/models?provider=${encodeURIComponent(provider)}`).then(r => r.json());
+        const models = Array.isArray(data) ? data : (data.models || []);
+        const options = placeholder + models.map(m => {
+          const name = (typeof m === 'string') ? m : m.name;
+          return `<option value="${name}">${name}</option>`;
+        }).join('');
+        [crawlModel, pipelineModel, reasoningModel].forEach(s => s.innerHTML = options);
+        updateIndicatorModelCount(provider, models.length);
+      } catch (e) {
+        console.warn('GET /api/models failed', e);
+      }
+    }
+
+    providerSelect.addEventListener('change', () => loadModels(providerSelect.value));
+
+    // ── loadConverters ────────────────────────────────────────────────
+    async function loadConverters() {
+      try {
+        const data = await fetch('/api/converters').then(r => r.json());
+        const converters = Array.isArray(data) ? data : (data.converters || []);
+        const defaultConverter = (!Array.isArray(data) && data.default) ? data.default : null;
+        const sel = $('converter');
+        if (converters.length > 0) {
+          sel.innerHTML = converters.map(c => {
+            const name = (typeof c === 'string') ? c : c.name;
+            return `<option value="${name}">${name}</option>`;
+          }).join('');
+          if (defaultConverter) sel.value = defaultConverter;
+        }
+      } catch (e) {
+        console.warn('GET /api/converters failed', e);
+      }
+    }
+
+    function initJobHistoryFilter() {
+      jobHistoryFilter.addEventListener('input', renderJobList);
+    }
+
+    // ── Job Execution ─────────────────────────────────────────────────
+
+    function collectFormData() {
+      const getChips = containerId => {
+        return Array.from(document.querySelectorAll(`#${containerId} .chip`))
+          .map(c => c.dataset.value)
+          .filter(Boolean);
+      };
+
+      const body = {
+        url:                    crawlUrl.value.trim(),
+        provider:               providerSelect.value,
+        crawl_model:            crawlModel.value || undefined,
+        pipeline_model:         pipelineModel.value || undefined,
+        reasoning_model:        reasoningModel.value || undefined,
+        output_path:            outputPath.value.trim() || undefined,
+        output_format:          outputFormat.value || 'markdown',
+        language:               language.value || 'en',
+        delay_ms:               parseInt($('delayMs').value) || 1000,
+        max_concurrent:         parseInt($('maxConcurrent').value) || 5,
+        max_depth:              parseInt($('maxDepth').value) || 10,
+        respect_robots_txt:     $('respectRobots').checked,
+        filter_sitemap_by_path: $('filterSitemap').checked,
+        http_fast_path:         $('httpFastPath').checked,
+        use_cache:              $('useCache').checked,
+        pipeline_mode:          $('pipelineMode').checked,
+        native_markdown:        $('nativeMarkdown').checked,
+        converter:              $('converter').value || 'markdownify',
+        skip_llm_cleanup:       $('skipLlmCleanup').checked,
+        use_markdown_proxy:     $('markdownProxy').checked,
+        markdown_proxy_url:     $('markdownProxy').checked ? $('markdownProxyUrl').value.trim() : undefined,
+        content_selectors:      getChips('contentSelectorsContainer'),
+        noise_selectors:        getChips('noiseSelectorContainer'),
+      };
+
+      Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+      return body;
+    }
+
+    async function startJob() {
+      if (!crawlUrl.value.trim()) {
+        crawlUrl.focus();
+        return;
+      }
+
+      setExecuteState('running');
+      resetMissionReport();
+      clearLog();
+
+      let jobId;
+      try {
+        const res = await fetch('/api/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(collectFormData()),
         });
-
-        const form = document.getElementById('crawlForm');
-        const startBtn = document.getElementById('startBtn');
-        const cancelBtn = document.getElementById('cancelBtn');
-        const logDiv = document.getElementById('log');
-        const summaryDiv = document.getElementById('summary');
-        const phaseBanner = document.getElementById('phaseBanner');
-        const phaseDot = document.getElementById('phaseDot');
-        const phaseName = document.getElementById('phaseName');
-        const phaseDetail = document.getElementById('phaseDetail');
-        const jobHistoryList = document.getElementById('jobHistoryList');
-
-        const providerSelect = document.getElementById('provider');
-        const crawlModelSelect = document.getElementById('crawlModel');
-        const pipelineModelSelect = document.getElementById('pipelineModel');
-        const reasoningModelSelect = document.getElementById('reasoningModel');
-
-        const useMarkdownProxyCheckbox = document.getElementById('useMarkdownProxy');
-        const proxyUrlGroup = document.getElementById('proxyUrlGroup');
-        useMarkdownProxyCheckbox.addEventListener('change', () => {
-            proxyUrlGroup.style.display = useMarkdownProxyCheckbox.checked ? 'block' : 'none';
-        });
-
-        let currentJobId = null;
-        let eventSource = null;
-
-        // Job History Management
-        const jobHistory = [];
-        const MAX_JOB_HISTORY = 10;
-
-        function applyJobHistoryFilter() {
-            const q = (jobHistoryFilter ? jobHistoryFilter.value.trim().toLowerCase() : '');
-            document.querySelectorAll('.job-history-item').forEach(el => {
-                el.style.display = (!q || el.textContent.toLowerCase().includes(q)) ? '' : 'none';
-            });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          const msg = Array.isArray(err.detail)
+            ? err.detail.map(e => e.msg || JSON.stringify(e)).join('; ')
+            : (err.detail || `HTTP ${res.status}`);
+          throw new Error(msg);
         }
+        const data = await res.json();
+        jobId = data.id;
+      } catch (e) {
+        console.error('POST /api/jobs failed', e);
+        appendLog(e.message, 'error');
+        setExecuteState('idle');
+        setActiveIdle();
+        return;
+      }
 
-        function updateJobHistoryUI() {
-            if (jobHistory.length === 0) {
-                jobHistoryList.innerHTML = '<div class="job-history-empty">No jobs yet</div>';
-                return;
-            }
-            jobHistoryList.innerHTML = jobHistory.map(job => `
-                <div class="job-history-item" data-job-id="${job.id}">
-                    <span class="job-history-id">${job.id.substring(0, 8)}</span>
-                    <span class="job-history-status ${job.status}">${job.status}</span>
-                    <span class="job-history-converter">${job.converter || 'markdownify'}</span>
-                    ${job.status === 'running' ? `<button class="job-history-stop" onclick="stopJob('${job.id}')">STOP</button>` : ''}
-                </div>
-            `).join('');
-            applyJobHistoryFilter();
+      currentJobId = jobId;
+      addJobToHistory({ id: jobId, status: 'running', url: crawlUrl.value.trim(), ts: Date.now() });
+      openEventSource(jobId);
+    }
+
+    btnExecute.addEventListener('click', startJob);
+
+    function openEventSource(jobId) {
+      if (eventSource) { eventSource.close(); eventSource = null; }
+
+      eventSource = new EventSource(`/api/jobs/${jobId}/events`);
+
+      eventSource.addEventListener('phase_change', e => {
+        const data = JSON.parse(e.data);
+        if (data.message) appendLog(`[${data.phase}] ${data.message}`, 'phase');
+        if (data.current_url) setActiveUrl(data.current_url);
+        if (typeof data.pages_completed === 'number') {
+          $('stat-complete').textContent = data.pages_completed;
         }
-
-        async function stopJob(jobId) {
-            try {
-                const res = await fetch(`/api/jobs/${jobId}/cancel`, { method: 'POST' });
-                if (res.ok) {
-                    const job = jobHistory.find(j => j.id === jobId);
-                    if (job) job.status = 'cancelled';
-                    updateJobHistoryUI();
-                }
-            } catch (e) {
-                console.error('Failed to stop job:', e);
-            }
+        if (typeof data.pages_retried === 'number') {
+          $('stat-retried').textContent = data.pages_retried;
         }
+      });
 
-        function addJobToHistory(jobId, converter) {
-            const existing = jobHistory.find(j => j.id === jobId);
-            if (!existing) {
-                jobHistory.unshift({ id: jobId, status: 'running', converter: converter || 'markdownify' });
-                if (jobHistory.length > MAX_JOB_HISTORY) jobHistory.pop();
-            }
-            updateJobHistoryUI();
+      eventSource.addEventListener('log', e => {
+        const data = JSON.parse(e.data);
+        if (data.message) appendLog(data.message);
+      });
+
+      eventSource.addEventListener('job_done', e => {
+        const data = JSON.parse(e.data);
+        if (data.message) appendLog(data.message);
+        updateMissionReport(data);
+        updateControlButtons(data.status);
+        setActiveIdle();
+        updateJobInHistory(jobId, data.status);
+        updateFooterModels();
+        eventSource.close();
+        eventSource = null;
+        currentJobId = null;
+      });
+
+      eventSource.onerror = () => {
+        if (!eventSource) return; // already closed by job_done
+        eventSource.close();
+        eventSource = null;
+        appendLog('Connection lost', 'error');
+        updateControlButtons('failed');
+        setActiveIdle();
+      };
+
+      setActiveUrl('Connecting…');
+      updateControlButtons('running');
+    }
+
+    function updateMissionReport(data) {
+      // pages_partial and pages_failed come ONLY from job_done SSE payload
+      $('stat-complete').textContent = data.pages_ok       ?? 0;
+      $('stat-partial').textContent  = data.pages_partial  ?? 0;
+      $('stat-failed').textContent   = data.pages_failed   ?? 0;
+      $('stat-retried').textContent  = data.pages_retried  ?? 0;
+    }
+
+    function resetMissionReport() {
+      ['stat-complete','stat-partial','stat-failed','stat-retried']
+        .forEach(id => $(id).textContent = '0');
+    }
+
+    function appendLog(msg, type) {
+      const console = $('logConsole');
+      const empty = $('logEmpty');
+      if (empty) empty.remove();
+      const line = document.createElement('div');
+      line.className = 'log-line' + (type ? ' ' + type : '');
+      line.textContent = msg;
+      console.appendChild(line);
+      console.scrollTop = console.scrollHeight;
+    }
+
+    function clearLog() {
+      const console = $('logConsole');
+      console.innerHTML = '<div class="log-empty-msg" id="logEmpty">No output</div>';
+    }
+
+    function setActiveUrl(url) {
+      pulseDot.classList.add('running');
+      currentUrl.textContent = url;
+      currentUrl.style.display = '';
+      idleText.style.display = 'none';
+    }
+
+    function setActiveIdle() {
+      pulseDot.classList.remove('running');
+      currentUrl.textContent = '';
+      currentUrl.style.display = 'none';
+      idleText.style.display = '';
+    }
+
+    function setExecuteState(state) {
+      btnExecute.disabled = state === 'running';
+    }
+
+    // ── DOMContentLoaded ──────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', async () => {
+      await Promise.all([loadInfo(), loadProviders(), loadConverters()]);
+      // Task 5 defines these — guard ensures they wire up once added:
+      if (typeof initTooltips            === 'function') initTooltips();
+      if (typeof initChipInputs          === 'function') initChipInputs();
+      if (typeof initAdvancedToggle      === 'function') initAdvancedToggle();
+      if (typeof initMarkdownProxyToggle === 'function') initMarkdownProxyToggle();
+      if (typeof initResumeStateButton   === 'function') initResumeStateButton();
+      initJobHistoryFilter();
+      renderJobList();
+    });
+
+    // ── Controls ──────────────────────────────────────────────────────
+
+    function updateControlButtons(status) {
+      const isRunning = status === 'running';
+      const isPaused  = status === 'paused';
+      const isActive  = isRunning || isPaused;
+
+      btnPause.disabled   = !isRunning;
+      btnResume.disabled  = !isPaused;
+      btnCancel.disabled  = !isActive;
+      btnExecute.disabled = isActive;
+    }
+
+    async function pollStatus(jobId) {
+      try {
+        const s = await fetch(`/api/jobs/${jobId}/status`).then(r => r.json());
+        updateControlButtons(s.status);
+        if (s.status === 'paused') {
+          setActiveUrl('Paused');
         }
+      } catch (e) {
+        console.warn('GET /api/jobs/status failed', e);
+      }
+    }
 
-        function updateJobStatus(jobId, status) {
-            const job = jobHistory.find(j => j.id === jobId);
-            if (job) {
-                job.status = status;
-                updateJobHistoryUI();
-            }
-        }
+    btnPause.addEventListener('click', async () => {
+      const id = currentJobId;
+      if (!id) return;
+      await fetch(`/api/jobs/${id}/pause`, { method: 'POST' });
+      await pollStatus(id);
+    });
 
-        function getModelCategory(modelName, modelSize) {
-            const name = modelName.toLowerCase();
-            const size = modelSize || 0;
-            const reasoningPatterns = ['r1', 'reasoning', 'deepseek', 'qwen3:32', 'qwen3:30', 'qwq', 'o1', 'o3', 'o4', 'claude-haiku', 'moonshot', 'kimi'];
-            if (reasoningPatterns.some(p => name.includes(p)) || size > 20000000000) return 'reasoning';
-            const crawlPatterns = ['1b', '2b', '3b', '4b', '5b', 'phi', 'tiny', 'mini', 'gemma:2', 'mistral:7'];
-            if (crawlPatterns.some(p => name.includes(p)) && !name.includes('8b') || size < 4000000000) return 'crawl';
-            const pipelinePatterns = ['6b', '7b', '8b', 'qwen', 'llama3.1', 'llama3:7', 'mistral', 'mixtral', 'gemma'];
-            if (pipelinePatterns.some(p => name.includes(p)) || (size >= 4000000000 && size <= 16000000000)) return 'pipeline';
-            return 'pipeline';
-        }
+    btnResume.addEventListener('click', async () => {
+      const id = currentJobId;
+      if (!id) return;
+      await fetch(`/api/jobs/${id}/resume`, { method: 'POST' });
+      await pollStatus(id);
+      if (eventSource === null && currentJobId) {
+        openEventSource(id);
+      }
+    });
 
-        function filterModelsForSelector(models, selectorType) {
-            return models.filter(m => {
-                const category = getModelCategory(m.name, m.size);
-                switch (selectorType) {
-                    case 'crawl': return category === 'crawl';
-                    case 'pipeline': return category === 'pipeline' || category === 'reasoning';
-                    case 'reasoning': return category === 'reasoning' || category === 'pipeline';
-                    default: return true;
-                }
-            });
-        }
+    btnCancel.addEventListener('click', async () => {
+      const id = currentJobId;
+      if (!id) return;
+      await fetch(`/api/jobs/${id}/cancel`, { method: 'POST' });
+      updateControlButtons('cancelled');
+      setActiveIdle();
+      updateJobInHistory(id, 'cancelled');
+      if (eventSource) { eventSource.close(); eventSource = null; }
+      currentJobId = null;
+    });
 
-        function generateDynamicHints(models, provider) {
-            const hints = { crawl: [], pipeline: [], reasoning: [] };
-            const freeHints = { crawl: [], pipeline: [], reasoning: [] };
-            models.forEach(m => {
-                const category = getModelCategory(m.name, m.size);
-                if (hints[category]) {
-                    hints[category].push(m.name);
-                    if (m.is_free) freeHints[category].push(m.name);
-                }
-            });
-            const topN = 3;
-            const updateHint = (elementId, modelList, freeList, fallbackDesc, providerType) => {
-                const el = document.getElementById(elementId);
-                if (!el) return;
-                const isLocal = providerType === 'ollama';
-                const priorityList = freeList.length > 0 ? freeList : modelList;
-                if (priorityList.length > 0) {
-                    const suggestions = priorityList.slice(0, topN).join(', ');
-                    const badge = isLocal ? '◈ LOCAL' : '◉ FREE';
-                    el.textContent = '';
-                    el.appendChild(document.createTextNode(fallbackDesc));
-                    el.appendChild(document.createElement('br'));
-                    const strong = document.createElement('strong');
-                    strong.textContent = `Suggestions (${badge}):`;
-                    el.appendChild(strong);
-                    el.appendChild(document.createTextNode(' ' + suggestions));
-                } else {
-                    el.textContent = fallbackDesc;
-                }
-            };
-            const providerType = provider;
-            updateHint('crawlHint', hints.crawl, freeHints.crawl, 'URL discovery & filtering. Fast: 3b-8b.', providerType);
-            updateHint('pipelineHint', hints.pipeline, freeHints.pipeline, 'Markdown cleanup. 6b-14b.', providerType);
-            updateHint('reasoningHint', hints.reasoning, freeHints.reasoning, 'Complex analysis. Large: +14b.', providerType);
-        }
+    // ── Job History ────────────────────────────────────────────────────
 
-        async function loadModels() {
-            const selects = [crawlModelSelect, pipelineModelSelect, reasoningModelSelect];
-            const selectorTypes = ['crawl', 'pipeline', 'reasoning'];
-            const provider = providerSelect.value;
-            try {
-                const res = await fetch(`/api/models?provider=${provider}`);
-                const models = await res.json();
-                if (models.length === 0) {
-                    selects.forEach(s => {
-                        s.innerHTML = '';
-                        const opt = document.createElement('option');
-                        opt.value = '';
-                        opt.textContent = `No ${provider} models available`;
-                        s.appendChild(opt);
-                    });
-                    logMessage(`No ${provider} models available. Check API key or Ollama connection.`, 'init', 'warning');
-                    return;
-                }
-                generateDynamicHints(models, provider);
-                const isLocal = provider === 'ollama';
-                const badge = isLocal ? '◈' : '◉';
-                selects.forEach((select, index) => {
-                    const filteredModels = filterModelsForSelector(models, selectorTypes[index]);
-                    let modelsToShow = filteredModels.length > 0 ? filteredModels : models;
-                    modelsToShow.sort((a, b) => {
-                        if (a.is_free !== b.is_free) return b.is_free ? 1 : -1;
-                        return a.name.localeCompare(b.name);
-                    });
-                    select.innerHTML = '';
-                    modelsToShow.forEach(m => {
-                        const modelBadge = m.is_free ? ` ${badge}` : '';
-                        const opt = document.createElement('option');
-                        opt.value = m.name;
-                        opt.textContent = m.name + modelBadge;
-                        select.appendChild(opt);
-                    });
-                });
-            } catch (e) {
-                selects.forEach(s => {
-                    s.innerHTML = '';
-                    const opt = document.createElement('option');
-                    opt.value = '';
-                    opt.textContent = 'Error loading models';
-                    s.appendChild(opt);
-                });
-                logMessage(`Failed to load ${provider} models`, 'init', 'error');
-            }
-        }
+    function addJobToHistory(job) {
+      jobHistory.unshift(job);
+      if (jobHistory.length > MAX_JOB_HISTORY) jobHistory.pop();
+      renderJobList();
+    }
 
-        async function loadConverters() {
-            try {
-                const res = await fetch('/api/converters');
-                const data = await res.json();
-                const sel = document.getElementById('converterSelect');
-                sel.innerHTML = '';
-                data.converters.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.name;
-                    opt.textContent = c.name + (c.name === 'markdownify' ? ' (default)' : '');
-                    if (c.name === 'markdownify') opt.selected = true;
-                    sel.appendChild(opt);
-                });
-            } catch (e) { /* keep static default on error */ }
-        }
+    function updateJobInHistory(jobId, status) {
+      const job = jobHistory.find(j => j.id === jobId);
+      if (job) { job.status = status; renderJobList(); }
+    }
 
-        providerSelect.addEventListener('change', () => {
-            loadModels();
-            checkExternalProvider(providerSelect.value);
-        });
+    function renderJobList() {
+      const q = jobHistoryFilter.value.trim().toLowerCase();
+      const filtered = q
+        ? jobHistory.filter(j => j.id.includes(q) || (j.url || '').toLowerCase().includes(q))
+        : jobHistory;
 
-        // Data exfiltration warning — closes CONS-021 / issue #67
-        function checkExternalProvider(provider) {
-            const warning = document.getElementById('externalProviderWarning');
-            if (!warning) return;
-            if (provider !== 'ollama' && provider !== 'lmstudio') {
-                warning.style.display = 'block';
-            } else {
-                warning.style.display = 'none';
-            }
-        }
+      if (filtered.length === 0) {
+        jobList.innerHTML = '<div class="job-empty">No jobs yet</div>';
+        return;
+      }
 
-        function updateOutputPath() {
-            const urlInput = document.getElementById('url').value.trim();
-            if (!urlInput) {
-                document.getElementById('outputPath').value = '/data/output';
-                return;
-            }
-            try {
-                const parsed = new URL(urlInput);
-                let domain = parsed.hostname.replace(/^(www|docs|doc|documentation|wiki)\./i, '');
-                let section = parsed.pathname.replace(/\/$/, '').replace(/^\/(latest|stable|v\d[^/]*)/i, '').replace(/^\/docs?\/?/i, '').replace(/^\//, '');
-                let outputPath = `/data/output/${domain}`;
-                if (section) {
-                    const parts = section.split('/').filter(Boolean);
-                    if (parts.length > 3) section = parts[0] + '/' + parts[parts.length - 1];
-                    else section = parts.join('/');
-                    outputPath += `/${section}`;
-                }
-                document.getElementById('outputPath').value = outputPath;
-            } catch (e) { }
-        }
+      // .job-id is always amber per spec; running class adds pulse animation only.
+      // .job-status-badge is an empty 8px circle — color from CSS class, no text content.
+      jobList.innerHTML = filtered.map(j => {
+        const idClass  = j.status === 'running' ? 'job-id running' : 'job-id';
+        const dotClass = { running: 'running', completed: 'completed', failed: 'failed', cancelled: 'failed', paused: 'partial' }[j.status] || '';
+        const ts = j.ts ? new Date(j.ts).toLocaleTimeString() : '';
+        return `
+          <div class="job-item" data-id="${j.id}">
+            <span class="${idClass}">#${j.id.slice(0,8)}</span>
+            <span class="job-status-badge ${dotClass}" title="${j.status}"></span>
+            <span class="job-url" title="${esc(j.url || '')}">${esc(j.url) || '—'}</span>
+            <span class="job-timestamp">${ts}</span>
+          </div>`;
+      }).join('');
+    }
 
-        function updatePhaseBanner(phase, detail) {
-            phaseBanner.className = `phase-banner phase-${phase} active`;
-            phaseName.textContent = phase;
-            phaseDetail.textContent = detail || '';
-        }
+    // ── Advanced Panel ─────────────────────────────────────────────────
 
-        function hidePhaseBanner() {
-            phaseBanner.className = 'phase-banner';
-        }
+    function initAdvancedToggle() {
+      const toggle  = document.querySelector('.advanced-toggle');
+      const content = document.querySelector('.advanced-content');
+      toggle.addEventListener('click', () => {
+        const expanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!expanded));
+        content.setAttribute('aria-hidden', String(expanded));
+      });
+    }
 
-        function logMessage(message, phase, level) {
-            // Build DOM nodes directly — no innerHTML with untrusted data (closes CONS-004 / issue #52)
-            const entry = document.createElement('div');
-            const levelClass = level === 'error' ? 'error' : level === 'warning' ? 'warning' : level === 'success' ? 'success' : '';
-            entry.className = `log-entry ${levelClass}`;
+    function initMarkdownProxyToggle() {
+      const cb      = $('markdownProxy');
+      const wrapper = document.querySelector('.markdown-proxy-url-wrapper');
+      cb.addEventListener('change', () => {
+        wrapper.style.display = cb.checked ? 'block' : 'none';
+      });
+    }
 
-            const time = new Date().toLocaleTimeString();
-            const timeSpan = document.createElement('span');
-            timeSpan.style.color = '#4a4a6a';
-            timeSpan.textContent = `[${time}]`;
-            entry.appendChild(timeSpan);
-            entry.appendChild(document.createTextNode(' '));
+    // ── Chip Inputs ────────────────────────────────────────────────────
 
-            if (phase) {
-                const badgeSpan = document.createElement('span');
-                badgeSpan.className = `log-badge badge-${phase}`;
-                badgeSpan.textContent = phase;
-                entry.appendChild(badgeSpan);
-            }
+    function addChip(container, value) {
+      const input = container.querySelector('.chip-input');
+      const max   = parseInt(input.dataset.max) || 20;
+      if (container.querySelectorAll('.chip').length >= max) return;
 
-            const msgSpan = document.createElement('span');
-            msgSpan.textContent = message;
-            entry.appendChild(msgSpan);
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.dataset.value = value;
+      chip.appendChild(document.createTextNode(value + ' '));
+      const rm = document.createElement('span');
+      rm.className = 'chip-remove';
+      rm.setAttribute('role', 'button');
+      rm.setAttribute('aria-label', 'Remove');
+      rm.textContent = '×';
+      rm.addEventListener('click', () => chip.remove());
+      chip.appendChild(rm);
+      container.insertBefore(chip, input);
+    }
 
-            logDiv.appendChild(entry);
-            logDiv.scrollTop = logDiv.scrollHeight;
-        }
-
-        function setRunning(running) {
-            startBtn.disabled = running;
-            cancelBtn.style.display = running ? 'block' : 'none';
-            if (!running) hidePhaseBanner();
-        }
-
-        async function startCrawl(e) {
+    function initChipInputs() {
+      document.querySelectorAll('.chip-input').forEach(input => {
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Enter') {
             e.preventDefault();
-            logDiv.innerHTML = '';
-            summaryDiv.style.display = 'none';
-            const payload = {
-                url: document.getElementById('url').value,
-                crawl_model: crawlModelSelect.value,
-                pipeline_model: pipelineModelSelect.value,
-                reasoning_model: reasoningModelSelect.value,
-                output_path: document.getElementById('outputPath').value,
-                delay_ms: parseInt(document.getElementById('delayMs').value),
-                max_concurrent: parseInt(document.getElementById('maxConcurrent').value),
-                max_depth: parseInt(document.getElementById('maxDepth').value),
-                respect_robots_txt: document.getElementById('respectRobots').checked,
-                use_page_pool: document.getElementById('usePagePool').checked,
-                use_http_fast_path: document.getElementById('useHttpFastPath').checked,
-                use_cache: document.getElementById('useCache').checked,
-                use_pipeline_mode: document.getElementById('usePipelineMode').checked,
-                output_format: document.getElementById('outputFormat').value,
-                converter: document.getElementById('converterSelect').value || null,
-                filter_sitemap_by_path: document.getElementById('filterSitemapByPath').checked,
-                use_native_markdown: document.getElementById('useNativeMarkdown').checked,
-                use_markdown_proxy: useMarkdownProxyCheckbox.checked,
-                markdown_proxy_url: document.getElementById('markdownProxyUrl').value,
-                language: document.getElementById('language').value,
-            };
-            try {
-                const res = await fetch('/api/jobs', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                });
-                const job = await res.json();
-                currentJobId = job.id;
-                addJobToHistory(job.id, job.converter);
-                logMessage(`Job initialized: ${job.id}`, 'init', 'info');
-                setRunning(true);
-                subscribeToEvents(job.id);
-            } catch (e) {
-                logMessage(`Failed to start job: ${e.message}`, 'init', 'error');
+            const val = input.value.trim();
+            if (val) {
+              const container = input.closest('.chip-input-container');
+              const max = parseInt(input.dataset.max) || 20;
+              if (container.querySelectorAll('.chip').length < max) {
+                addChip(container, val);
+                input.value = '';
+              }
             }
+          } else if (e.key === 'Escape') {
+            input.value = '';
+          }
+        });
+      });
+    }
+
+    // ── Resume from State ──────────────────────────────────────────────
+
+    function initResumeStateButton() {
+      resumeStatePath.addEventListener('input', () => {
+        btnResumeState.disabled = !resumeStatePath.value.trim();
+      });
+
+      btnResumeState.addEventListener('click', async () => {
+        const path = resumeStatePath.value.trim();
+        if (!path) return;
+        try {
+          const res = await fetch('/api/jobs/resume-from-state', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ state_path: path }),
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const jobId = data.id;
+          currentJobId = jobId;
+          addJobToHistory({ id: jobId, status: 'running', url: path, ts: Date.now() });
+          openEventSource(jobId);
+        } catch (e) {
+          console.error('POST /api/jobs/resume-from-state failed', e);
         }
+      });
+    }
 
-        function subscribeToEvents(jobId) {
-            eventSource = new EventSource(`/api/jobs/${jobId}/events`);
-            eventSource.addEventListener('phase_change', (e) => {
-                const data = JSON.parse(e.data);
-                let detail = data.message || '';
-                if (data.active_model) detail += ` ◈ ${data.active_model}`;
-                if (data.progress) detail += ` // ${data.progress}`;
-                updatePhaseBanner(data.phase, detail);
-            });
-            eventSource.addEventListener('log', (e) => {
-                const data = JSON.parse(e.data);
-                // active_model appended as plain text in logMessage — no XSS (closes CONS-004 / issue #52)
-                const msg = data.active_model
-                    ? `${data.message} [${data.active_model}]`
-                    : data.message;
-                logMessage(msg, data.phase, data.level || '');
-            });
-            eventSource.addEventListener('discovery', (e) => {
-                const data = JSON.parse(e.data);
-                logMessage(`${data.phase} - ${data.status || ''} ${data.urls_found ? `(${data.urls_found} URLs)` : ''}`, 'discovery');
-            });
-            eventSource.addEventListener('filtering', (e) => {
-                const data = JSON.parse(e.data);
-                logMessage(`${data.phase} ${data.after_basic ? `(${data.after_basic} URLs)` : ''} ${data.after_llm ? `→ ${data.after_llm} URLs` : ''}`, 'filtering');
-            });
-            eventSource.addEventListener('page_start', (e) => {
-                const data = JSON.parse(e.data);
-                logMessage(`[${data.index}/${data.total}] LOADING: ${data.url}`, 'scraping', 'info');
-            });
-            eventSource.addEventListener('page_done', (e) => {
-                const data = JSON.parse(e.data);
-                const msg = data.chunks_failed > 0 ? `DONE (${data.chunks_failed}/${data.chunks_total} failed)` : '✓ COMPLETE';
-                logMessage(`  → ${msg}`, 'save', data.status === 'ok' ? 'success' : 'warning');
-            });
-            eventSource.addEventListener('page_error', (e) => {
-                const data = JSON.parse(e.data);
-                logMessage(`  → ERROR: ${data.error}`, 'scraping', 'error');
-            });
-            eventSource.addEventListener('job_done', (e) => {
-                const data = JSON.parse(e.data);
-                if (data.status === 'completed') {
-                    updatePhaseBanner('done', `Output: ${data.output_path}`);
-                    logMessage(`Mission complete! ${data.pages_ok} OK, ${data.pages_partial || 0} partial, ${data.pages_failed || 0} failed`, 'done', 'success');
-                    updateJobStatus(currentJobId, 'completed');
-                } else {
-                    updatePhaseBanner('failed', data.error || 'Unknown error');
-                    logMessage(`Mission failed: ${data.error}`, 'failed', 'error');
-                    updateJobStatus(currentJobId, 'failed');
-                }
-                showSummary(data);
-                cleanupJob();
-            });
-            eventSource.addEventListener('job_cancelled', (e) => {
-                const data = JSON.parse(e.data);
-                updatePhaseBanner('cancelled', `${data.pages_completed}/${data.pages_total} processed`);
-                logMessage(`Operation aborted. ${data.pages_completed}/${data.pages_total} pages processed.`, 'cancelled');
-                updateJobStatus(currentJobId, 'cancelled');
-                cleanupJob();
-            });
-            eventSource.addEventListener('keepalive', () => {});
-            eventSource.onerror = (e) => {
-                if (!currentJobId) return;
-                if (eventSource) { eventSource.close(); eventSource = null; }
-                fetch(`/api/jobs/${currentJobId}/status`)
-                    .then(r => { if (!r.ok) throw new Error(`Status ${r.status}`); return r.json(); })
-                    .then(status => {
-                        if (status.status === 'running' || status.status === 'pending') {
-                            logMessage('SSE reconnecting...', 'init', 'warning');
-                            setTimeout(() => { if (currentJobId) subscribeToEvents(currentJobId); }, 2000);
-                        } else if (status.status === 'completed') {
-                            updatePhaseBanner('done', 'Completed');
-                            logMessage('Job completed.', 'done');
-                            cleanupJob();
-                        } else if (status.status === 'cancelled') {
-                            updatePhaseBanner('cancelled', `${status.pages_completed}/${status.pages_total}`);
-                            logMessage(`Cancelled. ${status.pages_completed}/${status.pages_total} pages.`, 'cancelled');
-                            cleanupJob();
-                        } else {
-                            logMessage('Job failed.', 'failed', 'error');
-                            cleanupJob();
-                        }
-                    })
-                    .catch(() => {
-                        setTimeout(() => {
-                            if (!currentJobId) return;
-                            fetch(`/api/jobs/${currentJobId}/status`)
-                                .then(r => r.ok ? r.json() : Promise.reject())
-                                .then(status => {
-                                    if (status.status === 'running') subscribeToEvents(currentJobId);
-                                    else { logMessage('Connection lost', 'failed', 'error'); cleanupJob(); }
-                                })
-                                .catch(() => { logMessage('Connection lost — server may have restarted', 'failed', 'error'); cleanupJob(); });
-                        }, 5000);
-                    });
-            };
+    // ── Tooltips ───────────────────────────────────────────────────────
+    // Must be body-appended with position:fixed — CSS ::after is clipped by overflow:hidden panels
+
+    function initTooltips() {
+      let activeTooltip = null;
+      let ttIdCounter = 0;
+
+      function showTooltip(target) {
+        if (activeTooltip) { activeTooltip.remove(); activeTooltip = null; }
+
+        const tt = document.createElement('div');
+        const ttId = `tt-${++ttIdCounter}`;
+        tt.id = ttId;
+        tt.className = 'tooltip';
+        tt.setAttribute('role', 'tooltip');
+        tt.textContent = target.dataset.tooltip;
+        document.body.appendChild(tt);
+        activeTooltip = tt;
+        target.setAttribute('aria-describedby', ttId);
+
+        const rect   = target.getBoundingClientRect();
+        const ttRect = tt.getBoundingClientRect();
+        let left = rect.left + rect.width / 2 - ttRect.width / 2;
+        let top  = rect.top - ttRect.height - 6;
+
+        left = Math.max(4, Math.min(left, window.innerWidth  - ttRect.width  - 4));
+        if (top < 4) top = rect.bottom + 6;
+
+        tt.style.left = left + 'px';
+        tt.style.top  = top  + 'px';
+
+        return tt;
+      }
+
+      function hideTooltip(tt, target, autoHideTimer) {
+        clearTimeout(autoHideTimer);
+        tt.remove();
+        if (activeTooltip === tt) activeTooltip = null;
+        target.removeAttribute('aria-describedby');
+      }
+
+      document.addEventListener('mouseenter', e => {
+        const target = e.target.closest('[data-tooltip]');
+        if (!target) return;
+
+        const tt = showTooltip(target);
+        let autoHideTimer;
+        const hide = () => {
+          hideTooltip(tt, target, autoHideTimer);
+          target.removeEventListener('mouseleave', hide);
+        };
+        target.addEventListener('mouseleave', hide);
+        autoHideTimer = setTimeout(hide, 5000);
+      }, true);
+
+      document.addEventListener('focusin', e => {
+        const target = e.target.closest('[data-tooltip]');
+        if (!target) return;
+
+        const tt = showTooltip(target);
+        let autoHideTimer;
+        const hide = () => {
+          hideTooltip(tt, target, autoHideTimer);
+          target.removeEventListener('blur', hide);
+        };
+        target.addEventListener('blur', hide);
+        autoHideTimer = setTimeout(hide, 5000);
+      }, true);
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && activeTooltip) {
+          activeTooltip.remove();
+          activeTooltip = null;
         }
+      });
+    }
 
-        async function cancelJob() {
-            if (!currentJobId) return;
-            try {
-                await fetch(`/api/jobs/${currentJobId}/cancel`, { method: 'POST' });
-                logMessage('Aborting operation...', 'init', 'info');
-            } catch (e) {
-                logMessage(`Failed to cancel: ${e.message}`, 'init', 'error');
-            }
-        }
+    // ── Footer Models ──────────────────────────────────────────────────
 
-        function showSummary(data) {
-            document.getElementById('pagesOk').textContent = data.pages_ok || 0;
-            document.getElementById('pagesPartial').textContent = data.pages_partial || 0;
-            document.getElementById('pagesFailed').textContent = data.pages_failed || 0;
-            summaryDiv.style.display = 'block';
-            const nativeMd = data.pages_native_md || 0;
-            const proxyMd = data.pages_proxy_md || 0;
-            const playwright = data.pages_playwright || 0;
-            if (nativeMd > 0 || proxyMd > 0) {
-                const statsDiv = document.getElementById('fetchStats');
-                const lines = [];
-                if (nativeMd > 0) lines.push(`⚡ ${nativeMd} via native markdown`);
-                if (proxyMd > 0) lines.push(`◈ ${proxyMd} via markdown proxy`);
-                if (playwright > 0) lines.push(`◉ ${playwright} via Playwright`);
-                statsDiv.textContent = '';
-                lines.forEach((line, i) => {
-                    statsDiv.appendChild(document.createTextNode(line));
-                    if (i < lines.length - 1) statsDiv.appendChild(document.createElement('br'));
-                });
-                statsDiv.style.display = 'block';
-            }
-        }
+    function updateFooterModels() {
+      const models  = [crawlModel, pipelineModel, reasoningModel].map(s => s.value).filter(Boolean);
+      const unique  = [...new Set(models)];
+      $('footerModels').textContent = unique.length ? `Models: ${unique.join(', ')}` : '';
+    }
+  </script>
 
-        function cleanupJob() {
-            if (eventSource) { eventSource.close(); eventSource = null; }
-            currentJobId = null;
-            setRunning(false);
-            summaryDiv.style.display = '';
-        }
-
-        document.getElementById('url').addEventListener('input', updateOutputPath);
-        form.addEventListener('submit', startCrawl);
-        cancelBtn.addEventListener('click', cancelJob);
-        loadModels();
-        loadConverters();
-        checkHealth();
-
-        async function checkHealth() {
-            const ollamaDot = document.getElementById('ollamaDot');
-            const ollamaStatus = document.getElementById('ollamaStatus');
-            const diskDot = document.getElementById('diskDot');
-            const diskStatus = document.getElementById('diskStatus');
-            const writeDot = document.getElementById('writeDot');
-            const writeStatus = document.getElementById('writeStatus');
-            try {
-                const res = await fetch('/api/health/ready');
-                const data = await res.json();
-                const ollama = data.checks.ollama || {};
-                if (ollama.status === 'ok') { ollamaDot.className = 'status-dot ok'; ollamaStatus.textContent = `${ollama.models_count} models`; }
-                else if (ollama.status === 'unreachable') { ollamaDot.className = 'status-dot error'; ollamaStatus.textContent = 'OFFLINE'; }
-                else { ollamaDot.className = 'status-dot warning'; ollamaStatus.textContent = ollama.status || 'ERROR'; }
-                const lmstudioDot = document.getElementById('lmstudioDot');
-                const lmstudioStatus = document.getElementById('lmstudioStatus');
-                const lms = data.checks.lmstudio || {};
-                if (lms.status === 'ok') { lmstudioDot.className = 'status-dot ok'; lmstudioStatus.textContent = `${lms.models_count} models`; }
-                else if (lms.status === 'unreachable') { lmstudioDot.className = 'status-dot error'; lmstudioStatus.textContent = 'OFFLINE'; }
-                else { lmstudioDot.className = 'status-dot warning'; lmstudioStatus.textContent = lms.status || 'ERROR'; }
-                const disk = data.checks.disk_space || {};
-                if (disk.status === 'ok') { diskDot.className = 'status-dot ok'; diskStatus.textContent = `${disk.free_gb}GB free`; }
-                else if (disk.status === 'warning') { diskDot.className = 'status-dot warning'; diskStatus.textContent = `${disk.free_gb}GB (low)`; }
-                else if (disk.status === 'critical') { diskDot.className = 'status-dot error'; diskStatus.textContent = `${disk.free_gb}GB (crit)`; }
-                else { diskDot.className = 'status-dot warning'; diskStatus.textContent = disk.status || 'UNKNOWN'; }
-                const write = data.checks.write_permissions || {};
-                if (write.status === 'ok') { writeDot.className = 'status-dot ok'; writeStatus.textContent = 'OK'; }
-                else if (write.status === 'denied') { writeDot.className = 'status-dot error'; writeStatus.textContent = 'DENIED'; }
-                else { writeDot.className = 'status-dot warning'; writeStatus.textContent = write.status || 'UNKNOWN'; }
-            } catch (e) {
-                ollamaDot.className = 'status-dot error'; ollamaStatus.textContent = 'ERROR';
-                document.getElementById('lmstudioDot').className = 'status-dot error';
-                document.getElementById('lmstudioStatus').textContent = 'ERROR';
-                diskDot.className = 'status-dot error'; diskStatus.textContent = 'ERROR';
-                writeDot.className = 'status-dot error'; writeStatus.textContent = 'ERROR';
-            }
-        }
-
-        // Job History filter
-        const jobHistoryFilter = document.getElementById('jobHistoryFilter');
-        if (jobHistoryFilter) {
-            jobHistoryFilter.addEventListener('input', applyJobHistoryFilter);
-        }
-
-        // Populate footer with live version from /api/info
-        (async () => {
-            try {
-                const info = await fetch('/api/info').then(r => r.json());
-                if (info.version) document.getElementById('footerVersion').textContent = 'v' + info.version;
-                if (info.models_used) document.getElementById('footerModels').textContent = info.models_used.join(' · ');
-            } catch (_) { /* keep static fallback values */ }
-        })();
-    </script>
 </body>
 </html>

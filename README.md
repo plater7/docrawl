@@ -219,16 +219,6 @@ GET  /api/converters                # Listar convertidores HTML→MD registrados
 | `use_pipeline_mode` | `false` | Pipeline productor/consumidor async — PR 3.3 |
 | `converter` | `"markdownify"` | Convertidor HTML→Markdown — PR 3.4 |
 
-## 🎨 UI Themes
-
-El selector de tema persiste en `localStorage`. Tres opciones disponibles:
-
-| Tema | Descripción |
-|------|-------------|
-| **SYNTHWAVE** (default) | Neon magenta/cyan, fuente Orbitron + VT323, estética retro-futurista |
-| **TERMINAL** | Fósforo verde CRT, IBM Plex Mono, scanlines y viñeta retro |
-| **BASIC** | Dark UI limpia y minimalista |
-
 ## 🌐 Exponer a Internet
 
 Docrawl se puede exponer vía **Cloudflare Tunnel + Workers VPC** sin IP pública:
