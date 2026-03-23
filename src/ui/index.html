@@ -1431,16 +1431,17 @@
       await fetch(`/api/jobs/${id}/resume`, { method: 'POST' });
       await pollStatus(id);
       if (eventSource === null && currentJobId) {
-        openEventSource(currentJobId);
+        openEventSource(id);
       }
     });
 
     btnCancel.addEventListener('click', async () => {
-      if (!currentJobId) return;
-      await fetch(`/api/jobs/${currentJobId}/cancel`, { method: 'POST' });
+      const id = currentJobId;
+      if (!id) return;
+      await fetch(`/api/jobs/${id}/cancel`, { method: 'POST' });
       updateControlButtons('cancelled');
       setActiveIdle();
-      updateJobInHistory(currentJobId, 'cancelled');
+      updateJobInHistory(id, 'cancelled');
       if (eventSource) { eventSource.close(); eventSource = null; }
       currentJobId = null;
     });
@@ -1580,18 +1581,20 @@
 
     function initTooltips() {
       let activeTooltip = null;
+      let ttIdCounter = 0;
 
-      document.addEventListener('mouseenter', e => {
-        const target = e.target.closest('[data-tooltip]');
-        if (!target) return;
-
+      function showTooltip(target) {
         if (activeTooltip) { activeTooltip.remove(); activeTooltip = null; }
 
         const tt = document.createElement('div');
+        const ttId = `tt-${++ttIdCounter}`;
+        tt.id = ttId;
         tt.className = 'tooltip';
+        tt.setAttribute('role', 'tooltip');
         tt.textContent = target.dataset.tooltip;
         document.body.appendChild(tt);
         activeTooltip = tt;
+        target.setAttribute('aria-describedby', ttId);
 
         const rect   = target.getBoundingClientRect();
         const ttRect = tt.getBoundingClientRect();
@@ -1604,16 +1607,50 @@
         tt.style.left = left + 'px';
         tt.style.top  = top  + 'px';
 
+        return tt;
+      }
+
+      function hideTooltip(tt, target, autoHideTimer) {
+        clearTimeout(autoHideTimer);
+        tt.remove();
+        if (activeTooltip === tt) activeTooltip = null;
+        target.removeAttribute('aria-describedby');
+      }
+
+      document.addEventListener('mouseenter', e => {
+        const target = e.target.closest('[data-tooltip]');
+        if (!target) return;
+
+        const tt = showTooltip(target);
         let autoHideTimer;
         const hide = () => {
-          clearTimeout(autoHideTimer);
-          tt.remove();
-          if (activeTooltip === tt) activeTooltip = null;
+          hideTooltip(tt, target, autoHideTimer);
           target.removeEventListener('mouseleave', hide);
         };
         target.addEventListener('mouseleave', hide);
         autoHideTimer = setTimeout(hide, 5000);
       }, true);
+
+      document.addEventListener('focusin', e => {
+        const target = e.target.closest('[data-tooltip]');
+        if (!target) return;
+
+        const tt = showTooltip(target);
+        let autoHideTimer;
+        const hide = () => {
+          hideTooltip(tt, target, autoHideTimer);
+          target.removeEventListener('blur', hide);
+        };
+        target.addEventListener('blur', hide);
+        autoHideTimer = setTimeout(hide, 5000);
+      }, true);
+
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && activeTooltip) {
+          activeTooltip.remove();
+          activeTooltip = null;
+        }
+      });
     }
 
     // ── Footer Models ──────────────────────────────────────────────────
