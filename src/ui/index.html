@@ -1205,7 +1205,10 @@
       try {
         const data = await fetch(`/api/models?provider=${encodeURIComponent(provider)}`).then(r => r.json());
         const models = Array.isArray(data) ? data : (data.models || []);
-        const options = placeholder + models.map(m => `<option value="${m}">${m}</option>`).join('');
+        const options = placeholder + models.map(m => {
+          const name = (typeof m === 'string') ? m : m.name;
+          return `<option value="${name}">${name}</option>`;
+        }).join('');
         [crawlModel, pipelineModel, reasoningModel].forEach(s => s.innerHTML = options);
         updateIndicatorModelCount(provider, models.length);
       } catch (e) {
@@ -1220,9 +1223,14 @@
       try {
         const data = await fetch('/api/converters').then(r => r.json());
         const converters = Array.isArray(data) ? data : (data.converters || []);
+        const defaultConverter = (!Array.isArray(data) && data.default) ? data.default : null;
         const sel = $('converter');
         if (converters.length > 0) {
-          sel.innerHTML = converters.map(c => `<option value="${c}">${c}</option>`).join('');
+          sel.innerHTML = converters.map(c => {
+            const name = (typeof c === 'string') ? c : c.name;
+            return `<option value="${name}">${name}</option>`;
+          }).join('');
+          if (defaultConverter) sel.value = defaultConverter;
         }
       } catch (e) {
         console.warn('GET /api/converters failed', e);
