@@ -195,8 +195,8 @@
       color: var(--text-dim);
     }
 
-    footer a { color: var(--accent); text-decoration: none; }
-    footer a:hover { color: var(--accent-hover); }
+    footer a { color: var(--text-dim); text-decoration: none; }
+    footer a:hover { color: var(--text); }
 
     .footer-version { display: flex; align-items: center; gap: 8px; }
     .footer-models { font-size: 10px; color: var(--text-muted); }
@@ -676,12 +676,8 @@
       line-height: 1;
       letter-spacing: -0.03em;
       flex-shrink: 0;
+      color: var(--text);
     }
-
-    .metric-number.complete { color: var(--ok); }
-    .metric-number.partial  { color: var(--warn); }
-    .metric-number.failed   { color: var(--err); }
-    .metric-number.retried  { color: var(--info); }
 
     .metric-label {
       font-size: 9px;
@@ -1068,19 +1064,19 @@
       <!-- B. Mission Report 2×2 grid -->
       <div class="mission-report">
         <div class="metric-card">
-          <div class="metric-number complete" id="stat-complete">0</div>
+          <div class="metric-number" id="stat-complete">0</div>
           <div class="metric-label">COMPLETE</div>
         </div>
         <div class="metric-card">
-          <div class="metric-number partial" id="stat-partial">0</div>
+          <div class="metric-number" id="stat-partial">0</div>
           <div class="metric-label">PARTIAL</div>
         </div>
         <div class="metric-card">
-          <div class="metric-number failed" id="stat-failed">0</div>
+          <div class="metric-number" id="stat-failed">0</div>
           <div class="metric-label">FAILED</div>
         </div>
         <div class="metric-card">
-          <div class="metric-number retried" id="stat-retried">0</div>
+          <div class="metric-number" id="stat-retried">0</div>
           <div class="metric-label">RETRIED</div>
         </div>
       </div>
