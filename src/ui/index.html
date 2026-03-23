@@ -688,6 +688,32 @@
     }
 
     /* ─── Job History ─────────────────────────────────────────────────── */
+    .log-console {
+      flex: 0 0 130px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-top: 1px solid var(--border);
+      background: var(--bg-section);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-mid) transparent;
+      padding: 6px 10px;
+    }
+    .log-line {
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--text-dim);
+      white-space: pre-wrap;
+      word-break: break-all;
+      padding: 1px 0;
+    }
+    .log-line.phase { color: var(--text-muted); font-style: italic; }
+    .log-line.error { color: var(--err); }
+    .log-empty-msg {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+
     .job-history {
       display: flex;
       flex-direction: column;
@@ -1073,7 +1099,12 @@
         </div>
       </div>
 
-      <!-- C. Job History (fills remaining space) -->
+      <!-- C. Live log console -->
+      <div class="log-console" id="logConsole">
+        <div class="log-empty-msg" id="logEmpty">No output</div>
+      </div>
+
+      <!-- D. Job History (fills remaining space) -->
       <div class="job-history">
         <input type="search" class="job-history-filter" id="jobHistoryFilter"
           placeholder="Search job ID or URL…" autocomplete="off">
@@ -1155,7 +1186,9 @@
         const dot = $(dotId);
         if (!dot) return;
         const p = find(providerId);
-        dot.classList.toggle('offline', !p || !p.configured);
+        const ok = !!p && p.configured;
+        dot.classList.toggle('online',  ok);
+        dot.classList.toggle('offline', !ok);
       };
       updateIndicator('dot-ollama',   'ollama');
       updateIndicator('dot-lmstudio', 'lmstudio');
@@ -1288,6 +1321,7 @@
 
       setExecuteState('running');
       resetMissionReport();
+      clearLog();
 
       let jobId;
       try {
@@ -1298,13 +1332,18 @@
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || `HTTP ${res.status}`);
+          const msg = Array.isArray(err.detail)
+            ? err.detail.map(e => e.msg || JSON.stringify(e)).join('; ')
+            : (err.detail || `HTTP ${res.status}`);
+          throw new Error(msg);
         }
         const data = await res.json();
-        jobId = data.job_id;
+        jobId = data.id;
       } catch (e) {
         console.error('POST /api/jobs failed', e);
+        appendLog(e.message, 'error');
         setExecuteState('idle');
+        setActiveIdle();
         return;
       }
 
@@ -1322,9 +1361,8 @@
 
       eventSource.addEventListener('phase_change', e => {
         const data = JSON.parse(e.data);
-        if (data.current_url) {
-          setActiveUrl(data.current_url);
-        }
+        if (data.message) appendLog(`[${data.phase}] ${data.message}`, 'phase');
+        if (data.current_url) setActiveUrl(data.current_url);
         if (typeof data.pages_completed === 'number') {
           $('stat-complete').textContent = data.pages_completed;
         }
@@ -1333,8 +1371,14 @@
         }
       });
 
+      eventSource.addEventListener('log', e => {
+        const data = JSON.parse(e.data);
+        if (data.message) appendLog(data.message);
+      });
+
       eventSource.addEventListener('job_done', e => {
         const data = JSON.parse(e.data);
+        if (data.message) appendLog(data.message);
         updateMissionReport(data);
         updateControlButtons(data.status);
         setActiveIdle();
@@ -1349,6 +1393,7 @@
         if (!eventSource) return; // already closed by job_done
         eventSource.close();
         eventSource = null;
+        appendLog('Connection lost', 'error');
         updateControlButtons('failed');
         setActiveIdle();
       };
@@ -1368,6 +1413,22 @@
     function resetMissionReport() {
       ['stat-complete','stat-partial','stat-failed','stat-retried']
         .forEach(id => $(id).textContent = '0');
+    }
+
+    function appendLog(msg, type) {
+      const console = $('logConsole');
+      const empty = $('logEmpty');
+      if (empty) empty.remove();
+      const line = document.createElement('div');
+      line.className = 'log-line' + (type ? ' ' + type : '');
+      line.textContent = msg;
+      console.appendChild(line);
+      console.scrollTop = console.scrollHeight;
+    }
+
+    function clearLog() {
+      const console = $('logConsole');
+      console.innerHTML = '<div class="log-empty-msg" id="logEmpty">No output</div>';
     }
 
     function setActiveUrl(url) {
@@ -1574,7 +1635,7 @@
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
-          const jobId = data.job_id;
+          const jobId = data.id;
           currentJobId = jobId;
           addJobToHistory({ id: jobId, status: 'running', url: path, ts: Date.now() });
           openEventSource(jobId);
