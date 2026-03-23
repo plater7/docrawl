@@ -1225,32 +1225,6 @@
       }
     }
 
-    // ── renderJobList ─────────────────────────────────────────────────
-    function renderJobList() {
-      const q = jobHistoryFilter.value.trim().toLowerCase();
-      const filtered = q
-        ? jobHistory.filter(j => j.id.includes(q) || (j.url || '').toLowerCase().includes(q))
-        : jobHistory;
-
-      if (filtered.length === 0) {
-        jobList.innerHTML = '<div class="job-empty">No jobs yet</div>';
-        return;
-      }
-
-      jobList.innerHTML = filtered.map(j => {
-        const idClass = j.status === 'running' ? 'job-id running' : 'job-id';
-        const dotClass = { running: 'running', completed: 'completed', failed: 'failed', cancelled: 'failed', paused: 'partial' }[j.status] || '';
-        const ts = j.ts ? new Date(j.ts).toLocaleTimeString() : '';
-        return `
-          <div class="job-item" data-id="${j.id}">
-            <span class="${idClass}">#${j.id.slice(0, 8)}</span>
-            <span class="job-status-badge ${dotClass}" title="${j.status}"></span>
-            <span class="job-url" title="${j.url || ''}">${j.url || '—'}</span>
-            <span class="job-timestamp">${ts}</span>
-          </div>`;
-      }).join('');
-    }
-
     function initJobHistoryFilter() {
       jobHistoryFilter.addEventListener('input', renderJobList);
     }
