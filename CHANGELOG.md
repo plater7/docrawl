@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump ossf/scorecard-action from 2.4.1 to 2.4.3** ([#196](https://github.com/plater7/docrawl/pull/196))
 - **ci: bump softprops/action-gh-release from 2.5.0 to 2.6.1** ([#197](https://github.com/plater7/docrawl/pull/197))
 - **ci: bump github/codeql-action from 3.32.5 to 4.33.0** ([#198](https://github.com/plater7/docrawl/pull/198))
+- **feat(ui): redesign — single industrial theme, full API coverage, no scroll** ([#202](https://github.com/plater7/docrawl/pull/202))
 
 ## [v0.9.99] - 2026-03-14
 
