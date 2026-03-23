@@ -39,8 +39,6 @@
       --warn-dim:     rgba(158,134,56,0.25);
       --err:          #a05050;
       --err-dim:      rgba(160,80,80,0.25);
-      --info:         #4f7a9a;
-      --info-dim:     rgba(79,122,154,0.25);
 
       --font: 'IBM Plex Mono', 'Courier New', monospace;
       --r: 2px;
@@ -250,7 +248,7 @@
 
     input:focus, select:focus {
       border-color: var(--accent-dim);
-      background: #1c1c1c;
+      background: var(--bg-raised);
     }
 
     input::placeholder { color: var(--text-muted); }
@@ -268,13 +266,13 @@
       font-size: var(--fs-url);
       padding: 10px 12px;
       border-color: var(--border-hi);
-      background: #1a1a1a;
+      background: var(--bg-input);
       letter-spacing: 0.01em;
     }
 
     #crawlUrl:focus {
       border-color: var(--accent);
-      background: #1c1c1c;
+      background: var(--bg-raised);
     }
 
     /* ─── Field Wrap (label + input stacked) ─────────────────────────── */
@@ -325,7 +323,7 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       background: var(--accent);
-      color: #0f0f0f;
+      color: var(--bg-section);
       border: none;
       border-radius: var(--r);
       cursor: pointer;
@@ -340,6 +338,7 @@
 
     .btn-execute:hover:not(:disabled) { background: var(--accent-hover); }
     .btn-execute:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-execute:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .btn-ghost {
       flex: 1;
@@ -366,6 +365,7 @@
     }
 
     .btn-ghost:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-ghost:focus-visible { outline: 2px solid var(--border-mid); outline-offset: 2px; }
 
     .btn-cancel {
       color: var(--err);
@@ -425,7 +425,7 @@
       top: 1px;
       width: 4px;
       height: 7px;
-      border: 1.5px solid #0d0d0d;
+      border: 1.5px solid var(--bg);
       border-top: none;
       border-left: none;
       transform: rotate(45deg);
@@ -781,7 +781,7 @@
       flex-shrink: 0;
     }
 
-    .job-status-badge.complete  { background: var(--ok); }
+    .job-status-badge.completed { background: var(--ok); }
     .job-status-badge.partial   { background: var(--warn); }
     .job-status-badge.failed    { background: var(--err); }
     .job-status-badge.running   { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
@@ -845,14 +845,6 @@
       line-height: 1.4;
     }
 
-    /* ─── Utility ─────────────────────────────────────────────────────── */
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0,0,0,0);
-    }
   </style>
 </head>
 <body>
@@ -904,15 +896,15 @@
         </select>
         <div class="group-llm-grid">
           <div class="field-wrap">
-            <label>Crawl Model</label>
+            <label for="crawlModel">Crawl Model</label>
             <select id="crawlModel" name="crawl_model"><option value="">—</option></select>
           </div>
           <div class="field-wrap">
-            <label>Pipeline Model</label>
+            <label for="pipelineModel">Pipeline Model</label>
             <select id="pipelineModel" name="pipeline_model"><option value="">—</option></select>
           </div>
           <div class="field-wrap">
-            <label>Reasoning Model</label>
+            <label for="reasoningModel">Reasoning Model</label>
             <select id="reasoningModel" name="reasoning_model"><option value="">—</option></select>
           </div>
         </div>
@@ -959,17 +951,17 @@
         <div class="group-header">// OPTIONS</div>
         <div class="options-2col">
           <div class="field-wrap">
-            <label data-tooltip="Delay between requests in milliseconds. Min 100, max 60000.">Request Delay (ms)</label>
+            <label for="delayMs" data-tooltip="Delay between requests in milliseconds. Min 100, max 60000.">Request Delay (ms)</label>
             <input type="number" id="delayMs" name="delay_ms" value="1000" min="100" max="60000" step="100"
               data-tooltip="Delay between requests in milliseconds. Min 100, max 60000.">
           </div>
           <div class="field-wrap">
-            <label data-tooltip="Maximum concurrent HTTP requests. Min 1, max 10.">Max Concurrent</label>
+            <label for="maxConcurrent" data-tooltip="Maximum concurrent HTTP requests. Min 1, max 10.">Max Concurrent</label>
             <input type="number" id="maxConcurrent" name="max_concurrent" value="5" min="1" max="10"
               data-tooltip="Maximum concurrent HTTP requests. Min 1, max 10.">
           </div>
           <div class="field-wrap">
-            <label data-tooltip="Maximum crawl depth from the start URL.">Max Depth</label>
+            <label for="maxDepth" data-tooltip="Maximum crawl depth from the start URL.">Max Depth</label>
             <input type="number" id="maxDepth" name="max_depth" value="10" min="1" max="20"
               data-tooltip="Maximum crawl depth from the start URL.">
           </div>
@@ -993,7 +985,7 @@
           <input type="checkbox" id="nativeMarkdown" name="native_markdown"> Native Markdown
         </label>
         <div class="field-wrap" style="margin-top: 6px;">
-          <label>Converter</label>
+          <label for="converter">Converter</label>
           <select id="converter" name="converter" class="converter-select">
             <option value="markdownify">markdownify</option>
           </select>
@@ -1017,7 +1009,7 @@
           </div>
 
           <div class="chip-field">
-            <label>Content Selectors <span class="chip-count">(max 20)</span></label>
+            <label for="contentSelectorsInput">Content Selectors <span class="chip-count">(max 20)</span></label>
             <div class="chip-input-container" id="contentSelectorsContainer">
               <input type="text" class="chip-input" id="contentSelectorsInput"
                 placeholder="Enter CSS selector, press Enter"
@@ -1027,7 +1019,7 @@
           </div>
 
           <div class="chip-field">
-            <label>Noise Selectors <span class="chip-count">(max 20)</span></label>
+            <label for="noiseSelectorInput">Noise Selectors <span class="chip-count">(max 20)</span></label>
             <div class="chip-input-container" id="noiseSelectorContainer">
               <input type="text" class="chip-input" id="noiseSelectorInput"
                 placeholder="Enter CSS selector, press Enter"
@@ -1036,8 +1028,8 @@
             </div>
           </div>
 
-          <div class="chip-field resume-state-wrap">
-            <label>Resume from State</label>
+          <div class="resume-state-wrap">
+            <label for="resumeStatePath">Resume from State</label>
             <input type="text" id="resumeStatePath" name="resume_state_path"
               placeholder="/path/to/.job_state.json">
             <button class="btn-ghost btn-resume-state" id="btnResumeState" type="button" disabled>
