@@ -1258,6 +1258,12 @@
     // ── DOMContentLoaded ──────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async () => {
       await Promise.all([loadInfo(), loadProviders(), loadConverters()]);
+      // Task 5 defines these — guard ensures they wire up once added:
+      if (typeof initTooltips            === 'function') initTooltips();
+      if (typeof initChipInputs          === 'function') initChipInputs();
+      if (typeof initAdvancedToggle      === 'function') initAdvancedToggle();
+      if (typeof initMarkdownProxyToggle === 'function') initMarkdownProxyToggle();
+      if (typeof initResumeStateButton   === 'function') initResumeStateButton();
       initJobHistoryFilter();
       renderJobList();
     });
