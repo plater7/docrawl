@@ -1111,6 +1111,10 @@
     let currentJobId = null;
     let eventSource = null;
 
+    const esc = s => String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
     // ── DOM reference shortcuts ───────────────────────────────────────
     const $ = id => document.getElementById(id);
 
@@ -1334,6 +1338,7 @@
       });
 
       eventSource.onerror = () => {
+        if (!eventSource) return; // already closed by job_done
         eventSource.close();
         eventSource = null;
         updateControlButtons('failed');
@@ -1414,15 +1419,17 @@
     }
 
     btnPause.addEventListener('click', async () => {
-      if (!currentJobId) return;
-      await fetch(`/api/jobs/${currentJobId}/pause`, { method: 'POST' });
-      await pollStatus(currentJobId);
+      const id = currentJobId;
+      if (!id) return;
+      await fetch(`/api/jobs/${id}/pause`, { method: 'POST' });
+      await pollStatus(id);
     });
 
     btnResume.addEventListener('click', async () => {
-      if (!currentJobId) return;
-      await fetch(`/api/jobs/${currentJobId}/resume`, { method: 'POST' });
-      await pollStatus(currentJobId);
+      const id = currentJobId;
+      if (!id) return;
+      await fetch(`/api/jobs/${id}/resume`, { method: 'POST' });
+      await pollStatus(id);
       if (eventSource === null && currentJobId) {
         openEventSource(currentJobId);
       }
@@ -1472,7 +1479,7 @@
           <div class="job-item" data-id="${j.id}">
             <span class="${idClass}">#${j.id.slice(0,8)}</span>
             <span class="job-status-badge ${dotClass}" title="${j.status}"></span>
-            <span class="job-url" title="${j.url || ''}">${j.url || '—'}</span>
+            <span class="job-url" title="${esc(j.url || '')}">${esc(j.url) || '—'}</span>
             <span class="job-timestamp">${ts}</span>
           </div>`;
       }).join('');
@@ -1508,8 +1515,14 @@
       const chip = document.createElement('span');
       chip.className = 'chip';
       chip.dataset.value = value;
-      chip.innerHTML = `${value} <span class="chip-remove" role="button" aria-label="Remove">×</span>`;
-      chip.querySelector('.chip-remove').addEventListener('click', () => chip.remove());
+      chip.appendChild(document.createTextNode(value + ' '));
+      const rm = document.createElement('span');
+      rm.className = 'chip-remove';
+      rm.setAttribute('role', 'button');
+      rm.setAttribute('aria-label', 'Remove');
+      rm.textContent = '×';
+      rm.addEventListener('click', () => chip.remove());
+      chip.appendChild(rm);
       container.insertBefore(chip, input);
     }
 
