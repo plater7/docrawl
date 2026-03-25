@@ -297,10 +297,15 @@ async def health_ready() -> dict:
         )
     except Exception as e:
         checks["write_permissions"] = {"status": "error", "message": str(e)}
-        issues.append(f"Write permission check failed: {e}")
+        issues.append("Write permission check failed")  # avoid leaking exception details
 
     ready = len(issues) == 0 and checks.get("ollama", {}).get("status") == "ok"
 
+    # issues list is safe — contains only human-readable status strings.
+    # OLLAMA_URL/LMSTUDIO_URL are operator-controlled config values, not internal paths.
+    # data_path is always the fixed constant /data.
+    # Exception messages in "Disk space check failed" / "Write permission check failed"
+    # are intentionally stripped of {e} detail to prevent OS-level path leaks.
     if not ready:
         raise HTTPException(
             status_code=503,
