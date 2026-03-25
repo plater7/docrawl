@@ -146,6 +146,16 @@ app.add_middleware(
 # ── Security headers — closes CONS-022 / issue #68 ───────────────────────────
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        """
+        Add security and API-version headers to the response returned by the downstream handler.
+        
+        Parameters:
+            request (Request): The incoming HTTP request.
+            call_next (Callable): The downstream request handler to invoke.
+        
+        Returns:
+            Response: The downstream response with security headers set (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Content-Security-Policy) and X-API-Version.
+        """
         response: Response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -153,7 +163,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline'; "
-            "style-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
             "connect-src 'self';"
         )
         response.headers["X-API-Version"] = API_VERSION
