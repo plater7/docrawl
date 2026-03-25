@@ -110,6 +110,379 @@ async def _log(job: Job, event_type: str, data: dict) -> None:
             logger.info(full_msg)
 
 
+async def _process_page(
+    i: int,
+    url: str,
+    *,
+    job: "Job",
+    request: "JobRequest",
+    sem: asyncio.Semaphore,
+    counter_lock: asyncio.Lock,
+    counters: dict,
+    output_path: "Path",
+    scraper: "PageScraper",
+    page_pool: "PagePool | None",
+    page_cache: "PageCache | None",
+    converter: "MarkdownConverter",
+    urls: list,
+    base_url: str,
+    delay_s: float,
+    seen_hashes: "set[str]",
+    hash_lock: asyncio.Lock,
+    url_track_lock: asyncio.Lock,
+    completed_urls: list,
+    failed_urls: list,
+) -> None:
+    """Process a single page: scrape, clean, save. Called concurrently via asyncio.gather."""
+    async with sem:
+        # PR 3.1: suspend until job is resumed (no-op if running)
+        await job.wait_if_paused()
+
+        if job.is_cancelled:
+            return
+
+        job.current_url = url
+        page_start = time.monotonic()
+
+        # Scraping sub-phase
+        await _log(
+            job,
+            "phase_change",
+            {
+                "phase": "scraping",
+                "message": "Loading page...",
+                "progress": f"{i + 1}/{len(urls)}",
+                "url": url,
+            },
+        )
+
+        try:
+            markdown = None
+            native_token_count = None
+            raw_html: str | None = None  # PR 3.2: kept for structured output
+            fetch_method = "playwright"
+            load_time = 0.0
+
+            # PR 2.4: check cache before any network call
+            if page_cache is not None:
+                cached_html = page_cache.get(url)
+                if cached_html is not None:
+                    markdown = converter.convert(cached_html)  # PR 3.4
+                    fetch_method = "cache"
+                    load_time = time.monotonic() - page_start
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] [cache] Served from cache {url} ({load_time:.2f}s)",
+                        },
+                    )
+
+            # Try native markdown via content negotiation
+            if request.use_native_markdown:
+                md_content, token_count = await fetch_markdown_native(url)
+                if md_content:
+                    markdown = md_content
+                    native_token_count = token_count
+                    fetch_method = "native"
+                    async with counter_lock:
+                        counters["native_md"] += 1
+                    load_time = time.monotonic() - page_start
+                    token_info = (
+                        f", {token_count} tokens" if token_count else ""
+                    )
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] [native-md] Skipped Playwright for {url} ({load_time:.1f}s{token_info})",
+                        },
+                    )
+
+            # Try markdown proxy as fallback
+            if markdown is None and request.use_markdown_proxy:
+                proxy_url = request.markdown_proxy_url or "https://markdown.new"
+                md_content, _ = await fetch_markdown_proxy(url, proxy_url)
+                if md_content:
+                    markdown = md_content
+                    fetch_method = "proxy"
+                    async with counter_lock:
+                        counters["proxy_md"] += 1
+                    load_time = time.monotonic() - page_start
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] [proxy-md] Fetched via proxy for {url} ({load_time:.1f}s)",
+                        },
+                    )
+
+            # HTTP fast-path: try plain HTTP before Playwright (PR 1.3)
+            if markdown is None and request.use_http_fast_path:
+                fast_md = await fetch_html_fast(url)
+                if fast_md:
+                    markdown = fast_md
+                    fetch_method = "http_fast"
+                    async with counter_lock:
+                        counters["http_fast"] += 1
+                    load_time = time.monotonic() - page_start
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] [http-fast] Skipped Playwright for {url} ({load_time:.1f}s)",
+                        },
+                    )
+
+            # Fall back to Playwright with retries (pass pool if available — PR 1.2)
+            if markdown is None:
+                for _attempt in range(MAX_SCRAPE_RETRIES + 1):
+                    try:
+                        html = await scraper.get_html(
+                            url,
+                            pool=page_pool,
+                            content_selectors=request.content_selectors,
+                            noise_selectors=request.noise_selectors,
+                        )
+                        break
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as _e:
+                        if job.is_cancelled:
+                            raise asyncio.CancelledError()
+                        if _attempt < MAX_SCRAPE_RETRIES:
+                            _wait = 2**_attempt
+                            logger.warning(
+                                f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
+                                f"failed for {url}: {_e}. Retrying in {_wait}s..."
+                            )
+                            async with counter_lock:
+                                job.pages_retried += 1
+                            await asyncio.sleep(_wait)
+                        else:
+                            raise
+                raw_html = html  # PR 3.2: keep for structured output
+                load_time = time.monotonic() - page_start
+                markdown = converter.convert(html)  # PR 3.4
+                async with counter_lock:
+                    counters["playwright"] += 1
+                # PR 2.4: cache the raw HTML (only if not blocked — checked below)
+                if page_cache is not None:
+                    if not is_blocked_response(markdown):
+                        page_cache.put(url, html)
+
+            # PR 2.3: check for blocked response (bot-check pages)
+            if is_blocked_response(markdown):
+                async with counter_lock:
+                    job.pages_blocked += 1
+                    job.pages_completed += 1
+                await _log(
+                    job,
+                    "log",
+                    {
+                        "phase": "scraping",
+                        "message": f"[{i + 1}/{len(urls)}] ⚠ blocked response detected, skipping {url}",
+                        "level": "warning",
+                    },
+                )
+                return
+
+            # PR 2.3: content dedup — skip near-identical pages
+            h = content_hash(markdown)
+            async with hash_lock:
+                if h in seen_hashes:
+                    async with counter_lock:
+                        job.pages_skipped += 1
+                        job.pages_completed += 1
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] ⚡ duplicate content, skipping {url}",
+                        },
+                    )
+                    return
+                seen_hashes.add(h)
+
+            chunks = chunk_markdown(
+                markdown, native_token_count=native_token_count
+            )
+
+            await _log(
+                job,
+                "log",
+                {
+                    "phase": "scraping",
+                    "message": f"[{i + 1}/{len(urls)}] Loaded {url} ({load_time:.1f}s, {len(chunks)} chunks, {fetch_method})",
+                },
+            )
+
+            # Cleanup sub-phase
+            cleaned_chunks: list[str] = []
+            chunks_failed = 0
+
+            # Skip when the converter already produces clean Markdown (ReaderLM)
+            # or when the caller explicitly opts out via skip_llm_cleanup.
+            _READERLM_CONVERTERS = {"readerlm", "readerlm-v1"}
+            _skip_cleanup = getattr(request, "skip_llm_cleanup", False) or (
+                request.converter in _READERLM_CONVERTERS
+            )
+            # Narrow type for mypy: pipeline_model is non-None when cleanup runs
+            # (enforced by JobRequest.validate_models_required)
+            _pipeline_model: str = request.pipeline_model or ""
+            if request.output_format == "json" or _skip_cleanup:
+                # PR 3.2: skip LLM cleanup entirely for JSON output
+                cleaned_chunks = list(chunks)
+            else:
+                await _log(
+                    job,
+                    "phase_change",
+                    {
+                        "phase": "cleanup",
+                        "active_model": request.pipeline_model,
+                        "message": f"Cleaning {len(chunks)} chunks...",
+                        "progress": f"{i + 1}/{len(urls)}",
+                        "url": url,
+                    },
+                )
+
+            for ci, chunk in (
+                enumerate(chunks) if request.output_format != "json" else []
+            ):
+                if job.is_cancelled:
+                    break
+
+                # Skip LLM cleanup for already-clean chunks
+                if not needs_llm_cleanup(chunk):
+                    cleaned_chunks.append(chunk)
+                    if len(chunks) > 1:
+                        await _log(
+                            job,
+                            "log",
+                            {
+                                "phase": "cleanup",
+                                "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ⚡ skip (clean)",
+                            },
+                        )
+                    continue
+
+                try:
+                    chunk_start = time.monotonic()
+                    cleaned = await cleanup_markdown(chunk, _pipeline_model)
+                    chunk_time = time.monotonic() - chunk_start
+                    cleaned_chunks.append(cleaned)
+
+                    if len(chunks) > 1:
+                        await _log(
+                            job,
+                            "log",
+                            {
+                                "phase": "cleanup",
+                                "active_model": _pipeline_model,
+                                "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✓ ({chunk_time:.1f}s)",
+                            },
+                        )
+                except Exception:
+                    chunks_failed += 1
+                    cleaned_chunks.append(chunk)
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "cleanup",
+                            "active_model": _pipeline_model,
+                            "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✗ failed, using raw",
+                            "level": "warning",
+                        },
+                    )
+
+            # Save sub-phase
+            md_file_path = _url_to_filepath(url, base_url, output_path)
+
+            if request.output_format == "json" or _skip_cleanup:
+                # PR 3.2: structured JSON output — no LLM cleanup
+                if raw_html is not None:
+                    structured_page = html_to_structured(url, raw_html)
+                else:
+                    structured_page = StructuredPage(
+                        url=url,
+                        title=None,
+                        blocks=[
+                            ContentBlock(type="paragraph", content=markdown)
+                        ],
+                    )
+                json_path = md_file_path.with_suffix(".json")
+                save_structured(structured_page, json_path)
+                file_size = json_path.stat().st_size
+                file_path = json_path
+                chunks_failed = 0  # JSON output never has chunk failures
+            else:
+                # Default markdown output (atomic write via .tmp + rename — closes issue #99)
+                final_md = "\n\n".join(cleaned_chunks)
+                md_file_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp_path = md_file_path.with_suffix(".tmp")
+                tmp_path.write_text(final_md, encoding="utf-8")
+                tmp_path.rename(md_file_path)
+                file_size = md_file_path.stat().st_size
+                file_path = md_file_path
+
+            async with counter_lock:
+                if chunks_failed == 0:
+                    counters["ok"] += 1
+                else:
+                    counters["partial"] += 1
+            async with url_track_lock:
+                completed_urls.append(url)  # PR 3.1
+
+            size_str = (
+                f"{file_size / 1024:.1f} KB"
+                if file_size >= 1024
+                else f"{file_size} B"
+            )
+            rel_path = str(file_path.relative_to(output_path))
+
+            await _log(
+                job,
+                "log",
+                {
+                    "phase": "save",
+                    "message": f"[{i + 1}/{len(urls)}] → {rel_path} ({size_str})"
+                    + (
+                        f" ⚠ {chunks_failed} chunks failed"
+                        if chunks_failed > 0
+                        else " ✓"
+                    ),
+                },
+            )
+
+        except Exception as e:
+            async with counter_lock:
+                counters["failed"] += 1
+            async with url_track_lock:
+                failed_urls.append(url)  # PR 3.1
+            page_time = time.monotonic() - page_start
+            logger.error(f"Failed to process {url}: {e}")
+            await _log(
+                job,
+                "log",
+                {
+                    "phase": "scraping",
+                    "message": f"[{i + 1}/{len(urls)}] ✗ {url}: {e} ({page_time:.1f}s)",
+                    "level": "error",
+                },
+            )
+
+        async with counter_lock:
+            job.pages_completed += 1
+
+        await asyncio.sleep(delay_s)
+
+
 async def run_job(
     job: Job,
     page_pool: PagePool | None = None,
@@ -345,16 +718,6 @@ async def run_job(
         output_path = Path(request.output_path)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        pages_ok = 0
-        pages_partial = 0
-        pages_failed = 0
-        pages_skipped = 0  # PR 2.3: dedup skips
-        pages_blocked = 0  # PR 2.3: bot-check pages
-        pages_native_md = 0
-        pages_proxy_md = 0
-        pages_playwright = 0
-        pages_http_fast = 0  # PR 1.3
-
         # PR 2.3: per-job content dedup state
         seen_hashes: set[str] = set()
         _hash_lock = asyncio.Lock()
@@ -374,358 +737,16 @@ async def run_job(
         sem = asyncio.Semaphore(request.max_concurrent)
         # Lock to protect shared counters and job.pages_completed
         _counter_lock = asyncio.Lock()
-
-        async def _process_page(i: int, url: str) -> None:
-            nonlocal pages_ok, pages_partial, pages_failed, pages_skipped, pages_blocked
-            nonlocal pages_native_md, pages_proxy_md, pages_playwright, pages_http_fast
-
-            async with sem:
-                # PR 3.1: suspend until job is resumed (no-op if running)
-                await job.wait_if_paused()
-
-                if job.is_cancelled:
-                    return
-
-                job.current_url = url
-                page_start = time.monotonic()
-
-                # Scraping sub-phase
-                await _log(
-                    job,
-                    "phase_change",
-                    {
-                        "phase": "scraping",
-                        "message": "Loading page...",
-                        "progress": f"{i + 1}/{len(urls)}",
-                        "url": url,
-                    },
-                )
-
-                try:
-                    markdown = None
-                    native_token_count = None
-                    raw_html: str | None = None  # PR 3.2: kept for structured output
-                    fetch_method = "playwright"
-                    load_time = 0.0
-
-                    # PR 2.4: check cache before any network call
-                    if page_cache is not None:
-                        cached_html = page_cache.get(url)
-                        if cached_html is not None:
-                            markdown = _converter.convert(cached_html)  # PR 3.4
-                            fetch_method = "cache"
-                            load_time = time.monotonic() - page_start
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] [cache] Served from cache {url} ({load_time:.2f}s)",
-                                },
-                            )
-
-                    # Try native markdown via content negotiation
-                    if request.use_native_markdown:
-                        md_content, token_count = await fetch_markdown_native(url)
-                        if md_content:
-                            markdown = md_content
-                            native_token_count = token_count
-                            fetch_method = "native"
-                            async with _counter_lock:
-                                pages_native_md += 1
-                            load_time = time.monotonic() - page_start
-                            token_info = (
-                                f", {token_count} tokens" if token_count else ""
-                            )
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] [native-md] Skipped Playwright for {url} ({load_time:.1f}s{token_info})",
-                                },
-                            )
-
-                    # Try markdown proxy as fallback
-                    if markdown is None and request.use_markdown_proxy:
-                        proxy_url = request.markdown_proxy_url or "https://markdown.new"
-                        md_content, _ = await fetch_markdown_proxy(url, proxy_url)
-                        if md_content:
-                            markdown = md_content
-                            fetch_method = "proxy"
-                            async with _counter_lock:
-                                pages_proxy_md += 1
-                            load_time = time.monotonic() - page_start
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] [proxy-md] Fetched via proxy for {url} ({load_time:.1f}s)",
-                                },
-                            )
-
-                    # HTTP fast-path: try plain HTTP before Playwright (PR 1.3)
-                    if markdown is None and request.use_http_fast_path:
-                        fast_md = await fetch_html_fast(url)
-                        if fast_md:
-                            markdown = fast_md
-                            fetch_method = "http_fast"
-                            async with _counter_lock:
-                                pages_http_fast += 1
-                            load_time = time.monotonic() - page_start
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] [http-fast] Skipped Playwright for {url} ({load_time:.1f}s)",
-                                },
-                            )
-
-                    # Fall back to Playwright with retries (pass pool if available — PR 1.2)
-                    if markdown is None:
-                        for _attempt in range(MAX_SCRAPE_RETRIES + 1):
-                            try:
-                                html = await scraper.get_html(
-                                    url,
-                                    pool=page_pool,
-                                    content_selectors=request.content_selectors,
-                                    noise_selectors=request.noise_selectors,
-                                )
-                                break
-                            except asyncio.CancelledError:
-                                raise
-                            except Exception as _e:
-                                if job.is_cancelled:
-                                    raise asyncio.CancelledError()
-                                if _attempt < MAX_SCRAPE_RETRIES:
-                                    _wait = 2**_attempt
-                                    logger.warning(
-                                        f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
-                                        f"failed for {url}: {_e}. Retrying in {_wait}s..."
-                                    )
-                                    async with _counter_lock:
-                                        job.pages_retried += 1
-                                    await asyncio.sleep(_wait)
-                                else:
-                                    raise
-                        raw_html = html  # PR 3.2: keep for structured output
-                        load_time = time.monotonic() - page_start
-                        markdown = _converter.convert(html)  # PR 3.4
-                        async with _counter_lock:
-                            pages_playwright += 1
-                        # PR 2.4: cache the raw HTML (only if not blocked — checked below)
-                        if page_cache is not None:
-                            if not is_blocked_response(markdown):
-                                page_cache.put(url, html)
-
-                    # PR 2.3: check for blocked response (bot-check pages)
-                    if is_blocked_response(markdown):
-                        async with _counter_lock:
-                            job.pages_blocked += 1
-                            job.pages_completed += 1
-                        await _log(
-                            job,
-                            "log",
-                            {
-                                "phase": "scraping",
-                                "message": f"[{i + 1}/{len(urls)}] ⚠ blocked response detected, skipping {url}",
-                                "level": "warning",
-                            },
-                        )
-                        return
-
-                    # PR 2.3: content dedup — skip near-identical pages
-                    h = content_hash(markdown)
-                    async with _hash_lock:
-                        if h in seen_hashes:
-                            async with _counter_lock:
-                                job.pages_skipped += 1
-                                job.pages_completed += 1
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] ⚡ duplicate content, skipping {url}",
-                                },
-                            )
-                            return
-                        seen_hashes.add(h)
-
-                    chunks = chunk_markdown(
-                        markdown, native_token_count=native_token_count
-                    )
-
-                    await _log(
-                        job,
-                        "log",
-                        {
-                            "phase": "scraping",
-                            "message": f"[{i + 1}/{len(urls)}] Loaded {url} ({load_time:.1f}s, {len(chunks)} chunks, {fetch_method})",
-                        },
-                    )
-
-                    # Cleanup sub-phase
-                    cleaned_chunks: list[str] = []
-                    chunks_failed = 0
-
-                    # Skip when the converter already produces clean Markdown (ReaderLM)
-                    # or when the caller explicitly opts out via skip_llm_cleanup.
-                    _READERLM_CONVERTERS = {"readerlm", "readerlm-v1"}
-                    _skip_cleanup = getattr(request, "skip_llm_cleanup", False) or (
-                        request.converter in _READERLM_CONVERTERS
-                    )
-                    # Narrow type for mypy: pipeline_model is non-None when cleanup runs
-                    # (enforced by JobRequest.validate_models_required)
-                    _pipeline_model: str = request.pipeline_model or ""
-                    if request.output_format == "json" or _skip_cleanup:
-                        # PR 3.2: skip LLM cleanup entirely for JSON output
-                        cleaned_chunks = list(chunks)
-                    else:
-                        await _log(
-                            job,
-                            "phase_change",
-                            {
-                                "phase": "cleanup",
-                                "active_model": request.pipeline_model,
-                                "message": f"Cleaning {len(chunks)} chunks...",
-                                "progress": f"{i + 1}/{len(urls)}",
-                                "url": url,
-                            },
-                        )
-
-                    for ci, chunk in (
-                        enumerate(chunks) if request.output_format != "json" else []
-                    ):
-                        if job.is_cancelled:
-                            break
-
-                        # Skip LLM cleanup for already-clean chunks
-                        if not needs_llm_cleanup(chunk):
-                            cleaned_chunks.append(chunk)
-                            if len(chunks) > 1:
-                                await _log(
-                                    job,
-                                    "log",
-                                    {
-                                        "phase": "cleanup",
-                                        "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ⚡ skip (clean)",
-                                    },
-                                )
-                            continue
-
-                        try:
-                            chunk_start = time.monotonic()
-                            cleaned = await cleanup_markdown(chunk, _pipeline_model)
-                            chunk_time = time.monotonic() - chunk_start
-                            cleaned_chunks.append(cleaned)
-
-                            if len(chunks) > 1:
-                                await _log(
-                                    job,
-                                    "log",
-                                    {
-                                        "phase": "cleanup",
-                                        "active_model": _pipeline_model,
-                                        "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✓ ({chunk_time:.1f}s)",
-                                    },
-                                )
-                        except Exception:
-                            chunks_failed += 1
-                            cleaned_chunks.append(chunk)
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "cleanup",
-                                    "active_model": _pipeline_model,
-                                    "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✗ failed, using raw",
-                                    "level": "warning",
-                                },
-                            )
-
-                    # Save sub-phase
-                    md_file_path = _url_to_filepath(url, base_url, output_path)
-
-                    if request.output_format == "json" or _skip_cleanup:
-                        # PR 3.2: structured JSON output — no LLM cleanup
-                        if raw_html is not None:
-                            structured_page = html_to_structured(url, raw_html)
-                        else:
-                            structured_page = StructuredPage(
-                                url=url,
-                                title=None,
-                                blocks=[
-                                    ContentBlock(type="paragraph", content=markdown)
-                                ],
-                            )
-                        json_path = md_file_path.with_suffix(".json")
-                        save_structured(structured_page, json_path)
-                        file_size = json_path.stat().st_size
-                        file_path = json_path
-                        chunks_failed = 0  # JSON output never has chunk failures
-                    else:
-                        # Default markdown output (atomic write via .tmp + rename — closes issue #99)
-                        final_md = "\n\n".join(cleaned_chunks)
-                        md_file_path.parent.mkdir(parents=True, exist_ok=True)
-                        tmp_path = md_file_path.with_suffix(".tmp")
-                        tmp_path.write_text(final_md, encoding="utf-8")
-                        tmp_path.rename(md_file_path)
-                        file_size = md_file_path.stat().st_size
-                        file_path = md_file_path
-
-                    async with _counter_lock:
-                        if chunks_failed == 0:
-                            pages_ok += 1
-                        else:
-                            pages_partial += 1
-                    async with _url_track_lock:
-                        completed_urls.append(url)  # PR 3.1
-
-                    size_str = (
-                        f"{file_size / 1024:.1f} KB"
-                        if file_size >= 1024
-                        else f"{file_size} B"
-                    )
-                    rel_path = str(file_path.relative_to(output_path))
-
-                    await _log(
-                        job,
-                        "log",
-                        {
-                            "phase": "save",
-                            "message": f"[{i + 1}/{len(urls)}] → {rel_path} ({size_str})"
-                            + (
-                                f" ⚠ {chunks_failed} chunks failed"
-                                if chunks_failed > 0
-                                else " ✓"
-                            ),
-                        },
-                    )
-
-                except Exception as e:
-                    async with _counter_lock:
-                        pages_failed += 1
-                    async with _url_track_lock:
-                        failed_urls.append(url)  # PR 3.1
-                    page_time = time.monotonic() - page_start
-                    logger.error(f"Failed to process {url}: {e}")
-                    await _log(
-                        job,
-                        "log",
-                        {
-                            "phase": "scraping",
-                            "message": f"[{i + 1}/{len(urls)}] ✗ {url}: {e} ({page_time:.1f}s)",
-                            "level": "error",
-                        },
-                    )
-
-                async with _counter_lock:
-                    job.pages_completed += 1
-
-                await asyncio.sleep(delay_s)
+        # Counters dict passed by reference to _process_page (avoids nonlocal)
+        counters: dict = {
+            "ok": 0,
+            "partial": 0,
+            "failed": 0,
+            "native_md": 0,
+            "proxy_md": 0,
+            "http_fast": 0,
+            "playwright": 0,
+        }
 
         # PR 3.3: opt-in pipeline mode (producer/consumer) vs default concurrent scraping
         if request.use_pipeline_mode:
@@ -775,7 +796,41 @@ async def run_job(
                 },
             )
             # Launch all pages concurrently, semaphore controls actual parallelism
-            await asyncio.gather(*[_process_page(i, url) for i, url in enumerate(urls)])
+            await asyncio.gather(
+                *[
+                    _process_page(
+                        i,
+                        url,
+                        job=job,
+                        request=request,
+                        sem=sem,
+                        counter_lock=_counter_lock,
+                        counters=counters,
+                        output_path=output_path,
+                        scraper=scraper,
+                        page_pool=page_pool,
+                        page_cache=page_cache,
+                        converter=_converter,
+                        urls=urls,
+                        base_url=base_url,
+                        delay_s=delay_s,
+                        seen_hashes=seen_hashes,
+                        hash_lock=_hash_lock,
+                        url_track_lock=_url_track_lock,
+                        completed_urls=completed_urls,
+                        failed_urls=failed_urls,
+                    )
+                    for i, url in enumerate(urls)
+                ]
+            )
+            # Unpack counters to locals for job_done event payload
+            pages_ok = counters["ok"]
+            pages_partial = counters["partial"]
+            pages_failed = counters["failed"]
+            pages_native_md = counters["native_md"]
+            pages_proxy_md = counters["proxy_md"]
+            pages_http_fast = counters["http_fast"]
+            pages_playwright = counters["playwright"]
 
         # PR 3.1: save final state checkpoint (completed or paused)
         pending_urls = [
