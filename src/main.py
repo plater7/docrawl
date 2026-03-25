@@ -177,7 +177,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # ── API key auth — closes CONS-003 / issue #48 ───────────────────────────────
 _API_KEY = os.environ.get("API_KEY", "").strip()
 
-_AUTH_EXEMPT = {"/", "/api/health/ready"}
+_AUTH_EXEMPT = {"/", "/api/health/ready", "/api/stats"}
 
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):

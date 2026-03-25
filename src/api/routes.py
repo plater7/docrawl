@@ -268,7 +268,7 @@ async def health_ready() -> dict:
             issues.append("/data directory does not exist")
     except Exception as e:
         checks["disk_space"] = {"status": "error", "message": str(e)}
-        issues.append(f"Disk space check failed: {e}")
+        issues.append("Disk space check failed")  # avoid leaking exception details
 
     # Check write permissions
     try:
@@ -402,6 +402,20 @@ async def resume_from_state(
         pages_total=len(state.pending_urls),
         converter=job_request.converter,
     )
+
+
+@router.get("/stats")
+async def get_stats() -> dict:
+    """In-memory job counters for operator observability."""
+    jobs = list(job_manager._jobs.values())
+    return {
+        "total_jobs": len(jobs),
+        "active_jobs": sum(1 for j in jobs if j.status in ("pending", "running")),
+        "paused_jobs": sum(1 for j in jobs if j.status == "paused"),
+        "completed_jobs": sum(1 for j in jobs if j.status == "completed"),
+        "failed_jobs": sum(1 for j in jobs if j.status == "failed"),
+        "cancelled_jobs": sum(1 for j in jobs if j.status == "cancelled"),
+    }
 
 
 @router.get("/converters")
