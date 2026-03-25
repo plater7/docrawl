@@ -121,11 +121,8 @@ async def run_job(
                If None, falls back to the legacy per-page create/close path.
     resume_urls: if provided, skip discovery/filtering and process only these URLs (PR 3.1).
     """
-    # TODO: reasoning_model will be used for:
-    # - Site structure analysis before crawling
-    # - Complex content filtering (language selection, cross-page dedup)
-    # - Documentation quality assessment
-    # Currently unused, passed through for future pipeline stages
+    # Reserved for future use — see ADR-012 in docs/DECISIONS.md.
+    # reasoning_model is intentionally unused in the current pipeline.
     job.status = "running"
     request = job.request
     base_url = str(request.url)

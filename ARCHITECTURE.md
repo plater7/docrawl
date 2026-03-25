@@ -1,6 +1,6 @@
 # Architecture
 
-> DocRawl v0.9.10 — Documentation Crawler with LLM-powered cleanup
+> DocRawl v0.10.0 — Documentation Crawler with LLM-powered cleanup
 
 ## Overview
 
