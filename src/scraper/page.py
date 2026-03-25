@@ -174,6 +174,9 @@ class PageScraper:  # pragma: no cover
             self._browser = None
             logger.info("Browser stopped")
         if self._playwright is not None:
+            # type: ignore: _playwright is typed as object, but at runtime it is an
+            # AsyncPlaywright context manager. The narrowing guard (is not None) makes
+            # this safe, and calling .stop() is the correct cleanup for the context.
             await self._playwright.stop()  # type: ignore[union-attr,attr-defined]
             self._playwright = None
 
