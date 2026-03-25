@@ -2,7 +2,7 @@
 
 import pytest
 import httpx
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.scraper.page import fetch_markdown_native, fetch_markdown_proxy
 from src.scraper.markdown import chunk_markdown
@@ -115,3 +115,21 @@ async def test_fetch_markdown_proxy_blocks_private_ip():
     with patch("src.utils.security.socket.gethostbyname", return_value="10.0.0.1"):
         with pytest.raises(ValueError, match="private/internal"):
             await fetch_markdown_proxy("http://10.0.0.1/", "https://markdown.new")
+
+
+@pytest.mark.asyncio
+async def test_fetch_markdown_proxy_returns_none_for_short_response():
+    """fetch_markdown_proxy returns (None, None) when response body is <=100 chars."""
+    with patch("src.scraper.page.validate_url_not_ssrf"):
+        with patch("src.scraper.page.httpx.AsyncClient") as MockClient:
+            client_instance = AsyncMock()
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.text = "short"
+            client_instance.get = AsyncMock(return_value=resp)
+            client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+            client_instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = client_instance
+            content, token_count = await fetch_markdown_proxy("https://example.com/page")
+    assert content is None
+    assert token_count is None

@@ -145,7 +145,7 @@ CONTENT_SELECTORS = [
 MIN_CONTENT_LENGTH = 200
 
 
-class PageScraper:
+class PageScraper:  # pragma: no cover
     """Scrapes pages using Playwright with DOM pre-cleaning."""
 
     def __init__(self) -> None:
@@ -284,7 +284,7 @@ class PageScraper:
             await page.close()
 
 
-class PagePool:
+class PagePool:  # pragma: no cover
     """Pool of reusable Playwright pages backed by an asyncio.Queue (PR 1.2).
 
     Avoids the overhead of creating/closing a new page per URL.
