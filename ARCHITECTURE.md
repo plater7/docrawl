@@ -259,4 +259,4 @@ LM Studio is the 4th LLM provider, using the OpenAI-compatible API path:
 
 ---
 
-*This document describes DocRawl v0.9.10. For the full code snapshot, see `SNAPSHOT.md`.*
+*This document describes DocRawl v0.10.0. For the full code snapshot, see `SNAPSHOT.md`.*

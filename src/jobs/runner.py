@@ -168,6 +168,7 @@ async def _process_page(
                 cached_html = page_cache.get(url)
                 if cached_html is not None:
                     markdown = converter.convert(cached_html)  # PR 3.4
+                    raw_html = cached_html  # preserve for structured JSON output
                     fetch_method = "cache"
                     load_time = time.monotonic() - page_start
                     await _log(
@@ -189,9 +190,7 @@ async def _process_page(
                     async with counter_lock:
                         counters["native_md"] += 1
                     load_time = time.monotonic() - page_start
-                    token_info = (
-                        f", {token_count} tokens" if token_count else ""
-                    )
+                    token_info = f", {token_count} tokens" if token_count else ""
                     await _log(
                         job,
                         "log",
@@ -280,6 +279,8 @@ async def _process_page(
                 async with counter_lock:
                     job.pages_blocked += 1
                     job.pages_completed += 1
+                async with url_track_lock:
+                    failed_urls.append(url)
                 await _log(
                     job,
                     "log",
@@ -298,6 +299,8 @@ async def _process_page(
                     async with counter_lock:
                         job.pages_skipped += 1
                         job.pages_completed += 1
+                    async with url_track_lock:
+                        completed_urls.append(url)
                     await _log(
                         job,
                         "log",
@@ -309,9 +312,7 @@ async def _process_page(
                     return
                 seen_hashes.add(h)
 
-            chunks = chunk_markdown(
-                markdown, native_token_count=native_token_count
-            )
+            chunks = chunk_markdown(markdown, native_token_count=native_token_count)
 
             await _log(
                 job,
@@ -335,8 +336,9 @@ async def _process_page(
             # Narrow type for mypy: pipeline_model is non-None when cleanup runs
             # (enforced by JobRequest.validate_models_required)
             _pipeline_model: str = request.pipeline_model or ""
-            if request.output_format == "json" or _skip_cleanup:
-                # PR 3.2: skip LLM cleanup entirely for JSON output
+            if _skip_cleanup or request.output_format == "json":
+                # Skip LLM cleanup: either converter produces clean markdown already,
+                # caller opted out via skip_llm_cleanup, or output is JSON (no LLM needed).
                 cleaned_chunks = list(chunks)
             else:
                 await _log(
@@ -352,7 +354,9 @@ async def _process_page(
                 )
 
             for ci, chunk in (
-                enumerate(chunks) if request.output_format != "json" else []
+                enumerate(chunks)
+                if not _skip_cleanup and request.output_format != "json"
+                else []
             ):
                 if job.is_cancelled:
                     break
@@ -404,17 +408,15 @@ async def _process_page(
             # Save sub-phase
             md_file_path = _url_to_filepath(url, base_url, output_path)
 
-            if request.output_format == "json" or _skip_cleanup:
-                # PR 3.2: structured JSON output — no LLM cleanup
+            if request.output_format == "json":
+                # PR 3.2: structured JSON output
                 if raw_html is not None:
                     structured_page = html_to_structured(url, raw_html)
                 else:
                     structured_page = StructuredPage(
                         url=url,
                         title=None,
-                        blocks=[
-                            ContentBlock(type="paragraph", content=markdown)
-                        ],
+                        blocks=[ContentBlock(type="paragraph", content=markdown)],
                     )
                 json_path = md_file_path.with_suffix(".json")
                 save_structured(structured_page, json_path)
@@ -440,9 +442,7 @@ async def _process_page(
                 completed_urls.append(url)  # PR 3.1
 
             size_str = (
-                f"{file_size / 1024:.1f} KB"
-                if file_size >= 1024
-                else f"{file_size} B"
+                f"{file_size / 1024:.1f} KB" if file_size >= 1024 else f"{file_size} B"
             )
             rel_path = str(file_path.relative_to(output_path))
 
@@ -1149,6 +1149,7 @@ async def _run_pipeline_mode(
                     async with _counter_lock:
                         job.pages_blocked += 1
                         job.pages_completed += 1
+                    failed_urls.append(url)
                     continue
 
                 # PR 2.3: content dedup
@@ -1158,6 +1159,7 @@ async def _run_pipeline_mode(
                         async with _counter_lock:
                             job.pages_skipped += 1
                             job.pages_completed += 1
+                        completed_urls.append(url)
                         continue
                     seen_hashes.add(h)
 
@@ -1167,8 +1169,8 @@ async def _run_pipeline_mode(
                 _skip_cleanup = getattr(request, "skip_llm_cleanup", False) or (
                     request.converter in _READERLM_CONVERTERS
                 )
-                if request.output_format == "json" or _skip_cleanup:  # noqa: F821
-                    # PR 3.2: structured JSON — no LLM, skip chunking entirely
+                if request.output_format == "json":
+                    # PR 3.2: structured JSON output — no LLM cleanup, write .json
                     if page.raw_html is not None:
                         structured_page = html_to_structured(url, page.raw_html)
                     else:
@@ -1197,7 +1199,7 @@ async def _run_pipeline_mode(
                     if job.is_cancelled:
                         break
                     try:
-                        if needs_llm_cleanup(chunk):
+                        if not _skip_cleanup and needs_llm_cleanup(chunk):
                             cleaned = await cleanup_markdown(chunk, _pipeline_model)
                         else:
                             cleaned = chunk

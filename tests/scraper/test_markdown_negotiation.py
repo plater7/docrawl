@@ -130,6 +130,8 @@ async def test_fetch_markdown_proxy_returns_none_for_short_response():
             client_instance.__aenter__ = AsyncMock(return_value=client_instance)
             client_instance.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = client_instance
-            content, token_count = await fetch_markdown_proxy("https://example.com/page")
+            content, token_count = await fetch_markdown_proxy(
+                "https://example.com/page"
+            )
     assert content is None
     assert token_count is None

@@ -16,7 +16,7 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: read
+  id-token: none
 
 jobs:
   release:

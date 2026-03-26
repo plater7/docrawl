@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - /docs, /redoc, /openapi.json now accessible without API key
 - CVE PYSEC-2024-38 (fastapi) and GHSA-7mpr-5m44-h73r (markdownify) resolved
+- **fix(playwright): use async context managers to prevent browser resource leaks — v1.0.0** ([#150](https://github.com/plater7/docrawl/pull/150))
+- **fix(runner): _generate_index uses / separator for correct relative links — v1.0.0** ([#148](https://github.com/plater7/docrawl/pull/148))
+- **fix(cleanup): raise RuntimeError after max retries so pages_partial counter works — v1.0.0** ([#149](https://github.com/plater7/docrawl/pull/149))
+- **v1.0.0 - Production Ready: Docs, DX, release automation** ([#86](https://github.com/plater7/docrawl/pull/86))
 
 ### Security
 - API key authentication exempts OpenAPI documentation routes
@@ -80,16 +84,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **test(runner): increase coverage from 26% to ≥70%** ([#155](https://github.com/plater7/docrawl/pull/155))
 
 ---
-
-## [v1.0.0] - unreleased
-
-### Fixed
-- **fix(playwright): use async context managers to prevent browser resource leaks — v1.0.0** ([#150](https://github.com/plater7/docrawl/pull/150))
-
----
-- **fix(runner): _generate_index uses / separator for correct relative links — v1.0.0** ([#148](https://github.com/plater7/docrawl/pull/148))
-- **fix(cleanup): raise RuntimeError after max retries so pages_partial counter works — v1.0.0** ([#149](https://github.com/plater7/docrawl/pull/149))
-- **v1.0.0 - Production Ready: Docs, DX, release automation** ([#86](https://github.com/plater7/docrawl/pull/86))
 
 ## [v0.9.10] - 2026-03-04
 ### Added

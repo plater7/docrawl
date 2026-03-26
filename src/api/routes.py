@@ -297,7 +297,9 @@ async def health_ready() -> dict:
         )
     except Exception as e:
         checks["write_permissions"] = {"status": "error", "message": str(e)}
-        issues.append("Write permission check failed")  # avoid leaking exception details
+        issues.append(
+            "Write permission check failed"
+        )  # avoid leaking exception details
 
     ready = len(issues) == 0 and checks.get("ollama", {}).get("status") == "ok"
 
@@ -412,15 +414,7 @@ async def resume_from_state(
 @router.get("/stats")
 async def get_stats() -> dict:
     """In-memory job counters for operator observability."""
-    jobs = list(job_manager._jobs.values())
-    return {
-        "total_jobs": len(jobs),
-        "active_jobs": sum(1 for j in jobs if j.status in ("pending", "running")),
-        "paused_jobs": sum(1 for j in jobs if j.status == "paused"),
-        "completed_jobs": sum(1 for j in jobs if j.status == "completed"),
-        "failed_jobs": sum(1 for j in jobs if j.status == "failed"),
-        "cancelled_jobs": sum(1 for j in jobs if j.status == "cancelled"),
-    }
+    return job_manager.get_stats()
 
 
 @router.get("/converters")

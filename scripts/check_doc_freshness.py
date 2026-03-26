@@ -11,7 +11,11 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 
 # Extract API_VERSION from src/main.py
-source = (ROOT / "src" / "main.py").read_text(encoding="utf-8")
+main_py = ROOT / "src" / "main.py"
+if not main_py.exists():
+    print(f"ERROR: Required file not found: {main_py}")
+    sys.exit(1)
+source = main_py.read_text(encoding="utf-8")
 tree = ast.parse(source)
 api_version = None
 for node in ast.walk(tree):
@@ -26,7 +30,11 @@ if not api_version:
     sys.exit(1)
 
 # Extract version from PROJECT_STATUS.md header
-status_text = (ROOT / "docs" / "PROJECT_STATUS.md").read_text(encoding="utf-8")
+status_md = ROOT / "docs" / "PROJECT_STATUS.md"
+if not status_md.exists():
+    print(f"ERROR: Required file not found: {status_md}")
+    sys.exit(1)
+status_text = status_md.read_text(encoding="utf-8")
 m = re.search(r"DocRawl v([\d]+\.[\d]+\.?[\d]*)", status_text)
 if not m:
     print("ERROR: Could not find version pattern in docs/PROJECT_STATUS.md")

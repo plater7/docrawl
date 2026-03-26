@@ -5,7 +5,7 @@ import logging
 import httpx
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from playwright.async_api import async_playwright, Browser, Page
+from playwright.async_api import async_playwright, Browser, Page, Playwright
 
 from src.utils.security import validate_url_not_ssrf
 
@@ -150,7 +150,7 @@ class PageScraper:  # pragma: no cover
 
     def __init__(self) -> None:
         self._browser: Browser | None = None
-        self._playwright: object | None = None  # async_playwright context
+        self._playwright: Playwright | None = None
 
     async def start(self) -> None:
         """Start the browser.
@@ -174,10 +174,7 @@ class PageScraper:  # pragma: no cover
             self._browser = None
             logger.info("Browser stopped")
         if self._playwright is not None:
-            # type: ignore: _playwright is typed as object, but at runtime it is an
-            # AsyncPlaywright context manager. The narrowing guard (is not None) makes
-            # this safe, and calling .stop() is the correct cleanup for the context.
-            await self._playwright.stop()  # type: ignore[union-attr,attr-defined]
+            await self._playwright.stop()
             self._playwright = None
 
     async def _remove_noise(

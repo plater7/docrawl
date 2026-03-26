@@ -115,22 +115,6 @@ Terminal event. Emitted exactly once when the job finishes (success, failure, or
 }
 ```
 
-### `job_cancelled`
-Terminal event when a cancellation is requested via `DELETE /api/jobs/{id}`.
-
-**Fields:**
-- `pages_completed` — number of pages processed before cancellation
-- `pages_total` — total pages in the job
-- `output_path` — path where partial output was written
-
-**Example:**
-```json
-{
-  "event": "job_cancelled",
-  "data": "{\"pages_completed\": 15, \"pages_total\": 47, \"output_path\": \"/tmp/output\"}"
-}
-```
-
 ### `keepalive`
 Sent every ~20 seconds to prevent proxy/browser timeouts. Data is always `{}`.
 
@@ -146,7 +130,7 @@ Sent every ~20 seconds to prevent proxy/browser timeouts. Data is always `{}`.
 
 ## Event Stream Behavior
 
-- **Terminal Events:** `job_done`, `job_cancelled`, and `job_error` (if runner crashes) end the event stream.
+- **Terminal Events:** `job_done` (covers completed, failed, and cancelled outcomes) and `job_error` (if runner crashes) end the event stream.
 - **Auto-Keepalive:** If the job is idle for 20 seconds without emitting any event, a `keepalive` is sent.
 - **No Event Replay:** The backend does not replay missed events. If the client disconnects and reconnects, it will only receive new events.
 - **One-Time Consumption:** Each SSE stream is consumed once per client. Multiple browser tabs connected to the same job stream each receive events independently.
@@ -173,7 +157,7 @@ Use the `job_done` SSE event (not this endpoint) to get final page statistics an
 ## Pause and Resume
 
 - **No SSE Event on Pause/Resume:** Pausing or resuming a job does NOT emit an SSE event.
-- **Poll for State Changes:** Use `GET /api/jobs/{id}/status` to check if a job is `paused` or `running` after calling `PATCH /api/jobs/{id}/pause` or `PATCH /api/jobs/{id}/resume`.
+- **Poll for State Changes:** Use `GET /api/jobs/{id}/status` to check if a job is `paused` or `running` after calling `POST /api/jobs/{id}/pause` or `POST /api/jobs/{id}/resume`.
 - **Progress Resumes:** After resume, scraping continues and `phase_change` events resume with updated progress.
 
 ---

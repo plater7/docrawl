@@ -261,7 +261,7 @@ GET  /api/stats                     # Contadores de jobs: total, activos, comple
 | **Security headers** | Siempre activo | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` |
 
 **Endpoints exentos de autenticación** (accesibles sin `X-Api-Key` incluso con auth activada):
-`/` (UI), `/api/health/ready` (para load balancers), `/api/stats` (contadores agregados, sin datos sensibles).
+`/` (UI), `/api/health/ready` (para load balancers), `/api/stats` (contadores agregados, sin datos sensibles), `/docs`, `/redoc`, `/openapi.json` (documentación OpenAPI).
 
 Para reportar vulnerabilidades: [SECURITY.md](./SECURITY.md).
 

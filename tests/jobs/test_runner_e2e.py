@@ -2,6 +2,7 @@
 
 Exercises the complete happy path with no real network calls and no real Playwright.
 """
+
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
@@ -53,14 +54,28 @@ async def test_run_job_happy_path_completes(tmp_path):
 
     with (
         patch("src.jobs.runner.PageScraper", return_value=mock_scraper),
-        patch("src.jobs.runner.discover_urls", new=AsyncMock(return_value=discovered_urls)),
+        patch(
+            "src.jobs.runner.discover_urls", new=AsyncMock(return_value=discovered_urls)
+        ),
         patch("src.jobs.runner.filter_urls", return_value=discovered_urls),
-        patch("src.jobs.runner.filter_urls_with_llm", new=AsyncMock(return_value=discovered_urls)),
+        patch(
+            "src.jobs.runner.filter_urls_with_llm",
+            new=AsyncMock(return_value=discovered_urls),
+        ),
         patch("src.jobs.runner.validate_models", new=AsyncMock(return_value=[])),
-        patch("src.jobs.runner.fetch_html_fast", new=AsyncMock(return_value=markdown_content)),
-        patch("src.jobs.runner.fetch_markdown_native", new=AsyncMock(return_value=(None, None))),
+        patch(
+            "src.jobs.runner.fetch_html_fast",
+            new=AsyncMock(return_value=markdown_content),
+        ),
+        patch(
+            "src.jobs.runner.fetch_markdown_native",
+            new=AsyncMock(return_value=(None, None)),
+        ),
         patch("src.jobs.runner.needs_llm_cleanup", return_value=False),
-        patch("src.jobs.runner.cleanup_markdown", new=AsyncMock(return_value=markdown_content)),
+        patch(
+            "src.jobs.runner.cleanup_markdown",
+            new=AsyncMock(return_value=markdown_content),
+        ),
         patch("src.jobs.runner.is_blocked_response", return_value=False),
         patch("src.jobs.runner.content_hash", return_value="unique-hash-001"),
         patch("src.jobs.runner.save_job_state"),
@@ -69,7 +84,10 @@ async def test_run_job_happy_path_completes(tmp_path):
         patch("pathlib.Path.write_text"),
         patch("pathlib.Path.rename"),
         patch("pathlib.Path.stat", return_value=MagicMock(st_size=1024)),
-        patch("pathlib.Path.relative_to", return_value=MagicMock(__str__=lambda s: "page1.md")),
+        patch(
+            "pathlib.Path.relative_to",
+            return_value=MagicMock(__str__=lambda s: "page1.md"),
+        ),
     ):
         await run_job(job, page_pool=None)
 
@@ -93,7 +111,10 @@ async def test_run_job_cancelled_mid_run(tmp_path):
 
     with (
         patch("src.jobs.runner.PageScraper", return_value=mock_scraper),
-        patch("src.jobs.runner.discover_urls", new=AsyncMock(side_effect=_cancel_then_return)),
+        patch(
+            "src.jobs.runner.discover_urls",
+            new=AsyncMock(side_effect=_cancel_then_return),
+        ),
         patch("src.jobs.runner.validate_models", new=AsyncMock(return_value=[])),
         patch("src.jobs.runner.save_job_state"),
         patch("pathlib.Path.mkdir"),
