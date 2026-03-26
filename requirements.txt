@@ -1,7 +1,7 @@
-fastapi>=0.109.0
+fastapi>=0.109.1
 uvicorn[standard]>=0.27.0
 playwright>=1.41.0
-markdownify>=0.11.6
+markdownify>=0.14.1
 httpx>=0.26.0
 pydantic>=2.5.0
 sse-starlette>=1.8.0
