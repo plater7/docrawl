@@ -414,7 +414,7 @@ async def resume_from_state(
 @router.get("/stats")
 async def get_stats() -> dict:
     """In-memory job counters for operator observability."""
-    return job_manager.get_stats()
+    return await job_manager.get_stats()
 
 
 @router.get("/converters")

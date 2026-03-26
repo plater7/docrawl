@@ -180,8 +180,8 @@ async def _process_page(
                         },
                     )
 
-            # Try native markdown via content negotiation
-            if request.use_native_markdown:
+            # Try native markdown via content negotiation (skip if cache already populated)
+            if request.use_native_markdown and markdown is None:
                 md_content, token_count = await fetch_markdown_native(url)
                 if md_content:
                     markdown = md_content
@@ -1122,6 +1122,7 @@ async def _run_pipeline_mode(
                 )
             except Exception as e:
                 logger.error(f"Job {job.id}: pipeline producer error for {url}: {e}")
+                failed_urls.append(url)
                 async with _counter_lock:
                     c["failed"] += 1
                     job.pages_completed += 1

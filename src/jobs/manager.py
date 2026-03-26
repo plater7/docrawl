@@ -176,9 +176,10 @@ class JobManager:
             1 for job in self._jobs.values() if job.status in ("pending", "running")
         )
 
-    def get_stats(self) -> dict:
+    async def get_stats(self) -> dict:
         """Return in-memory job counters by status."""
-        jobs = list(self._jobs.values())
+        async with self._jobs_lock:
+            jobs = list(self._jobs.values())
         return {
             "total_jobs": len(jobs),
             "active_jobs": sum(1 for j in jobs if j.status in ("pending", "running")),
