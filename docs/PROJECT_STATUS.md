@@ -1,10 +1,10 @@
 # Project Status
 
-> DocRawl v0.9.10 -- Last updated: 2026-03-09
+> DocRawl v0.10.0 -- Last updated: 2026-03-25
 
 ## Current State
 
-DocRawl is a **functional documentation crawler** in late beta. The core pipeline (discovery -> filter -> scrape -> cleanup -> output) is stable and handles production workloads. The project has mature CI/CD (13 GitHub Actions workflows), structured logging, security hardening, and a web UI.
+DocRawl is a **functional documentation crawler** in late beta. The core pipeline (discovery -> filter -> scrape -> cleanup -> output) is stable and handles production workloads. The project has mature CI/CD (14 GitHub Actions workflows), structured logging, security hardening, and a web UI.
 
 ### What Works
 
@@ -22,7 +22,7 @@ DocRawl is a **functional documentation crawler** in late beta. The core pipelin
 | Page cache (24h TTL, opt-in) | Stable | v0.9.5 |
 | Content dedup (SHA-256 hash) | Stable | v0.9.5 |
 | Bot-detection / blocked page skip | Stable | v0.9.5 |
-| Synthwave web UI (two-column layout) | Stable | v0.9.9 |
+| Industrial dark-theme web UI (two-column layout) | Stable | v0.9.9 |
 | REST API + SSE event stream | Stable | v0.7 |
 | Docker deployment (GHCR) | Stable | v0.8 |
 | Security hardening (SSRF, CSP, rate limiting, API key auth) | Stable | v0.9.0 |
@@ -30,20 +30,21 @@ DocRawl is a **functional documentation crawler** in late beta. The core pipelin
 
 ### CI/CD Pipeline
 
-13 workflows covering:
-- **lint.yml** -- ruff linting on push/PR
-- **test.yml** -- pytest with coverage (fail-under: 60%, target: 65%)
+14 workflows covering:
+- **lint.yml** -- ruff linting + doc freshness check on push/PR
+- **test.yml** -- pytest with coverage (fail-under: 70%, target: 80%)
 - **security.yml** -- pip-audit + Snyk vulnerability scanning
 - **codeql.yml** -- GitHub CodeQL static analysis
 - **docker-build.yml** -- Docker image build validation
 - **docker-publish.yml** -- Publish to GHCR on release
 - **release.yml** -- Create GitHub release with changelog
 - **auto-tag.yml** -- Auto-tag on version bump in main.py
-- **update-snapshot.yml** -- Regenerate SNAPSHOT.md
+- **snapshot.yml** -- Regenerate SNAPSHOT.md
 - **update-docs-on-merge.yml** -- Auto-update docs on merge
 - **stale.yml** -- Close stale issues/PRs
 - **update-memory.yml** -- Auto-regenerate docs/MEMORY.md
-- **update-changelog.yml** -- Auto-update CHANGELOG.md on PR merge
+- **fuzz.yml** -- Fuzzing on push to main
+- **scorecard.yml** -- OpenSSF supply-chain security analysis
 
 All workflow actions use pinned SHA versions. Concurrency groups prevent duplicate runs.
 
@@ -52,7 +53,7 @@ All workflow actions use pinned SHA versions. Concurrency groups prevent duplica
 | Issue | Severity | Notes |
 |-------|----------|-------|
 | robots.txt parser ignores `Allow:` directive | Low | Over-blocks some valid URLs. Fix planned. |
-| `reasoning_model` parameter unused | Low | Passed through but not used in any pipeline stage yet. Reserved for future site structure analysis. |
+| `reasoning_model` parameter unused | Low | Reserved per ADR-012. Validated but intentionally unused in the current pipeline. |
 | No automatic resume on server restart | Medium | User must manually call resume endpoint after crash. |
 | Cloud provider error handling not unified | Low | Timeout behavior and rate limit responses differ per provider. |
 | Only markdown converter registered | Low | Plugin system works and accepts new converters, but only markdown is implemented. PDF/HTML planned. |
@@ -84,7 +85,7 @@ CLI / Web UI / REST API
 
 ## Roadmap
 
-### v0.9.11 (next)
+### v0.10.x (next)
 - [ ] robots.txt `Allow:` directive support
 - [ ] PDF converter plugin
 - [ ] Unified cloud provider error handling
@@ -94,4 +95,3 @@ CLI / Web UI / REST API
 - [ ] Automatic resume on server restart
 - [ ] Multi-site batch mode
 - [ ] Public documentation site
-- [ ] PyPI package publication

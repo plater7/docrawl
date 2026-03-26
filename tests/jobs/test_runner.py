@@ -761,9 +761,9 @@ class TestBlockedResponse:
         job.emit_event = AsyncMock()
         scraper, converter, robots = self._make_scraper_and_deps()
 
-        # Return blocked content
+        # Return blocked content (requires ≥2 pattern matches — threshold is 2)
         converter.convert = MagicMock(
-            return_value="Please enable JavaScript to view this content"
+            return_value="Checking your browser... Please enable JavaScript to continue."
         )
 
         with patch("src.jobs.runner.validate_models", return_value=[]):
@@ -784,7 +784,36 @@ class TestBlockedResponse:
                                     with patch("src.jobs.runner.save_job_state"):
                                         await run_job(job, resume_urls=urls)
 
-        assert job.pages_blocked >= 0
+        assert job.pages_blocked == 1
+
+    async def test_batch_loop_cancel_check_breaks(self, tmp_path):
+        """Batch loop break fires when job becomes cancelled during gather (line 831-832)."""
+        urls = ["https://example.com/page1"]
+        request = _make_request(
+            output_path=str(tmp_path / "test-batch-cancel"),
+        )
+        job = _make_job(request)
+        job.emit_event = AsyncMock()
+        # Job must NOT be pre-cancelled — line 714 would return early otherwise.
+        # Cancel it inside the _process_page mock so is_cancelled is True at line 831.
+
+        scraper, converter, robots = self._make_scraper_and_deps()
+
+        async def _cancel_during_process(*args, **kwargs):
+            job._cancelled = True  # mark cancelled mid-batch
+
+        with patch("src.jobs.runner.validate_models", return_value=[]):
+            with patch("src.jobs.runner.PageScraper", return_value=scraper):
+                with patch("src.jobs.runner.get_converter", return_value=converter):
+                    with patch("src.jobs.runner.RobotsParser", return_value=robots):
+                        with patch(
+                            "src.jobs.runner._process_page",
+                            new=AsyncMock(side_effect=_cancel_during_process),
+                        ):
+                            with patch("src.jobs.runner.save_job_state"):
+                                await run_job(job, resume_urls=urls)
+
+        assert job.is_cancelled
 
 
 # ---------------------------------------------------------------------------

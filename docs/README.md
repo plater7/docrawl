@@ -14,6 +14,7 @@
 | [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) | Unresolved decisions and gaps | For planning sessions |
 | [TEST-SITES.md](TEST-SITES.md) | Doc sites used for testing + known behaviors | Before integration tests |
 | [INTAKE-GUIDE.md](INTAKE-GUIDE.md) | How to safely process raw exports into these docs | When consolidating new data |
+| [SSE-EVENTS.md](SSE-EVENTS.md) | Server-Sent Events schema and behavior | When building SSE client or debugging streaming |
 
 ## Usage with AI agents
 

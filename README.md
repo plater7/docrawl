@@ -188,7 +188,7 @@ GET  /api/info                      # App metadata: versión, repo, author, mode
 GET  /api/providers                 # Lista providers y estado
 GET  /api/models?provider=...       # Modelos disponibles
 GET  /api/health/ready              # Readiness check (Ollama, disco, permisos)
-POST /api/jobs                      # Crear job
+POST /api/jobs                      # Crear job  ⚠️ rate-limited: 10/min por IP
 GET  /api/jobs/{id}/events          # SSE stream
 POST /api/jobs/{id}/cancel          # Cancelar
 GET  /api/jobs/{id}/status          # Estado actual
@@ -196,28 +196,74 @@ POST /api/jobs/{id}/pause           # Pausar job (PR 3.1)
 POST /api/jobs/{id}/resume          # Reanudar job pausado (PR 3.1)
 POST /api/jobs/resume-from-state    # Nuevo job desde checkpoint .job_state.json (PR 3.1)
 GET  /api/converters                # Listar convertidores HTML→MD registrados (PR 3.4)
+GET  /api/stats                     # Contadores de jobs: total, activos, completados, fallidos
 ```
 
 ## 🔧 Configuración
 
 ### Job Options
 
+**Parámetros requeridos:**
+
+| Campo | Descripción |
+|-------|-------------|
+| `url` | URL destino (HttpUrl validada) |
+
+**Parámetros de modelos LLM:**
+
 | Campo | Default | Descripción |
 |-------|---------|-------------|
+| `crawl_model` | `null` | Modelo LLM para filtrado de URLs (3B-8B recomendado) |
+| `pipeline_model` | `null` | Modelo LLM para cleanup de markdown (6B-14B recomendado) — requerido si `skip_llm_cleanup=false` |
+| `reasoning_model` | `null` | Reservado para análisis futuro (ADR-012). Sin efecto en versión actual. |
+
+**Parámetros de extracción:**
+
+| Campo | Default | Descripción |
+|-------|---------|-------------|
+| `output_path` | `"/data/output"` | Ruta de salida (validada: debe estar bajo `/data`) |
+| `content_selectors` | `null` | Lista CSS selectors para extracción de contenido (max 20, cada uno max 200 chars) |
+| `noise_selectors` | `null` | Lista CSS selectors para remover ruido antes de extracción (max 20, cada uno max 200 chars) |
 | `language` | `"en"` | Filtrar por idioma (`en`, `es`, `all`, etc.) |
-| `max_depth` | `5` | Profundidad máxima de crawl |
-| `delay_ms` | `500` | Delay entre requests |
-| `max_concurrent` | `3` | Requests concurrentes |
+| `max_depth` | `5` | Profundidad máxima de crawl (1-20) |
+| `delay_ms` | `500` | Delay entre requests en ms (100-60000) |
+| `max_concurrent` | `3` | Requests concurrentes (1-10) |
+
+**Parámetros de comportamiento:**
+
+| Campo | Default | Descripción |
+|-------|---------|-------------|
 | `respect_robots_txt` | `true` | Respetar robots.txt |
-| `use_native_markdown` | `true` | Intentar `Accept: text/markdown` |
-| `use_markdown_proxy` | `false` | Usar proxy como fallback |
-| `use_page_pool` | `true` | Reusar páginas Playwright entre requests — PR 1.2 |
+| `use_native_markdown` | `true` | Intentar `Accept: text/markdown` antes de Playwright |
+| `use_markdown_proxy` | `false` | Usar proxy como fallback (requiere `markdown_proxy_url` si activado) |
+| `markdown_proxy_url` | `null` | URL HTTPS del markdown proxy (validada anti-SSRF) |
 | `use_http_fast_path` | `true` | Intentar HTTP plano antes de Playwright — PR 1.3 |
 | `filter_sitemap_by_path` | `true` | Filtrar URLs del sitemap al subpath base — PR 1.3 |
 | `use_cache` | `false` | Caché de páginas en disco con TTL 24h — PR 2.4 |
+| `skip_llm_cleanup` | `false` | Saltar paso de cleanup LLM (usar con convertidores que producen MD limpio) |
+
+**Parámetros de salida:**
+
+| Campo | Default | Descripción |
+|-------|---------|-------------|
 | `output_format` | `"markdown"` | Formato de salida: `markdown` o `json` — PR 3.2 |
 | `use_pipeline_mode` | `false` | Pipeline productor/consumidor async — PR 3.3 |
-| `converter` | `"markdownify"` | Convertidor HTML→Markdown — PR 3.4 |
+| `converter` | `"markdownify"` | Convertidor HTML→Markdown — PR 3.4 (ver `GET /api/converters` para disponibles)
+
+## 🔒 Seguridad
+
+| Mecanismo | Por defecto | Config |
+|-----------|-------------|--------|
+| **API key auth** | Off | `API_KEY=secret` en `.env` — requiere `X-Api-Key: secret` en todas las requests |
+| **Rate limiting** | 10 req/min | `POST /api/jobs` limitado por IP. No configurable vía env. |
+| **SSRF protection** | Siempre activo | Bloquea IPs privadas, localhost y metadata endpoints antes de cualquier request HTTP |
+| **CSP headers** | Siempre activo | `default-src 'self'` con excepción para Google Fonts CDN del UI |
+| **Security headers** | Siempre activo | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` |
+
+**Endpoints exentos de autenticación** (accesibles sin `X-Api-Key` incluso con auth activada):
+`/` (UI), `/api/health/ready` (para load balancers), `/api/stats` (contadores agregados, sin datos sensibles), `/docs`, `/redoc`, `/openapi.json` (documentación OpenAPI).
+
+Para reportar vulnerabilidades: [SECURITY.md](./SECURITY.md).
 
 ## 🌐 Exponer a Internet
 

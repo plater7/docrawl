@@ -1,7 +1,6 @@
 [run]
 omit =
-    # Requires live Playwright browser — no unit-level mock available
-    src/scraper/page.py
+    # Playwright-dependent class internals use # pragma: no cover inline
 
 [report]
 exclude_lines =
