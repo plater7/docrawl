@@ -823,7 +823,9 @@ async def run_job(
                         completed_urls=completed_urls,
                         failed_urls=failed_urls,
                     )
-                    for i, url in enumerate(urls[batch_start:batch_end], start=batch_start)
+                    for i, url in enumerate(
+                        urls[batch_start:batch_end], start=batch_start
+                    )
                 ]
                 await asyncio.gather(*batch_tasks)
                 if job.is_cancelled:
