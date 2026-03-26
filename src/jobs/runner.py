@@ -795,9 +795,12 @@ async def run_job(
                     "progress": f"0/{len(urls)}",
                 },
             )
-            # Launch all pages concurrently, semaphore controls actual parallelism
-            await asyncio.gather(
-                *[
+            # Process URLs in bounded batches to prevent unbounded coroutine allocation
+            # Batch size of 100 balances memory usage vs scheduling overhead
+            BATCH_SIZE = 100
+            for batch_start in range(0, len(urls), BATCH_SIZE):
+                batch_end = min(batch_start + BATCH_SIZE, len(urls))
+                batch_tasks = [
                     _process_page(
                         i,
                         url,
@@ -820,9 +823,11 @@ async def run_job(
                         completed_urls=completed_urls,
                         failed_urls=failed_urls,
                     )
-                    for i, url in enumerate(urls)
+                    for i, url in enumerate(urls[batch_start:batch_end], start=batch_start)
                 ]
-            )
+                await asyncio.gather(*batch_tasks)
+                if job.is_cancelled:
+                    break
             # Unpack counters to locals for job_done event payload
             pages_ok = counters["ok"]
             pages_partial = counters["partial"]

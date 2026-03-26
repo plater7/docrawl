@@ -190,8 +190,9 @@ async def health_ready() -> dict:
         checks["ollama"] = {"status": "timeout", "url": OLLAMA_URL}
         issues.append(f"Ollama at {OLLAMA_URL} timed out after 5s")
     except Exception as e:
-        checks["ollama"] = {"status": "error", "message": str(e)}
-        issues.append(f"Ollama check failed: {e}")
+        checks["ollama"] = {"status": "error", "message": "check failed"}
+        logger.error(f"Ollama check failed: {e}", exc_info=True)
+        issues.append("Ollama check failed")
 
     # Check LM Studio connectivity
     try:
@@ -216,7 +217,8 @@ async def health_ready() -> dict:
     except httpx.TimeoutException:
         checks["lmstudio"] = {"status": "timeout", "url": LMSTUDIO_URL}
     except Exception as e:
-        checks["lmstudio"] = {"status": "error", "message": str(e)}
+        checks["lmstudio"] = {"status": "error", "message": "check failed"}
+        logger.error(f"LM Studio check failed: {e}", exc_info=True)
 
     # Check llama.cpp connectivity
     try:
@@ -241,7 +243,8 @@ async def health_ready() -> dict:
     except httpx.TimeoutException:
         checks["llamacpp"] = {"status": "timeout", "url": LLAMACPP_URL}
     except Exception as e:
-        checks["llamacpp"] = {"status": "error", "message": str(e)}
+        checks["llamacpp"] = {"status": "error", "message": "check failed"}
+        logger.error(f"llama.cpp check failed: {e}", exc_info=True)
 
     # Check disk space
     data_path = Path("/data")
@@ -267,8 +270,9 @@ async def health_ready() -> dict:
             checks["disk_space"] = {"status": "not_found", "path": str(data_path)}
             issues.append("/data directory does not exist")
     except Exception as e:
-        checks["disk_space"] = {"status": "error", "message": str(e)}
-        issues.append("Disk space check failed")  # avoid leaking exception details
+        checks["disk_space"] = {"status": "error", "message": "check failed"}
+        logger.error(f"Disk space check failed: {e}", exc_info=True)
+        issues.append("Disk space check failed")
 
     # Check write permissions
     try:
@@ -296,10 +300,9 @@ async def health_ready() -> dict:
             f"Permission denied writing to {data_path}. Try: sudo chown -R $USER:$USER ./data"
         )
     except Exception as e:
-        checks["write_permissions"] = {"status": "error", "message": str(e)}
-        issues.append(
-            "Write permission check failed"
-        )  # avoid leaking exception details
+        checks["write_permissions"] = {"status": "error", "message": "check failed"}
+        logger.error(f"Write permission check failed: {e}", exc_info=True)
+        issues.append("Write permission check failed")
 
     ready = len(issues) == 0 and checks.get("ollama", {}).get("status") == "ok"
 
