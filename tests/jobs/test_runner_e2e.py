@@ -2,8 +2,7 @@
 
 Exercises the complete happy path with no real network calls and no real Playwright.
 """
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, mock_open
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.api.models import JobRequest

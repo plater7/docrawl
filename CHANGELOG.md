@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v1.0.0] - unreleased
+
+### Added
+- GET /api/stats endpoint returning live job counters
+- SSE event schema documentation (docs/SSE-EVENTS.md)
+- RELEASING.md — 7-step release process
+- Doc freshness CI check (scripts/check_doc_freshness.py + lint.yml step)
+- OpenSSF Scorecard compliance: workflow permissions scoped to job level with concurrency groups
+
+### Changed
+- pytest coverage threshold raised from 60% to 70%
+- PROJECT_STATUS.md updated to v0.10.0 with accurate workflow list and feature table
+- requirements.txt: all dependencies pinned to exact == versions
+- runner.py: _process_page closure extracted to module-level standalone function
+
+### Fixed
+- /docs, /redoc, /openapi.json now accessible without API key
+- CVE PYSEC-2024-38 (fastapi) and GHSA-7mpr-5m44-h73r (markdownify) resolved
+
+### Security
+- API key authentication exempts OpenAPI documentation routes
+- All dependencies pinned and audited via pip-audit
+
+---
+
 ## [v0.11.0] - unreleased
 
 ### Fixed
