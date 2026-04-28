@@ -1,4 +1,4 @@
-fastapi>=0.109.0
+fastapi>=0.136.1
 uvicorn[standard]>=0.27.0
 playwright>=1.41.0
 markdownify>=0.11.6
