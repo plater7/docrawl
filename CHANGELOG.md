@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **test: E2E sanity cycle (branch→PR→CI→squash merge)** ([#231](https://github.com/plater7/docrawl/pull/231))
 - **ci: bump docker/login-action from 3.7.0 to 4.6.0** ([#223](https://github.com/plater7/docrawl/pull/223))
 - **ci: bump actions/setup-python from 6.2.0 to 7.0.0** ([#224](https://github.com/plater7/docrawl/pull/224))
+- **ci: bump github/codeql-action/analyze from 4.33.0 to 4.37.8** ([#225](https://github.com/plater7/docrawl/pull/225))
 
 ## [v0.9.99] - 2026-03-14
 
