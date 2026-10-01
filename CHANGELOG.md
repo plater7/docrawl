@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps: update pytest-cov requirement from >=4.1.0 to >=7.1.0** ([#226](https://github.com/plater7/docrawl/pull/226))
 - **deps: update fastapi requirement from >=0.109.0 to >=0.141.1** ([#227](https://github.com/plater7/docrawl/pull/227))
 - **deps: update playwright requirement from >=1.41.0 to >=1.63.0** ([#229](https://github.com/plater7/docrawl/pull/229))
+- **deps: update pydantic requirement from >=2.5.0 to >=2.13.5** ([#230](https://github.com/plater7/docrawl/pull/230))
 
 ## [v0.9.99] - 2026-03-14
 
