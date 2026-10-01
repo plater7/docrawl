@@ -171,7 +171,7 @@ def html_to_structured(url: str, html: str) -> StructuredPage:
     content_el = (
         soup.find("main")
         or soup.find("article")
-        or soup.find(attrs={"role": "main"})
+        or soup.find(role="main")
         or soup.find("body")
         or soup
     )
