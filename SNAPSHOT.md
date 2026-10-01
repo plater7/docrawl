@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-03-23 05:02 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-10-01 01:38 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -4765,7 +4765,7 @@ def html_to_structured(url: str, html: str) -> StructuredPage:
     content_el = (
         soup.find("main")
         or soup.find("article")
-        or soup.find(attrs={"role": "main"})
+        or soup.find(role="main")
         or soup.find("body")
         or soup
     )
@@ -5365,9 +5365,9 @@ def validate_url_not_ssrf(url: str) -> None:
 ## `requirements.txt`
 
 ```
-fastapi>=0.109.0
+fastapi>=0.141.1
 uvicorn[standard]>=0.27.0
-playwright>=1.41.0
+playwright>=1.63.0
 markdownify>=0.11.6
 httpx>=0.26.0
 pydantic>=2.5.0
@@ -5386,7 +5386,7 @@ readability-lxml>=0.8.1
 -r requirements.txt
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
-pytest-cov>=4.1.0
+pytest-cov>=7.1.0
 ```
 
 ---
