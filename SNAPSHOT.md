@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-03-23 05:02 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-10-01 00:29 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -4765,7 +4765,7 @@ def html_to_structured(url: str, html: str) -> StructuredPage:
     content_el = (
         soup.find("main")
         or soup.find("article")
-        or soup.find(attrs={"role": "main"})
+        or soup.find(role="main")
         or soup.find("body")
         or soup
     )
