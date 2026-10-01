@@ -333,3 +333,54 @@ class TestServeUi:
 
         assert response.headers.get("x-content-type-options") == "nosniff"
         assert response.headers.get("x-frame-options") == "DENY"
+
+
+# ---------------------------------------------------------------------------
+# ApiKeyMiddleware — OpenAPI doc routes exempt
+# ---------------------------------------------------------------------------
+
+
+class TestApiKeyMiddlewareDocRoutes:
+    """OpenAPI doc routes are exempt from API key enforcement."""
+
+    async def test_openapi_docs_accessible_with_api_key_set(self, monkeypatch):
+        """GET /docs should return 200 even when API_KEY is configured."""
+        monkeypatch.setenv("PAGE_POOL_SIZE", "0")
+        import src.main as main_module
+
+        monkeypatch.setattr(main_module, "_API_KEY", "secret-key")
+
+        async with AsyncClient(
+            transport=ASGITransport(app=main_module.app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/docs")
+
+        assert resp.status_code == 200
+
+    async def test_openapi_json_accessible_with_api_key_set(self, monkeypatch):
+        """GET /openapi.json should return 200 even when API_KEY is configured."""
+        monkeypatch.setenv("PAGE_POOL_SIZE", "0")
+        import src.main as main_module
+
+        monkeypatch.setattr(main_module, "_API_KEY", "secret-key")
+
+        async with AsyncClient(
+            transport=ASGITransport(app=main_module.app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/openapi.json")
+
+        assert resp.status_code == 200
+
+    async def test_redoc_accessible_with_api_key_set(self, monkeypatch):
+        """GET /redoc should return 200 even when API_KEY is configured."""
+        monkeypatch.setenv("PAGE_POOL_SIZE", "0")
+        import src.main as main_module
+
+        monkeypatch.setattr(main_module, "_API_KEY", "secret-key")
+
+        async with AsyncClient(
+            transport=ASGITransport(app=main_module.app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/redoc")
+
+        assert resp.status_code == 200

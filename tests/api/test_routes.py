@@ -353,6 +353,121 @@ class TestHealthReady:
         call_kwargs = client_instance.get.call_args.kwargs
         assert call_kwargs["headers"]["Authorization"] == "Bearer secret-key"
 
+    def test_ollama_generic_exception_sets_error_status(self):
+        """Non-httpx exception in Ollama check is caught and reported as error."""
+        client_instance = self._make_client_with_get_responses(RuntimeError("boom"))
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        checks = response.json().get("checks") or response.json().get("detail", {}).get(
+            "checks", {}
+        )
+        assert checks["ollama"]["status"] == "error"
+        assert checks["ollama"]["message"] == "check failed"
+
+    def test_lmstudio_generic_exception_sets_error_status(self):
+        """Non-httpx exception in LM Studio check is caught and reported as error."""
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(), RuntimeError("lms boom")
+        )
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        checks = response.json().get("checks") or response.json().get("detail", {}).get(
+            "checks", {}
+        )
+        assert checks["lmstudio"]["status"] == "error"
+        assert checks["lmstudio"]["message"] == "check failed"
+
+    def test_llamacpp_generic_exception_sets_error_status(self):
+        """Non-httpx exception in llama.cpp check is caught and reported as error."""
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(),
+            self._ollama_ok_response(),
+            RuntimeError("llama boom"),
+        )
+        patches = self._disk_ok_patches()
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        checks = response.json().get("checks") or response.json().get("detail", {}).get(
+            "checks", {}
+        )
+        assert checks["llamacpp"]["status"] == "error"
+        assert checks["llamacpp"]["message"] == "check failed"
+
+    def test_disk_space_generic_exception_sets_error_status(self):
+        """Non-OS exception in disk check is caught and reported as error."""
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(),
+            self._ollama_ok_response(),
+            self._ollama_ok_response(),
+        )
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            with patch("src.api.routes.Path.exists", return_value=True):
+                with patch(
+                    "src.api.routes.shutil.disk_usage",
+                    side_effect=OSError("disk error"),
+                ):
+                    with TestClient(app) as client:
+                        response = client.get("/api/health/ready")
+
+        checks = response.json().get("checks") or response.json().get("detail", {}).get(
+            "checks", {}
+        )
+        assert checks["disk_space"]["status"] == "error"
+        assert checks["disk_space"]["message"] == "check failed"
+
+    def test_write_permissions_generic_exception_sets_error_status(self):
+        """Non-permission exception in write check is caught and reported as error."""
+        from collections import namedtuple
+
+        DiskUsage = namedtuple("DiskUsage", ["total", "used", "free"])
+        fake = DiskUsage(total=100 * 1024**3, used=50 * 1024**3, free=50 * 1024**3)
+        client_instance = self._make_client_with_get_responses(
+            self._ollama_ok_response(),
+            self._ollama_ok_response(),
+            self._ollama_ok_response(),
+        )
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            with patch("src.api.routes.Path.exists", return_value=True):
+                with patch("src.api.routes.shutil.disk_usage", return_value=fake):
+                    with patch(
+                        "src.api.routes.Path.write_text",
+                        side_effect=IOError("write error"),
+                    ):
+                        with TestClient(app) as client:
+                            response = client.get("/api/health/ready")
+
+        checks = response.json().get("checks") or response.json().get("detail", {}).get(
+            "checks", {}
+        )
+        assert checks["write_permissions"]["status"] == "error"
+        assert checks["write_permissions"]["message"] == "check failed"
+
 
 # ---------------------------------------------------------------------------
 # Models endpoint

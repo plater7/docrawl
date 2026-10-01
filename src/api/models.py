@@ -22,7 +22,15 @@ class JobRequest(BaseModel):
     url: HttpUrl
     crawl_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
     pipeline_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
-    reasoning_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
+    reasoning_model: str | None = Field(
+        default=None,
+        pattern=r"^[\w./:@-]{1,100}$",
+        description=(
+            "Reserved for future pipeline stages (site structure analysis, "
+            "quality assessment). Must be a valid model identifier when set, "
+            "but has no effect on current crawl behavior. See ADR-012."
+        ),
+    )
     output_path: str = Field(default="/data/output")
     delay_ms: int = Field(default=500, ge=100, le=60000)
     max_concurrent: int = Field(default=3, ge=1, le=10)

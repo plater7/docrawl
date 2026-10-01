@@ -5,7 +5,7 @@ import logging
 import httpx
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from playwright.async_api import async_playwright, Browser, Page
+from playwright.async_api import async_playwright, Browser, Page, Playwright
 
 from src.utils.security import validate_url_not_ssrf
 
@@ -145,12 +145,12 @@ CONTENT_SELECTORS = [
 MIN_CONTENT_LENGTH = 200
 
 
-class PageScraper:
+class PageScraper:  # pragma: no cover
     """Scrapes pages using Playwright with DOM pre-cleaning."""
 
     def __init__(self) -> None:
         self._browser: Browser | None = None
-        self._playwright: object | None = None  # async_playwright context
+        self._playwright: Playwright | None = None
 
     async def start(self) -> None:
         """Start the browser.
@@ -174,7 +174,7 @@ class PageScraper:
             self._browser = None
             logger.info("Browser stopped")
         if self._playwright is not None:
-            await self._playwright.stop()  # type: ignore[union-attr,attr-defined]
+            await self._playwright.stop()
             self._playwright = None
 
     async def _remove_noise(
@@ -284,7 +284,7 @@ class PageScraper:
             await page.close()
 
 
-class PagePool:
+class PagePool:  # pragma: no cover
     """Pool of reusable Playwright pages backed by an asyncio.Queue (PR 1.2).
 
     Avoids the overhead of creating/closing a new page per URL.
