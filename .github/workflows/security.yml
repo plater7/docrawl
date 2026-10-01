@@ -42,9 +42,7 @@ jobs:
         run: bandit -r src/ -f screen -ll
 
       - name: pip-audit dependency check
-        # CVE-2026-4539 / GHSA-5239-wwwm-4pmq: pygments transitive dep (uvicorn→rich→pygments)
-        # No fix version available yet; remove ignore when pygments publishes a patch.
-        run: pip-audit --strict --ignore-vuln CVE-2026-4539
+        run: pip-audit --strict
 
       - name: Upload Bandit report
         if: always()

@@ -261,7 +261,14 @@ GET  /api/stats                     # Contadores de jobs: total, activos, comple
 | **Security headers** | Siempre activo | `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin` |
 
 **Endpoints exentos de autenticación** (accesibles sin `X-Api-Key` incluso con auth activada):
-`/` (UI), `/api/health/ready` (para load balancers), `/api/stats` (contadores agregados, sin datos sensibles), `/docs`, `/redoc`, `/openapi.json` (documentación OpenAPI).
+`/` (UI) y `/api/health/ready` (para load balancers).
+
+Todo el resto —incluidos `/docs`, `/redoc`, `/openapi.json` y `/api/stats`— requiere `X-Api-Key`
+cuando `API_KEY` está configurado. Con `API_KEY` vacío (default) la autenticación está
+desactivada y todos los endpoints son públicos.
+
+`GET /api/health/ready` no expone URLs internas de providers ni mensajes de excepción: solo
+estados y conteos.
 
 Para reportar vulnerabilidades: [SECURITY.md](./SECURITY.md).
 

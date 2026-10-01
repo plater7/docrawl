@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [v1.0.0] - unreleased
 
 ### Added
-- GET /api/stats endpoint returning live job counters
+- GET /api/stats endpoint returning live job counters (requiere `X-Api-Key` cuando `API_KEY` está configurado)
 - SSE event schema documentation (docs/SSE-EVENTS.md)
 - RELEASING.md — 7-step release process
 - Doc freshness CI check (scripts/check_doc_freshness.py + lint.yml step)
@@ -19,11 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - pytest coverage threshold raised from 60% to 70%
 - PROJECT_STATUS.md updated to v0.10.0 with accurate workflow list and feature table
-- requirements.txt: all dependencies pinned to exact == versions
 - runner.py: _process_page closure extracted to module-level standalone function
 
 ### Fixed
-- /docs, /redoc, /openapi.json now accessible without API key
+- /api/health/ready no longer echoes provider URLs (Ollama/LM Studio/llama.cpp) or raw exception messages; internal endpoint details stay out of the unauthenticated response
 - CVE PYSEC-2024-38 (fastapi) and GHSA-7mpr-5m44-h73r (markdownify) resolved
 - **fix(playwright): use async context managers to prevent browser resource leaks — v1.0.0** ([#150](https://github.com/plater7/docrawl/pull/150))
 - **fix(runner): _generate_index uses / separator for correct relative links — v1.0.0** ([#148](https://github.com/plater7/docrawl/pull/148))
@@ -31,8 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **v1.0.0 - Production Ready: Docs, DX, release automation** ([#86](https://github.com/plater7/docrawl/pull/86))
 
 ### Security
-- API key authentication exempts OpenAPI documentation routes
-- All dependencies pinned and audited via pip-audit
+- /docs, /redoc, /openapi.json and /api/stats stay behind API key auth; the exempt set remains `/` and `/api/health/ready` only
+- pip-audit runs with `--strict` and no CVE suppressions (CVE-2026-4539 no longer applies: pygments >= 2.20.0)
 
 ---
 

@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from src.main import app
 from src.jobs.manager import Job
 from src.api.models import JobRequest
+from src.api.routes import OLLAMA_URL, LMSTUDIO_URL, LLAMACPP_URL
 
 # NOTE: The POST /api/jobs route does not set an explicit status_code,
 # so FastAPI returns 200 (not 201) by default.
@@ -467,6 +468,53 @@ class TestHealthReady:
         )
         assert checks["write_permissions"]["status"] == "error"
         assert checks["write_permissions"]["message"] == "check failed"
+
+    def test_readiness_does_not_expose_provider_urls_when_ready(self):
+        """Ready response must not leak configured provider endpoints."""
+        patches = self._disk_ok_patches()
+        with patch(
+            "httpx.AsyncClient",
+            return_value=self._make_client_with_get_responses(
+                self._ollama_ok_response(),
+                self._ollama_ok_response(),
+                self._ollama_ok_response(),
+            ),
+        ):
+            for p in patches:
+                p.start()
+            try:
+                with TestClient(app) as client:
+                    response = client.get("/api/health/ready")
+            finally:
+                for p in patches:
+                    p.stop()
+
+        assert response.status_code == 200
+        body = response.text
+        for url in (OLLAMA_URL, LMSTUDIO_URL, LLAMACPP_URL):
+            assert url not in body
+        checks = response.json()["checks"]
+        for provider in ("ollama", "lmstudio", "llamacpp"):
+            assert "url" not in checks[provider]
+
+    def test_readiness_503_does_not_expose_provider_urls(self):
+        """Not-ready response (503) must not leak provider endpoints in issues/checks."""
+        client_instance = AsyncMock()
+        client_instance.get.side_effect = httpx.ConnectError("refused")
+        client_instance.__aenter__ = AsyncMock(return_value=client_instance)
+        client_instance.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=client_instance):
+            with TestClient(app) as client:
+                response = client.get("/api/health/ready")
+
+        assert response.status_code == 503
+        body = response.text
+        for url in (OLLAMA_URL, LMSTUDIO_URL, LLAMACPP_URL):
+            assert url not in body
+        checks = response.json()["detail"]["checks"]
+        for provider in ("ollama", "lmstudio", "llamacpp"):
+            assert "url" not in checks[provider]
 
 
 # ---------------------------------------------------------------------------

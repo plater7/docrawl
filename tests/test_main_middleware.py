@@ -3,6 +3,7 @@
 import json
 from unittest.mock import MagicMock
 
+import pytest
 from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 
@@ -336,19 +337,49 @@ class TestServeUi:
 
 
 # ---------------------------------------------------------------------------
-# ApiKeyMiddleware — OpenAPI doc routes exempt
+# ApiKeyMiddleware — protected routes (docs, redoc, openapi, stats)
 # ---------------------------------------------------------------------------
 
 
-class TestApiKeyMiddlewareDocRoutes:
-    """OpenAPI doc routes are exempt from API key enforcement."""
+class TestApiKeyMiddlewareProtectedRoutes:
+    """Doc/OpenAPI routes and /api/stats require the API key when API_KEY is set."""
 
-    async def test_openapi_docs_accessible_with_api_key_set(self, monkeypatch):
-        """GET /docs should return 200 even when API_KEY is configured."""
+    @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json", "/api/stats"])
+    async def test_returns_401_without_api_key(self, monkeypatch, path):
+        """These routes are not exempt: no key -> 401 while API_KEY is configured."""
         monkeypatch.setenv("PAGE_POOL_SIZE", "0")
         import src.main as main_module
 
         monkeypatch.setattr(main_module, "_API_KEY", "secret-key")
+
+        async with AsyncClient(
+            transport=ASGITransport(app=main_module.app), base_url="http://test"
+        ) as client:
+            resp = await client.get(path)
+
+        assert resp.status_code == 401
+
+    @pytest.mark.parametrize("path", ["/docs", "/redoc", "/openapi.json", "/api/stats"])
+    async def test_accessible_with_api_key(self, monkeypatch, path):
+        """With the correct key the route responds normally (not 401)."""
+        monkeypatch.setenv("PAGE_POOL_SIZE", "0")
+        import src.main as main_module
+
+        monkeypatch.setattr(main_module, "_API_KEY", "secret-key")
+
+        async with AsyncClient(
+            transport=ASGITransport(app=main_module.app), base_url="http://test"
+        ) as client:
+            resp = await client.get(path, headers={"X-Api-Key": "secret-key"})
+
+        assert resp.status_code == 200
+
+    async def test_docs_open_when_no_api_key_configured(self, monkeypatch):
+        """With API_KEY unset the route stays open (auth disabled entirely)."""
+        monkeypatch.setenv("PAGE_POOL_SIZE", "0")
+        import src.main as main_module
+
+        monkeypatch.setattr(main_module, "_API_KEY", "")
 
         async with AsyncClient(
             transport=ASGITransport(app=main_module.app), base_url="http://test"
@@ -357,30 +388,8 @@ class TestApiKeyMiddlewareDocRoutes:
 
         assert resp.status_code == 200
 
-    async def test_openapi_json_accessible_with_api_key_set(self, monkeypatch):
-        """GET /openapi.json should return 200 even when API_KEY is configured."""
-        monkeypatch.setenv("PAGE_POOL_SIZE", "0")
+    async def test_auth_exempt_set_is_minimal(self):
+        """The exempt set stays limited to the UI root and the LB readiness probe."""
         import src.main as main_module
 
-        monkeypatch.setattr(main_module, "_API_KEY", "secret-key")
-
-        async with AsyncClient(
-            transport=ASGITransport(app=main_module.app), base_url="http://test"
-        ) as client:
-            resp = await client.get("/openapi.json")
-
-        assert resp.status_code == 200
-
-    async def test_redoc_accessible_with_api_key_set(self, monkeypatch):
-        """GET /redoc should return 200 even when API_KEY is configured."""
-        monkeypatch.setenv("PAGE_POOL_SIZE", "0")
-        import src.main as main_module
-
-        monkeypatch.setattr(main_module, "_API_KEY", "secret-key")
-
-        async with AsyncClient(
-            transport=ASGITransport(app=main_module.app), base_url="http://test"
-        ) as client:
-            resp = await client.get("/redoc")
-
-        assert resp.status_code == 200
+        assert main_module._AUTH_EXEMPT == {"/", "/api/health/ready"}
