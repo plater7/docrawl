@@ -176,22 +176,20 @@ async def health_ready() -> dict:
                 checks["ollama"] = {
                     "status": "ok",
                     "models_count": len(models),
-                    "url": OLLAMA_URL,
                 }
             else:
                 checks["ollama"] = {"status": "error", "code": response.status_code}
                 issues.append(f"Ollama returned status {response.status_code}")
     except httpx.ConnectError:
-        checks["ollama"] = {"status": "unreachable", "url": OLLAMA_URL}
-        issues.append(
-            f"Cannot connect to Ollama at {OLLAMA_URL}. Is Ollama running? Try: ollama serve"
-        )
+        checks["ollama"] = {"status": "unreachable"}
+        issues.append("Cannot connect to Ollama. Is it running? Try: ollama serve")
     except httpx.TimeoutException:
-        checks["ollama"] = {"status": "timeout", "url": OLLAMA_URL}
-        issues.append(f"Ollama at {OLLAMA_URL} timed out after 5s")
+        checks["ollama"] = {"status": "timeout"}
+        issues.append("Ollama readiness check timed out after 5s")
     except Exception as e:
-        checks["ollama"] = {"status": "error", "message": str(e)}
-        issues.append(f"Ollama check failed: {e}")
+        checks["ollama"] = {"status": "error", "message": "check failed"}
+        logger.error(f"Ollama check failed: {e}", exc_info=True)
+        issues.append("Ollama check failed")
 
     # Check LM Studio connectivity
     try:
@@ -207,16 +205,16 @@ async def health_ready() -> dict:
                 checks["lmstudio"] = {
                     "status": "ok",
                     "models_count": len(data.get("data", [])),
-                    "url": LMSTUDIO_URL,
                 }
             else:
-                checks["lmstudio"] = {"status": "error", "url": LMSTUDIO_URL}
+                checks["lmstudio"] = {"status": "error"}
     except httpx.ConnectError:
-        checks["lmstudio"] = {"status": "unreachable", "url": LMSTUDIO_URL}
+        checks["lmstudio"] = {"status": "unreachable"}
     except httpx.TimeoutException:
-        checks["lmstudio"] = {"status": "timeout", "url": LMSTUDIO_URL}
+        checks["lmstudio"] = {"status": "timeout"}
     except Exception as e:
-        checks["lmstudio"] = {"status": "error", "message": str(e)}
+        checks["lmstudio"] = {"status": "error", "message": "check failed"}
+        logger.error(f"LM Studio check failed: {e}", exc_info=True)
 
     # Check llama.cpp connectivity
     try:
@@ -232,16 +230,16 @@ async def health_ready() -> dict:
                 checks["llamacpp"] = {
                     "status": "ok",
                     "models_count": len(data.get("data", [])),
-                    "url": LLAMACPP_URL,
                 }
             else:
-                checks["llamacpp"] = {"status": "error", "url": LLAMACPP_URL}
+                checks["llamacpp"] = {"status": "error"}
     except httpx.ConnectError:
-        checks["llamacpp"] = {"status": "unreachable", "url": LLAMACPP_URL}
+        checks["llamacpp"] = {"status": "unreachable"}
     except httpx.TimeoutException:
-        checks["llamacpp"] = {"status": "timeout", "url": LLAMACPP_URL}
+        checks["llamacpp"] = {"status": "timeout"}
     except Exception as e:
-        checks["llamacpp"] = {"status": "error", "message": str(e)}
+        checks["llamacpp"] = {"status": "error", "message": "check failed"}
+        logger.error(f"llama.cpp check failed: {e}", exc_info=True)
 
     # Check disk space
     data_path = Path("/data")
@@ -267,8 +265,9 @@ async def health_ready() -> dict:
             checks["disk_space"] = {"status": "not_found", "path": str(data_path)}
             issues.append("/data directory does not exist")
     except Exception as e:
-        checks["disk_space"] = {"status": "error", "message": str(e)}
-        issues.append(f"Disk space check failed: {e}")
+        checks["disk_space"] = {"status": "error", "message": "check failed"}
+        logger.error(f"Disk space check failed: {e}", exc_info=True)
+        issues.append("Disk space check failed")
 
     # Check write permissions
     try:
@@ -296,11 +295,17 @@ async def health_ready() -> dict:
             f"Permission denied writing to {data_path}. Try: sudo chown -R $USER:$USER ./data"
         )
     except Exception as e:
-        checks["write_permissions"] = {"status": "error", "message": str(e)}
-        issues.append(f"Write permission check failed: {e}")
+        checks["write_permissions"] = {"status": "error", "message": "check failed"}
+        logger.error(f"Write permission check failed: {e}", exc_info=True)
+        issues.append("Write permission check failed")
 
     ready = len(issues) == 0 and checks.get("ollama", {}).get("status") == "ok"
 
+    # issues list is safe — contains only human-readable status strings.
+    # Provider endpoints (OLLAMA_URL/LMSTUDIO_URL/LLAMACPP_URL) are deliberately NOT
+    # echoed back: this endpoint is unauthenticated, so internal URLs/topology must
+    # not leak. Exception messages are stripped of {e} detail for the same reason.
+    # data_path is always the fixed constant /data.
     if not ready:
         raise HTTPException(
             status_code=503,
@@ -402,6 +407,12 @@ async def resume_from_state(
         pages_total=len(state.pending_urls),
         converter=job_request.converter,
     )
+
+
+@router.get("/stats")
+async def get_stats() -> dict:
+    """In-memory job counters for operator observability."""
+    return await job_manager.get_stats()
 
 
 @router.get("/converters")

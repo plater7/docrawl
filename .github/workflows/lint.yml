@@ -47,3 +47,6 @@ jobs:
 
       - name: Mypy type check
         run: mypy src/ --ignore-missing-imports
+
+      - name: Doc freshness check
+        run: python scripts/check_doc_freshness.py

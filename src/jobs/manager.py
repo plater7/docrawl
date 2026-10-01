@@ -176,6 +176,19 @@ class JobManager:
             1 for job in self._jobs.values() if job.status in ("pending", "running")
         )
 
+    async def get_stats(self) -> dict:
+        """Return in-memory job counters by status."""
+        async with self._jobs_lock:
+            jobs = list(self._jobs.values())
+        return {
+            "total_jobs": len(jobs),
+            "active_jobs": sum(1 for j in jobs if j.status in ("pending", "running")),
+            "paused_jobs": sum(1 for j in jobs if j.status == "paused"),
+            "completed_jobs": sum(1 for j in jobs if j.status == "completed"),
+            "failed_jobs": sum(1 for j in jobs if j.status == "failed"),
+            "cancelled_jobs": sum(1 for j in jobs if j.status == "cancelled"),
+        }
+
     async def shutdown(self) -> None:
         """Cancel all running tasks on server shutdown — closes CONS-014 / issue #60."""
         running = [

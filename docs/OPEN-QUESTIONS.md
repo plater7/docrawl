@@ -31,21 +31,17 @@
 **Priority:** Low — revisit when there's user demand.
 
 ### Producer/Consumer Pipeline Mode
-**Source:** PR 3.3 field exists  
-**Status:** `use_pipeline_mode` field exists in `JobRequest` but is not implemented in the runner. The idea is to decouple scraping from cleanup: scrape all pages first (fast), then clean them (slow). Currently they're interleaved per-page.  
-**Priority:** Medium — would significantly improve throughput for large crawls.
+**Source:** PR 3.3
+**Status:** ✅ Implemented. `use_pipeline_mode: true` activates the producer/consumer pipeline in `runner.py`. Scraping and cleanup are decoupled with backpressure control.
+**Priority:** N/A — implemented.
 
 ---
 
 ## Known Gaps
 
-### No Automated Tests
-**Impact:** High  
-Test infrastructure exists (`pytest.ini`, `requirements-dev.txt`) but there are no actual test files. All testing has been manual via Docker + real documentation sites. Unit tests for the core pipeline (discovery, filtering, chunking, cleanup) would catch regressions.
-
-### reasoning_model is Unused
-**Impact:** Low  
-The `reasoning_model` field is carried through the pipeline but never used. Originally planned for site structure analysis, complex content filtering, and documentation quality assessment. No concrete implementation planned yet.
+### reasoning_model is Reserved
+**Impact:** Low
+`reasoning_model` is carried through the pipeline but intentionally unused in the current version. It is reserved for future pipeline stages (site structure analysis, quality assessment). See ADR-012 in `docs/DECISIONS.md`. Must be set to a valid model identifier when provided, but has no effect on current crawl behavior.
 
 ### No Metrics/Observability Beyond Logs
 **Impact:** Medium  

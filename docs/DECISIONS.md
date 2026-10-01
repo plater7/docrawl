@@ -5,6 +5,19 @@
 
 ---
 
+## ADR-012: reasoning_model is Reserved for Future Use
+**Date:** 2026-03 — **Status:** Reserved
+
+**Decision:** `reasoning_model` is kept in `JobRequest` and carried through the pipeline but not used in any current pipeline stage.
+
+**Why:** Forward compatibility. The field was added early to lock in the API contract for future stages: site structure analysis before crawling, cross-page deduplication filtering, and documentation quality assessment. Removing it now would be a breaking API change later.
+
+**Alternative considered:** Remove the field until actually needed. Rejected because it would break clients that already pass it.
+
+**Trade-off:** The field creates a minor "what does this do?" confusion for new users. Mitigated by documentation in README, OpenAPI schema description, and this ADR.
+
+---
+
 ## ADR-011: Converter Plugin System via Protocol
 **Date:** 2026-03 (PR 3.4) — **Status:** Implemented
 
