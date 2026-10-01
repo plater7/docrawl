@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps: update fastapi requirement from >=0.109.0 to >=0.141.1** ([#227](https://github.com/plater7/docrawl/pull/227))
 - **deps: update playwright requirement from >=1.41.0 to >=1.63.0** ([#229](https://github.com/plater7/docrawl/pull/229))
 - **deps: update pydantic requirement from >=2.5.0 to >=2.13.5** ([#230](https://github.com/plater7/docrawl/pull/230))
+- **deps: Update uvicorn requirement from >=0.27.0 to >=0.54.0** ([#228](https://github.com/plater7/docrawl/pull/228))
 
 ## [v0.9.99] - 2026-03-14
 
