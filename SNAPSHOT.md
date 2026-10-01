@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-10-01 01:48 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-10-01 02:40 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -90,7 +90,15 @@ class JobRequest(BaseModel):
     url: HttpUrl
     crawl_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
     pipeline_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
-    reasoning_model: str | None = Field(default=None, pattern=r"^[\w./:@-]{1,100}$")
+    reasoning_model: str | None = Field(
+        default=None,
+        pattern=r"^[\w./:@-]{1,100}$",
+        description=(
+            "Reserved for future pipeline stages (site structure analysis, "
+            "quality assessment). Must be a valid model identifier when set, "
+            "but has no effect on current crawl behavior. See ADR-012."
+        ),
+    )
     output_path: str = Field(default="/data/output")
     delay_ms: int = Field(default=500, ge=100, le=60000)
     max_concurrent: int = Field(default=3, ge=1, le=10)
@@ -439,22 +447,20 @@ async def health_ready() -> dict:
                 checks["ollama"] = {
                     "status": "ok",
                     "models_count": len(models),
-                    "url": OLLAMA_URL,
                 }
             else:
                 checks["ollama"] = {"status": "error", "code": response.status_code}
                 issues.append(f"Ollama returned status {response.status_code}")
     except httpx.ConnectError:
-        checks["ollama"] = {"status": "unreachable", "url": OLLAMA_URL}
-        issues.append(
-            f"Cannot connect to Ollama at {OLLAMA_URL}. Is Ollama running? Try: ollama serve"
-        )
+        checks["ollama"] = {"status": "unreachable"}
+        issues.append("Cannot connect to Ollama. Is it running? Try: ollama serve")
     except httpx.TimeoutException:
-        checks["ollama"] = {"status": "timeout", "url": OLLAMA_URL}
-        issues.append(f"Ollama at {OLLAMA_URL} timed out after 5s")
+        checks["ollama"] = {"status": "timeout"}
+        issues.append("Ollama readiness check timed out after 5s")
     except Exception as e:
-        checks["ollama"] = {"status": "error", "message": str(e)}
-        issues.append(f"Ollama check failed: {e}")
+        checks["ollama"] = {"status": "error", "message": "check failed"}
+        logger.error(f"Ollama check failed: {e}", exc_info=True)
+        issues.append("Ollama check failed")
 
     # Check LM Studio connectivity
     try:
@@ -470,16 +476,16 @@ async def health_ready() -> dict:
                 checks["lmstudio"] = {
                     "status": "ok",
                     "models_count": len(data.get("data", [])),
-                    "url": LMSTUDIO_URL,
                 }
             else:
-                checks["lmstudio"] = {"status": "error", "url": LMSTUDIO_URL}
+                checks["lmstudio"] = {"status": "error"}
     except httpx.ConnectError:
-        checks["lmstudio"] = {"status": "unreachable", "url": LMSTUDIO_URL}
+        checks["lmstudio"] = {"status": "unreachable"}
     except httpx.TimeoutException:
-        checks["lmstudio"] = {"status": "timeout", "url": LMSTUDIO_URL}
+        checks["lmstudio"] = {"status": "timeout"}
     except Exception as e:
-        checks["lmstudio"] = {"status": "error", "message": str(e)}
+        checks["lmstudio"] = {"status": "error", "message": "check failed"}
+        logger.error(f"LM Studio check failed: {e}", exc_info=True)
 
     # Check llama.cpp connectivity
     try:
@@ -495,16 +501,16 @@ async def health_ready() -> dict:
                 checks["llamacpp"] = {
                     "status": "ok",
                     "models_count": len(data.get("data", [])),
-                    "url": LLAMACPP_URL,
                 }
             else:
-                checks["llamacpp"] = {"status": "error", "url": LLAMACPP_URL}
+                checks["llamacpp"] = {"status": "error"}
     except httpx.ConnectError:
-        checks["llamacpp"] = {"status": "unreachable", "url": LLAMACPP_URL}
+        checks["llamacpp"] = {"status": "unreachable"}
     except httpx.TimeoutException:
-        checks["llamacpp"] = {"status": "timeout", "url": LLAMACPP_URL}
+        checks["llamacpp"] = {"status": "timeout"}
     except Exception as e:
-        checks["llamacpp"] = {"status": "error", "message": str(e)}
+        checks["llamacpp"] = {"status": "error", "message": "check failed"}
+        logger.error(f"llama.cpp check failed: {e}", exc_info=True)
 
     # Check disk space
     data_path = Path("/data")
@@ -530,8 +536,9 @@ async def health_ready() -> dict:
             checks["disk_space"] = {"status": "not_found", "path": str(data_path)}
             issues.append("/data directory does not exist")
     except Exception as e:
-        checks["disk_space"] = {"status": "error", "message": str(e)}
-        issues.append(f"Disk space check failed: {e}")
+        checks["disk_space"] = {"status": "error", "message": "check failed"}
+        logger.error(f"Disk space check failed: {e}", exc_info=True)
+        issues.append("Disk space check failed")
 
     # Check write permissions
     try:
@@ -559,11 +566,17 @@ async def health_ready() -> dict:
             f"Permission denied writing to {data_path}. Try: sudo chown -R $USER:$USER ./data"
         )
     except Exception as e:
-        checks["write_permissions"] = {"status": "error", "message": str(e)}
-        issues.append(f"Write permission check failed: {e}")
+        checks["write_permissions"] = {"status": "error", "message": "check failed"}
+        logger.error(f"Write permission check failed: {e}", exc_info=True)
+        issues.append("Write permission check failed")
 
     ready = len(issues) == 0 and checks.get("ollama", {}).get("status") == "ok"
 
+    # issues list is safe — contains only human-readable status strings.
+    # Provider endpoints (OLLAMA_URL/LMSTUDIO_URL/LLAMACPP_URL) are deliberately NOT
+    # echoed back: this endpoint is unauthenticated, so internal URLs/topology must
+    # not leak. Exception messages are stripped of {e} detail for the same reason.
+    # data_path is always the fixed constant /data.
     if not ready:
         raise HTTPException(
             status_code=503,
@@ -665,6 +678,12 @@ async def resume_from_state(
         pages_total=len(state.pending_urls),
         converter=job_request.converter,
     )
+
+
+@router.get("/stats")
+async def get_stats() -> dict:
+    """In-memory job counters for operator observability."""
+    return await job_manager.get_stats()
 
 
 @router.get("/converters")
@@ -1805,6 +1824,19 @@ class JobManager:
             1 for job in self._jobs.values() if job.status in ("pending", "running")
         )
 
+    async def get_stats(self) -> dict:
+        """Return in-memory job counters by status."""
+        async with self._jobs_lock:
+            jobs = list(self._jobs.values())
+        return {
+            "total_jobs": len(jobs),
+            "active_jobs": sum(1 for j in jobs if j.status in ("pending", "running")),
+            "paused_jobs": sum(1 for j in jobs if j.status == "paused"),
+            "completed_jobs": sum(1 for j in jobs if j.status == "completed"),
+            "failed_jobs": sum(1 for j in jobs if j.status == "failed"),
+            "cancelled_jobs": sum(1 for j in jobs if j.status == "cancelled"),
+        }
+
     async def shutdown(self) -> None:
         """Cancel all running tasks on server shutdown — closes CONS-014 / issue #60."""
         running = [
@@ -1920,7 +1952,7 @@ class JobManager:
 
 ## `src/jobs/runner.py`
 
-*File truncated: showing first 500 of 1190 lines.*
+*File truncated: showing first 500 of 1252 lines.*
 
 ```python
 """Job execution orchestration."""
@@ -2035,6 +2067,379 @@ async def _log(job: Job, event_type: str, data: dict) -> None:
             logger.info(full_msg)
 
 
+async def _process_page(
+    i: int,
+    url: str,
+    *,
+    job: "Job",
+    request: "JobRequest",
+    sem: asyncio.Semaphore,
+    counter_lock: asyncio.Lock,
+    counters: dict,
+    output_path: "Path",
+    scraper: "PageScraper",
+    page_pool: "PagePool | None",
+    page_cache: "PageCache | None",
+    converter: "MarkdownConverter",
+    urls: list,
+    base_url: str,
+    delay_s: float,
+    seen_hashes: "set[str]",
+    hash_lock: asyncio.Lock,
+    url_track_lock: asyncio.Lock,
+    completed_urls: list,
+    failed_urls: list,
+) -> None:
+    """Process a single page: scrape, clean, save. Called concurrently via asyncio.gather."""
+    async with sem:
+        # PR 3.1: suspend until job is resumed (no-op if running)
+        await job.wait_if_paused()
+
+        if job.is_cancelled:
+            return
+
+        job.current_url = url
+        page_start = time.monotonic()
+
+        # Scraping sub-phase
+        await _log(
+            job,
+            "phase_change",
+            {
+                "phase": "scraping",
+                "message": "Loading page...",
+                "progress": f"{i + 1}/{len(urls)}",
+                "url": url,
+            },
+        )
+
+        try:
+            markdown = None
+            native_token_count = None
+            raw_html: str | None = None  # PR 3.2: kept for structured output
+            fetch_method = "playwright"
+            load_time = 0.0
+
+            # PR 2.4: check cache before any network call
+            if page_cache is not None:
+                cached_html = page_cache.get(url)
+                if cached_html is not None:
+                    markdown = converter.convert(cached_html)  # PR 3.4
+                    raw_html = cached_html  # preserve for structured JSON output
+                    fetch_method = "cache"
+                    load_time = time.monotonic() - page_start
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] [cache] Served from cache {url} ({load_time:.2f}s)",
+                        },
+                    )
+
+            # Try native markdown via content negotiation (skip if cache already populated)
+            if request.use_native_markdown and markdown is None:
+                md_content, token_count = await fetch_markdown_native(url)
+                if md_content:
+                    markdown = md_content
+                    native_token_count = token_count
+                    fetch_method = "native"
+                    async with counter_lock:
+                        counters["native_md"] += 1
+                    load_time = time.monotonic() - page_start
+                    token_info = f", {token_count} tokens" if token_count else ""
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] [native-md] Skipped Playwright for {url} ({load_time:.1f}s{token_info})",
+                        },
+                    )
+
+            # Try markdown proxy as fallback
+            if markdown is None and request.use_markdown_proxy:
+                proxy_url = request.markdown_proxy_url or "https://markdown.new"
+                md_content, _ = await fetch_markdown_proxy(url, proxy_url)
+                if md_content:
+                    markdown = md_content
+                    fetch_method = "proxy"
+                    async with counter_lock:
+                        counters["proxy_md"] += 1
+                    load_time = time.monotonic() - page_start
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] [proxy-md] Fetched via proxy for {url} ({load_time:.1f}s)",
+                        },
+                    )
+
+            # HTTP fast-path: try plain HTTP before Playwright (PR 1.3)
+            if markdown is None and request.use_http_fast_path:
+                fast_md = await fetch_html_fast(url)
+                if fast_md:
+                    markdown = fast_md
+                    fetch_method = "http_fast"
+                    async with counter_lock:
+                        counters["http_fast"] += 1
+                    load_time = time.monotonic() - page_start
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] [http-fast] Skipped Playwright for {url} ({load_time:.1f}s)",
+                        },
+                    )
+
+            # Fall back to Playwright with retries (pass pool if available — PR 1.2)
+            if markdown is None:
+                for _attempt in range(MAX_SCRAPE_RETRIES + 1):
+                    try:
+                        html = await scraper.get_html(
+                            url,
+                            pool=page_pool,
+                            content_selectors=request.content_selectors,
+                            noise_selectors=request.noise_selectors,
+                        )
+                        break
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as _e:
+                        if job.is_cancelled:
+                            raise asyncio.CancelledError()
+                        if _attempt < MAX_SCRAPE_RETRIES:
+                            _wait = 2**_attempt
+                            logger.warning(
+                                f"Playwright scrape attempt {_attempt + 1}/{MAX_SCRAPE_RETRIES + 1} "
+                                f"failed for {url}: {_e}. Retrying in {_wait}s..."
+                            )
+                            async with counter_lock:
+                                job.pages_retried += 1
+                            await asyncio.sleep(_wait)
+                        else:
+                            raise
+                raw_html = html  # PR 3.2: keep for structured output
+                load_time = time.monotonic() - page_start
+                markdown = converter.convert(html)  # PR 3.4
+                async with counter_lock:
+                    counters["playwright"] += 1
+                # PR 2.4: cache the raw HTML (only if not blocked — checked below)
+                if page_cache is not None:
+                    if not is_blocked_response(markdown):
+                        page_cache.put(url, html)
+
+            # PR 2.3: check for blocked response (bot-check pages)
+            if is_blocked_response(markdown):
+                async with counter_lock:
+                    job.pages_blocked += 1
+                    job.pages_completed += 1
+                async with url_track_lock:
+                    failed_urls.append(url)
+                await _log(
+                    job,
+                    "log",
+                    {
+                        "phase": "scraping",
+                        "message": f"[{i + 1}/{len(urls)}] ⚠ blocked response detected, skipping {url}",
+                        "level": "warning",
+                    },
+                )
+                return
+
+            # PR 2.3: content dedup — skip near-identical pages
+            h = content_hash(markdown)
+            async with hash_lock:
+                if h in seen_hashes:
+                    async with counter_lock:
+                        job.pages_skipped += 1
+                        job.pages_completed += 1
+                    async with url_track_lock:
+                        completed_urls.append(url)
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "scraping",
+                            "message": f"[{i + 1}/{len(urls)}] ⚡ duplicate content, skipping {url}",
+                        },
+                    )
+                    return
+                seen_hashes.add(h)
+
+            chunks = chunk_markdown(markdown, native_token_count=native_token_count)
+
+            await _log(
+                job,
+                "log",
+                {
+                    "phase": "scraping",
+                    "message": f"[{i + 1}/{len(urls)}] Loaded {url} ({load_time:.1f}s, {len(chunks)} chunks, {fetch_method})",
+                },
+            )
+
+            # Cleanup sub-phase
+            cleaned_chunks: list[str] = []
+            chunks_failed = 0
+
+            # Skip when the converter already produces clean Markdown (ReaderLM)
+            # or when the caller explicitly opts out via skip_llm_cleanup.
+            _READERLM_CONVERTERS = {"readerlm", "readerlm-v1"}
+            _skip_cleanup = getattr(request, "skip_llm_cleanup", False) or (
+                request.converter in _READERLM_CONVERTERS
+            )
+            # Narrow type for mypy: pipeline_model is non-None when cleanup runs
+            # (enforced by JobRequest.validate_models_required)
+            _pipeline_model: str = request.pipeline_model or ""
+            if _skip_cleanup or request.output_format == "json":
+                # Skip LLM cleanup: either converter produces clean markdown already,
+                # caller opted out via skip_llm_cleanup, or output is JSON (no LLM needed).
+                cleaned_chunks = list(chunks)
+            else:
+                await _log(
+                    job,
+                    "phase_change",
+                    {
+                        "phase": "cleanup",
+                        "active_model": request.pipeline_model,
+                        "message": f"Cleaning {len(chunks)} chunks...",
+                        "progress": f"{i + 1}/{len(urls)}",
+                        "url": url,
+                    },
+                )
+
+            for ci, chunk in (
+                enumerate(chunks)
+                if not _skip_cleanup and request.output_format != "json"
+                else []
+            ):
+                if job.is_cancelled:
+                    break
+
+                # Skip LLM cleanup for already-clean chunks
+                if not needs_llm_cleanup(chunk):
+                    cleaned_chunks.append(chunk)
+                    if len(chunks) > 1:
+                        await _log(
+                            job,
+                            "log",
+                            {
+                                "phase": "cleanup",
+                                "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ⚡ skip (clean)",
+                            },
+                        )
+                    continue
+
+                try:
+                    chunk_start = time.monotonic()
+                    cleaned = await cleanup_markdown(chunk, _pipeline_model)
+                    chunk_time = time.monotonic() - chunk_start
+                    cleaned_chunks.append(cleaned)
+
+                    if len(chunks) > 1:
+                        await _log(
+                            job,
+                            "log",
+                            {
+                                "phase": "cleanup",
+                                "active_model": _pipeline_model,
+                                "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✓ ({chunk_time:.1f}s)",
+                            },
+                        )
+                except Exception:
+                    chunks_failed += 1
+                    cleaned_chunks.append(chunk)
+                    await _log(
+                        job,
+                        "log",
+                        {
+                            "phase": "cleanup",
+                            "active_model": _pipeline_model,
+                            "message": f"[{i + 1}/{len(urls)}] Chunk {ci + 1}/{len(chunks)} ✗ failed, using raw",
+                            "level": "warning",
+                        },
+                    )
+
+            # Save sub-phase
+            md_file_path = _url_to_filepath(url, base_url, output_path)
+
+            if request.output_format == "json":
+                # PR 3.2: structured JSON output
+                if raw_html is not None:
+                    structured_page = html_to_structured(url, raw_html)
+                else:
+                    structured_page = StructuredPage(
+                        url=url,
+                        title=None,
+                        blocks=[ContentBlock(type="paragraph", content=markdown)],
+                    )
+                json_path = md_file_path.with_suffix(".json")
+                save_structured(structured_page, json_path)
+                file_size = json_path.stat().st_size
+                file_path = json_path
+                chunks_failed = 0  # JSON output never has chunk failures
+            else:
+                # Default markdown output (atomic write via .tmp + rename — closes issue #99)
+                final_md = "\n\n".join(cleaned_chunks)
+                md_file_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp_path = md_file_path.with_suffix(".tmp")
+                tmp_path.write_text(final_md, encoding="utf-8")
+                tmp_path.rename(md_file_path)
+                file_size = md_file_path.stat().st_size
+                file_path = md_file_path
+
+            async with counter_lock:
+                if chunks_failed == 0:
+                    counters["ok"] += 1
+                else:
+                    counters["partial"] += 1
+            async with url_track_lock:
+                completed_urls.append(url)  # PR 3.1
+
+            size_str = (
+                f"{file_size / 1024:.1f} KB" if file_size >= 1024 else f"{file_size} B"
+            )
+            rel_path = str(file_path.relative_to(output_path))
+
+            await _log(
+                job,
+                "log",
+                {
+                    "phase": "save",
+                    "message": f"[{i + 1}/{len(urls)}] → {rel_path} ({size_str})"
+                    + (
+                        f" ⚠ {chunks_failed} chunks failed"
+                        if chunks_failed > 0
+                        else " ✓"
+                    ),
+                },
+            )
+
+        except Exception as e:
+            async with counter_lock:
+                counters["failed"] += 1
+            async with url_track_lock:
+                failed_urls.append(url)  # PR 3.1
+            page_time = time.monotonic() - page_start
+            logger.error(f"Failed to process {url}: {e}")
+            await _log(
+                job,
+                "log",
+                {
+                    "phase": "scraping",
+                    "message": f"[{i + 1}/{len(urls)}] ✗ {url}: {e} ({page_time:.1f}s)",
+                    "level": "error",
+                },
+            )
+
+        async with counter_lock:
+            job.pages_completed += 1
+
+        await asyncio.sleep(delay_s)
+
+
 async def run_job(
     job: Job,
     page_pool: PagePool | None = None,
@@ -2046,383 +2451,10 @@ async def run_job(
                If None, falls back to the legacy per-page create/close path.
     resume_urls: if provided, skip discovery/filtering and process only these URLs (PR 3.1).
     """
-    # TODO: reasoning_model will be used for:
-    # - Site structure analysis before crawling
-    # - Complex content filtering (language selection, cross-page dedup)
-    # - Documentation quality assessment
-    # Currently unused, passed through for future pipeline stages
+    # Reserved for future use — see ADR-012 in docs/DECISIONS.md.
+    # reasoning_model is intentionally unused in the current pipeline.
     job.status = "running"
     request = job.request
-    base_url = str(request.url)
-
-    scraper = PageScraper()
-    robots = RobotsParser()
-    # PR 3.4: resolve converter plugin (None → default "markdownify")
-    _converter = get_converter(request.converter)
-
-    try:
-        # INIT phase
-        await _log(
-            job,
-            "phase_change",
-            {
-                "phase": "init",
-                "message": "Validating models...",
-            },
-        )
-
-        # Validate models before starting (skip when all models are None — e.g. readerlm + skip_llm_cleanup)
-        _any_model = any(
-            m is not None
-            for m in (
-                request.crawl_model,
-                request.pipeline_model,
-                request.reasoning_model,
-            )
-        )
-        validation_errors = (
-            await validate_models(
-                request.crawl_model, request.pipeline_model, request.reasoning_model
-            )
-            if _any_model
-            else []
-        )
-        if validation_errors:
-            error_msg = "; ".join(validation_errors)
-            await _log(
-                job,
-                "log",
-                {
-                    "phase": "init",
-                    "message": f"Model validation failed: {error_msg}",
-                    "level": "error",
-                },
-            )
-            job.status = "failed"
-            await job.emit_event(
-                "job_done",
-                {
-                    "status": "failed",
-                    "error": f"Model validation failed: {error_msg}",
-                },
-            )
-            return
-
-        await _log(
-            job,
-            "phase_change",
-            {
-                "phase": "init",
-                "message": "Initializing browser...",
-            },
-        )
-        await scraper.start()
-        await _log(
-            job,
-            "phase_change",
-            {
-                "phase": "init",
-                "message": "Browser ready",
-            },
-        )
-
-        # Robots.txt
-        if request.respect_robots_txt:
-            await robots.load(base_url)
-            if robots.crawl_delay:
-                delay_s = max(request.delay_ms / 1000, robots.crawl_delay)
-                await _log(
-                    job,
-                    "log",
-                    {
-                        "phase": "init",
-                        "message": f"robots.txt loaded (crawl-delay: {robots.crawl_delay}s, using {delay_s}s)",
-                    },
-                )
-            else:
-                delay_s = request.delay_ms / 1000
-                await _log(
-                    job,
-                    "log",
-                    {
-                        "phase": "init",
-                        "message": "robots.txt loaded (no crawl-delay)",
-                    },
-                )
-        else:
-            delay_s = request.delay_ms / 1000
-
-        # PR 3.1: skip discovery/filtering when resuming from saved state
-        before_llm: float = 0.0
-        llm_duration: float = 0.0
-        if resume_urls is not None:
-            urls = resume_urls
-            await _log(
-                job,
-                "phase_change",
-                {
-                    "phase": "discovery",
-                    "message": f"Resuming from state: {len(urls)} pending URLs (skipping discovery/filtering)",
-                },
-            )
-        else:
-            # DISCOVERY phase
-            phase_start = time.monotonic()
-            await _log(
-                job,
-                "phase_change",
-                {
-                    "phase": "discovery",
-                    "message": "Crawling site structure...",
-                },
-            )
-
-            urls = await discover_urls(
-                base_url, request.max_depth, request.filter_sitemap_by_path
-            )
-
-            discovery_time = time.monotonic() - phase_start
-            await _log(
-                job,
-                "log",
-                {
-                    "phase": "discovery",
-                    "message": f"Found {len(urls)} URLs ({discovery_time:.1f}s)",
-                },
-            )
-
-            if job.is_cancelled:
-                return
-
-            # FILTERING phase — basic
-            phase_start = time.monotonic()
-            total_before = len(urls)
-            await _log(
-                job,
-                "phase_change",
-                {
-                    "phase": "filtering",
-                    "message": "Applying basic filters...",
-                },
-            )
-
-            urls = filter_urls(urls, base_url, request.language)
-            after_basic = len(urls)
-            removed_basic = total_before - after_basic
-            await _log(
-                job,
-                "log",
-                {
-                    "phase": "filtering",
-                    "message": f"Basic filtering: {total_before} → {after_basic} URLs (removed {removed_basic} non-doc)",
-                },
-            )
-
-            # Robots.txt filtering
-            if request.respect_robots_txt:
-                before_robots = len(urls)
-                urls = [u for u in urls if robots.is_allowed(u)]
-                removed_robots = before_robots - len(urls)
-                if removed_robots > 0:
-                    await _log(
-                        job,
-                        "log",
-                        {
-                            "phase": "filtering",
-                            "message": f"robots.txt: {before_robots} → {len(urls)} URLs (blocked {removed_robots})",
-                        },
-                    )
-
-            # FILTERING phase — LLM (skipped when crawl_model is None)
-            before_llm = len(urls)
-            if request.crawl_model is not None:
-                await _log(
-                    job,
-                    "phase_change",
-                    {
-                        "phase": "filtering",
-                        "active_model": request.crawl_model,
-                        "message": f"LLM filtering with {request.crawl_model}...",
-                    },
-                )
-
-                llm_start = time.monotonic()
-                urls = await filter_urls_with_llm(urls, request.crawl_model)
-                llm_duration = time.monotonic() - llm_start
-            else:
-                llm_duration = 0.0
-
-        if request.crawl_model is not None:
-            await _log(
-                job,
-                "log",
-                {
-                    "phase": "filtering",
-                    "active_model": request.crawl_model,
-                    "message": f"LLM result: {before_llm} → {len(urls)} URLs ({llm_duration:.1f}s)",
-                },
-            )
-        # end else (full discovery/filtering)
-
-        job.pages_total = len(urls)
-
-        if job.is_cancelled:
-            return
-
-        # SCRAPING + CLEANUP phase
-        output_path = Path(request.output_path)
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        pages_ok = 0
-        pages_partial = 0
-        pages_failed = 0
-        pages_skipped = 0  # PR 2.3: dedup skips
-        pages_blocked = 0  # PR 2.3: bot-check pages
-        pages_native_md = 0
-        pages_proxy_md = 0
-        pages_playwright = 0
-        pages_http_fast = 0  # PR 1.3
-
-        # PR 2.3: per-job content dedup state
-        seen_hashes: set[str] = set()
-        _hash_lock = asyncio.Lock()
-
-        # PR 3.1: track completed/failed URLs for pause/resume checkpoint
-        completed_urls: list[str] = []
-        failed_urls: list[str] = []
-        _url_track_lock = asyncio.Lock()
-
-        # PR 2.4: optional page HTML cache
-        page_cache: PageCache | None = None
-        if request.use_cache:
-            cache_dir = output_path / ".cache"
-            page_cache = PageCache(cache_dir)
-
-        # Semaphore enforces max_concurrent — closes CONS-010 / issue #56
-        sem = asyncio.Semaphore(request.max_concurrent)
-        # Lock to protect shared counters and job.pages_completed
-        _counter_lock = asyncio.Lock()
-
-        async def _process_page(i: int, url: str) -> None:
-            nonlocal pages_ok, pages_partial, pages_failed, pages_skipped, pages_blocked
-            nonlocal pages_native_md, pages_proxy_md, pages_playwright, pages_http_fast
-
-            async with sem:
-                # PR 3.1: suspend until job is resumed (no-op if running)
-                await job.wait_if_paused()
-
-                if job.is_cancelled:
-                    return
-
-                job.current_url = url
-                page_start = time.monotonic()
-
-                # Scraping sub-phase
-                await _log(
-                    job,
-                    "phase_change",
-                    {
-                        "phase": "scraping",
-                        "message": "Loading page...",
-                        "progress": f"{i + 1}/{len(urls)}",
-                        "url": url,
-                    },
-                )
-
-                try:
-                    markdown = None
-                    native_token_count = None
-                    raw_html: str | None = None  # PR 3.2: kept for structured output
-                    fetch_method = "playwright"
-                    load_time = 0.0
-
-                    # PR 2.4: check cache before any network call
-                    if page_cache is not None:
-                        cached_html = page_cache.get(url)
-                        if cached_html is not None:
-                            markdown = _converter.convert(cached_html)  # PR 3.4
-                            fetch_method = "cache"
-                            load_time = time.monotonic() - page_start
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] [cache] Served from cache {url} ({load_time:.2f}s)",
-                                },
-                            )
-
-                    # Try native markdown via content negotiation
-                    if request.use_native_markdown:
-                        md_content, token_count = await fetch_markdown_native(url)
-                        if md_content:
-                            markdown = md_content
-                            native_token_count = token_count
-                            fetch_method = "native"
-                            async with _counter_lock:
-                                pages_native_md += 1
-                            load_time = time.monotonic() - page_start
-                            token_info = (
-                                f", {token_count} tokens" if token_count else ""
-                            )
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] [native-md] Skipped Playwright for {url} ({load_time:.1f}s{token_info})",
-                                },
-                            )
-
-                    # Try markdown proxy as fallback
-                    if markdown is None and request.use_markdown_proxy:
-                        proxy_url = request.markdown_proxy_url or "https://markdown.new"
-                        md_content, _ = await fetch_markdown_proxy(url, proxy_url)
-                        if md_content:
-                            markdown = md_content
-                            fetch_method = "proxy"
-                            async with _counter_lock:
-                                pages_proxy_md += 1
-                            load_time = time.monotonic() - page_start
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] [proxy-md] Fetched via proxy for {url} ({load_time:.1f}s)",
-                                },
-                            )
-
-                    # HTTP fast-path: try plain HTTP before Playwright (PR 1.3)
-                    if markdown is None and request.use_http_fast_path:
-                        fast_md = await fetch_html_fast(url)
-                        if fast_md:
-                            markdown = fast_md
-                            fetch_method = "http_fast"
-                            async with _counter_lock:
-                                pages_http_fast += 1
-                            load_time = time.monotonic() - page_start
-                            await _log(
-                                job,
-                                "log",
-                                {
-                                    "phase": "scraping",
-                                    "message": f"[{i + 1}/{len(urls)}] [http-fast] Skipped Playwright for {url} ({load_time:.1f}s)",
-                                },
-                            )
-
-                    # Fall back to Playwright with retries (pass pool if available — PR 1.2)
-                    if markdown is None:
-                        for _attempt in range(MAX_SCRAPE_RETRIES + 1):
-                            try:
-                                html = await scraper.get_html(
-                                    url,
-                                    pool=page_pool,
-                                    content_selectors=request.content_selectors,
-                                    noise_selectors=request.noise_selectors,
-                                )
-                                break
-                            except asyncio.CancelledError:
 # ... truncated ...
 ```
 
@@ -4240,7 +4272,7 @@ import logging
 import httpx
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from playwright.async_api import async_playwright, Browser, Page
+from playwright.async_api import async_playwright, Browser, Page, Playwright
 
 from src.utils.security import validate_url_not_ssrf
 
@@ -4380,12 +4412,12 @@ CONTENT_SELECTORS = [
 MIN_CONTENT_LENGTH = 200
 
 
-class PageScraper:
+class PageScraper:  # pragma: no cover
     """Scrapes pages using Playwright with DOM pre-cleaning."""
 
     def __init__(self) -> None:
         self._browser: Browser | None = None
-        self._playwright: object | None = None  # async_playwright context
+        self._playwright: Playwright | None = None
 
     async def start(self) -> None:
         """Start the browser.
@@ -4409,7 +4441,7 @@ class PageScraper:
             self._browser = None
             logger.info("Browser stopped")
         if self._playwright is not None:
-            await self._playwright.stop()  # type: ignore[union-attr,attr-defined]
+            await self._playwright.stop()
             self._playwright = None
 
     async def _remove_noise(
@@ -4519,7 +4551,7 @@ class PageScraper:
             await page.close()
 
 
-class PagePool:
+class PagePool:  # pragma: no cover
     """Pool of reusable Playwright pages backed by an asyncio.Queue (PR 1.2).
 
     Avoids the overhead of creating/closing a new page per URL.
@@ -5515,7 +5547,7 @@ python_functions = test_*
 asyncio_mode = auto
 
 # Coverage settings
-# Current threshold: 60% | Target: 65% (see docs/PROJECT_STATUS.md)
+# Current threshold: 70% | Target: 80% (release target)
 addopts =
     --verbose
     --color=yes
@@ -5523,7 +5555,7 @@ addopts =
     --cov-report=term-missing
     --cov-report=html
     --cov-branch
-    --cov-fail-under=60
+    --cov-fail-under=70
     -ra
 
 # Markers for categorizing tests
@@ -5634,8 +5666,10 @@ MAX_CONCURRENT_JOBS=5
 # ─────────────────────────────────────────────────────────────────────────────
 # LOGGING (Optional)
 # ─────────────────────────────────────────────────────────────────────────────
-# Set log level for debugging. Default: INFO
-# Options: DEBUG, INFO, WARNING, ERROR
-#LOG_LEVEL=DEBUG
+# LOG_LEVEL controls structured JSON log verbosity.
+# Options: DEBUG, INFO, WARNING, ERROR, CRITICAL. Default: INFO.
+# Use DEBUG to see per-page scraping details and LLM prompts.
+# CAUTION: DEBUG may expose sensitive data (API keys, prompt content) in logs — do not use in production.
+LOG_LEVEL=INFO
 ```
 
