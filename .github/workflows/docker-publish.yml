@@ -38,8 +38,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
+        env:
+          GH_API: ${{ github.api_url }}
         run: |
-          BODY=$(gh release view "${TAG_NAME}" --json body --jq '.body')
+          # gh release view requires a git context this job doesn't have (fails with
+          # "not a git repository"); use the REST API instead.
+          BODY=$(curl -sf -H "Authorization: Bearer ${GH_TOKEN}" \
+               "${GH_API}/repos/${{ github.repository }}/releases/tags/${TAG_NAME}" | jq -r .body)
           if [ -z "$BODY" ] || [ "$BODY" = "null" ]; then
             echo "::error::Release body is empty — Release workflow may not have run or failed. Aborting Docker publish."
             exit 1
