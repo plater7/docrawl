@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v1.0.0] - unreleased
+## [v1.0.0] - 2026-10-03
 
 ### Added
 - GET /api/stats endpoint returning live job counters (requiere `X-Api-Key` cuando `API_KEY` está configurado)
