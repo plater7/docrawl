@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps: update fastapi requirement from >=0.141.1 to >=0.142.2** ([#236](https://github.com/plater7/docrawl/pull/236))
 - **deps: update pytest requirement from >=7.4.0 to >=9.1.1** ([#237](https://github.com/plater7/docrawl/pull/237))
 - **deps: update sse-starlette requirement from >=1.8.0 to >=3.5.0** ([#238](https://github.com/plater7/docrawl/pull/238))
+- **deps: update readability-lxml requirement from >=0.8.1 to >=0.9** ([#239](https://github.com/plater7/docrawl/pull/239))
 
 ## [v0.9.99] - 2026-03-14
 
