@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump docker/metadata-action from 5.6.1 to 6.2.0** ([#233](https://github.com/plater7/docrawl/pull/233))
 - **ci: bump ossf/scorecard-action from 2.4.3 to 2.4.4** ([#234](https://github.com/plater7/docrawl/pull/234))
 - **ci: bump github/codeql-action/upload-sarif from 4.33.0 to 4.38.2** ([#240](https://github.com/plater7/docrawl/pull/240))
+- **deps: update slowapi requirement from >=0.1.9 to >=0.1.10** ([#235](https://github.com/plater7/docrawl/pull/235))
 
 ## [v0.9.99] - 2026-03-14
 
