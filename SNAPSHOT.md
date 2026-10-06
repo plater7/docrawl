@@ -5416,7 +5416,7 @@ readability-lxml>=0.8.1
 
 ```
 -r requirements.txt
-pytest>=7.4.0
+pytest>=9.1.1
 pytest-asyncio>=0.21.0
 pytest-cov>=7.1.0
 ```
