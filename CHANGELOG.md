@@ -72,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps: update pydantic requirement from >=2.5.0 to >=2.13.5** ([#230](https://github.com/plater7/docrawl/pull/230))
 - **deps: Update uvicorn requirement from >=0.27.0 to >=0.54.0** ([#228](https://github.com/plater7/docrawl/pull/228))
 - **ci: bump docker/metadata-action from 5.6.1 to 6.2.0** ([#233](https://github.com/plater7/docrawl/pull/233))
+- **ci: bump ossf/scorecard-action from 2.4.3 to 2.4.4** ([#234](https://github.com/plater7/docrawl/pull/234))
 
 ## [v0.9.99] - 2026-03-14
 
