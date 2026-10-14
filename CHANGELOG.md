@@ -80,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps: update sse-starlette requirement from >=1.8.0 to >=3.5.0** ([#238](https://github.com/plater7/docrawl/pull/238))
 - **deps: update readability-lxml requirement from >=0.8.1 to >=0.9** ([#239](https://github.com/plater7/docrawl/pull/239))
 - **deps: update beautifulsoup4 requirement from >=4.12.0 to >=4.15.0** ([#241](https://github.com/plater7/docrawl/pull/241))
+- **deps: update pydantic requirement from >=2.13.5 to >=2.14.0** ([#242](https://github.com/plater7/docrawl/pull/242))
 
 ## [v0.9.99] - 2026-03-14
 
