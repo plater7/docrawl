@@ -5397,7 +5397,7 @@ def validate_url_not_ssrf(url: str) -> None:
 ## `requirements.txt`
 
 ```
-fastapi>=0.142.2
+fastapi>=0.143.0
 uvicorn[standard]>=0.54.0
 playwright>=1.63.0
 markdownify>=0.11.6
