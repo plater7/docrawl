@@ -82,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps: update beautifulsoup4 requirement from >=4.12.0 to >=4.15.0** ([#241](https://github.com/plater7/docrawl/pull/241))
 - **deps: update pydantic requirement from >=2.13.5 to >=2.14.0** ([#242](https://github.com/plater7/docrawl/pull/242))
 - **ci: bump docker/setup-buildx-action from 4.0.0 to 4.4.1** ([#243](https://github.com/plater7/docrawl/pull/243))
+- **ci: bump actions/stale from 9.1.0 to 11.0.0** ([#244](https://github.com/plater7/docrawl/pull/244))
 
 ## [v0.9.99] - 2026-03-14
 
