@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-10-06 02:36 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-10-14 17:31 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -5404,7 +5404,7 @@ markdownify>=0.11.6
 httpx>=0.26.0
 pydantic>=2.13.5
 sse-starlette>=3.5.0
-beautifulsoup4>=4.12.0
+beautifulsoup4>=4.15.0
 defusedxml>=0.7.1
 slowapi>=0.1.10
 readability-lxml>=0.9
