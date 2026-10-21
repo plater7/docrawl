@@ -5399,7 +5399,7 @@ def validate_url_not_ssrf(url: str) -> None:
 ```
 fastapi>=0.143.0
 uvicorn[standard]>=0.54.0
-playwright>=1.63.0
+playwright>=1.64.0
 markdownify>=0.11.6
 httpx>=0.26.0
 pydantic>=2.14.1
