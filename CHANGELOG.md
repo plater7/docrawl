@@ -88,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump codecov/codecov-action from 5.5.2 to 7.1.1** ([#247](https://github.com/plater7/docrawl/pull/247))
 - **deps: update pydantic requirement from >=2.14.0 to >=2.14.1** ([#248](https://github.com/plater7/docrawl/pull/248))
 - **deps: update playwright requirement from >=1.63.0 to >=1.64.0** ([#249](https://github.com/plater7/docrawl/pull/249))
+- **ci: bump softprops/action-gh-release from 2.6.1 to 3.0.3** ([#250](https://github.com/plater7/docrawl/pull/250))
 
 ## [v0.9.99] - 2026-03-14
 
