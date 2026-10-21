@@ -85,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump actions/stale from 9.1.0 to 11.0.0** ([#244](https://github.com/plater7/docrawl/pull/244))
 - **deps: update fastapi requirement from >=0.142.2 to >=0.143.0** ([#245](https://github.com/plater7/docrawl/pull/245))
 - **ci: bump github/codeql-action/autobuild from 4.37.8 to 4.38.3** ([#246](https://github.com/plater7/docrawl/pull/246))
+- **ci: bump codecov/codecov-action from 5.5.2 to 7.1.1** ([#247](https://github.com/plater7/docrawl/pull/247))
 
 ## [v0.9.99] - 2026-03-14
 
