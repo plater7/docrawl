@@ -94,6 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump docker/build-push-action from 7.0.0 to 7.4.0** ([#253](https://github.com/plater7/docrawl/pull/253))
 - **ci: bump actions/cache from 5.0.3 to 6.1.0** ([#255](https://github.com/plater7/docrawl/pull/255))
 - **deps: update fastapi requirement from >=0.143.3 to >=0.162.0** ([#254](https://github.com/plater7/docrawl/pull/254))
+- **deps: update playwright requirement from >=1.64.0 to >=1.64.1** ([#256](https://github.com/plater7/docrawl/pull/256))
 
 ## [v0.9.99] - 2026-03-14
 
