@@ -91,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump softprops/action-gh-release from 2.6.1 to 3.0.3** ([#250](https://github.com/plater7/docrawl/pull/250))
 - **deps: update fastapi requirement from >=0.143.0 to >=0.143.3** ([#251](https://github.com/plater7/docrawl/pull/251))
 - **ci: bump ossf/scorecard-action from 2.4.4 to 2.5.0** ([#252](https://github.com/plater7/docrawl/pull/252))
+- **ci: bump docker/build-push-action from 7.0.0 to 7.4.0** ([#253](https://github.com/plater7/docrawl/pull/253))
 
 ## [v0.9.99] - 2026-03-14
 
