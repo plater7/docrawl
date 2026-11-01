@@ -1,11 +1,20 @@
 """Tests for src/api/models.py — JobRequest validators, OllamaModel, and JobStatus."""
 
 import logging
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from pydantic import ValidationError
 
-from src.api.models import JobRequest, OllamaModel, JobStatus
+from src.api.models import JobRequest, OllamaModel, JobStatus, ResumeFromStateRequest
+
+
+@pytest.fixture()
+def data_root(tmp_path, monkeypatch):
+    """Point the path validators at a temporary data root."""
+    monkeypatch.setattr("src.utils.safe_paths.DATA_ROOT", tmp_path)
+    return tmp_path
 
 
 # ---------------------------------------------------------------------------
@@ -31,64 +40,83 @@ def _minimal_request(**kwargs) -> dict:
 
 
 class TestValidateOutputPath:
-    """Tests for JobRequest.validate_output_path.
+    """Tests for JobRequest.validate_output_path (CWE-22 containment).
 
-    The validator runs Path('/data').joinpath(v).resolve() and checks that the
-    result starts with '/data'.  On Windows Path.resolve() returns Windows-style
-    paths, so valid-path tests patch Path.resolve to simulate Linux behaviour.
-    The traversal-rejection tests rely on the validator raising ValueError, which
-    happens whenever str(resolved) does not start with '/data' — always true on
-    Windows for non-/data paths too, so no patching is needed there.
+    The validator resolves the value against the data root and rejects anything
+    that canonicalises outside it, so tests just point the root at tmp_path.
     """
 
-    def test_path_traversal_raises_value_error(self):
+    def test_path_traversal_raises_value_error(self, data_root):
         """Path traversal via ../../etc/passwd must be rejected."""
         with pytest.raises(ValidationError) as exc_info:
             JobRequest(**_minimal_request(output_path="../../etc/passwd"))
         assert "output_path must be under /data" in str(exc_info.value)
 
-    def test_path_traversal_deep_raises(self):
-        """Deep traversal attempt that escapes /data must be rejected."""
+    def test_path_traversal_deep_raises(self, data_root):
+        """Deep traversal attempt that escapes the root must be rejected."""
         with pytest.raises(ValidationError) as exc_info:
             JobRequest(**_minimal_request(output_path="output/../../etc/shadow"))
         assert "output_path must be under /data" in str(exc_info.value)
 
-    def test_valid_path_under_data_accepted(self):
-        """A path that resolves inside /data must be accepted (Linux simulation)."""
-        with patch(
-            "src.api.models.Path.resolve",
-            return_value=MagicMock(__str__=lambda s: "/data/output"),
-        ):
-            job = JobRequest(**_minimal_request(output_path="/data/output"))
-        assert job.output_path == "/data/output"
-
-    def test_relative_path_under_data_accepted(self):
-        """A relative path that stays inside /data must be accepted (Linux simulation)."""
-        with patch(
-            "src.api.models.Path.resolve",
-            return_value=MagicMock(__str__=lambda s: "/data/output/docs"),
-        ):
-            job = JobRequest(**_minimal_request(output_path="output/docs"))
-        assert job.output_path == "/data/output/docs"
-
-    def test_path_outside_data_raises(self):
-        """If resolved path is outside /data the validator must raise."""
-        with patch(
-            "src.api.models.Path.resolve",
-            return_value=MagicMock(__str__=lambda s: "/etc/passwd"),
-        ):
-            with pytest.raises(ValidationError) as exc_info:
-                JobRequest(**_minimal_request(output_path="/etc/passwd"))
+    def test_sibling_prefix_outside_root_raises(self, data_root):
+        """A sibling directory sharing the '/data' prefix must be rejected."""
+        sibling = str(data_root.parent / (data_root.name + "-backup") / "output")
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(**_minimal_request(output_path=sibling))
         assert "output_path must be under /data" in str(exc_info.value)
 
-    def test_default_output_path_accepted(self):
-        """Default output_path /data/output is accepted (Linux simulation)."""
-        with patch(
-            "src.api.models.Path.resolve",
-            return_value=MagicMock(__str__=lambda s: "/data/output"),
-        ):
-            job = JobRequest(**_minimal_request())
-        assert job.output_path == "/data/output"
+    def test_absolute_path_outside_root_raises(self):
+        """An absolute path outside the data root must be rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(**_minimal_request(output_path="/etc/passwd"))
+        assert "output_path must be under /data" in str(exc_info.value)
+
+    def test_absolute_path_under_root_accepted(self, data_root):
+        """An absolute path inside the data root is kept as-is."""
+        target = str(data_root / "output")
+        job = JobRequest(**_minimal_request(output_path=target))
+        assert Path(job.output_path) == Path(target)
+
+    def test_relative_path_under_root_accepted(self, data_root):
+        """A relative path is anchored at the data root."""
+        job = JobRequest(**_minimal_request(output_path="output/docs"))
+        assert Path(job.output_path) == data_root / "output" / "docs"
+
+    def test_symlink_escape_raises(self, data_root):
+        """A symlink that points outside the data root must be rejected."""
+        outside = data_root.parent / (data_root.name + "-outside")
+        outside.mkdir()
+        link = data_root / "escape"
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            pytest.skip("symlinks not supported on this platform")
+        with pytest.raises(ValidationError) as exc_info:
+            JobRequest(**_minimal_request(output_path="escape/payload"))
+        assert "output_path must be under /data" in str(exc_info.value)
+
+
+class TestValidateStateFilePath:
+    """Tests for ResumeFromStateRequest.validate_state_path (CWE-22)."""
+
+    def test_relative_path_anchored_at_root(self, data_root):
+        """A relative state file path is anchored at the data root."""
+        req = ResumeFromStateRequest(state_file_path="jobs/abc/.job_state.json")
+        assert (
+            Path(req.state_file_path) == data_root / "jobs" / "abc" / ".job_state.json"
+        )
+
+    def test_traversal_rejected(self, data_root):
+        """Traversal outside the data root is rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            ResumeFromStateRequest(state_file_path="../../etc/passwd")
+        assert "state_file_path must be under /data" in str(exc_info.value)
+
+    def test_absolute_outside_root_rejected(self):
+        """An absolute path outside the data root is rejected."""
+        with pytest.raises(ValidationError) as exc_info:
+            ResumeFromStateRequest(state_file_path="/etc/passwd")
+        assert "state_file_path must be under /data" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------

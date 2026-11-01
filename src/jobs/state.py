@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.utils.safe_paths import resolve_under_root
+
 logger = logging.getLogger(__name__)
 
 STATE_FILENAME = ".job_state.json"
@@ -62,11 +64,22 @@ def save_job_state(
     return state_path
 
 
-def load_job_state(state_path: Path) -> JobState:
+def load_job_state(state_path: Path, data_root: Path | str | None = None) -> JobState:
     """Load job state from a .job_state.json file.
 
-    Raises ValueError if the file is corrupt or missing required fields.
+    The path is always re-validated against *data_root* (default ``/data``)
+    immediately before the file is read, so a caller that skipped request
+    validation still cannot read outside the data root (CWE-22). The file name
+    is always checked against ``STATE_FILENAME``.
+
+    Raises ValueError if the path escapes the data root, the name is not a
+    state file, or the file is corrupt / missing required fields.
     """
+    state_path = resolve_under_root(state_path, data_root)
+    if state_path.name != STATE_FILENAME:
+        raise ValueError(
+            f"State file must be named {STATE_FILENAME}, got: {state_path.name}"
+        )
     try:
         data = json.loads(state_path.read_text(encoding="utf-8"))
     except Exception as e:

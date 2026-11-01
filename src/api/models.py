@@ -2,12 +2,12 @@
 
 import logging
 import re
-from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, HttpUrl, Field, field_validator, model_validator
 
+from src.utils.safe_paths import resolve_under_root
 from src.utils.security import validate_url_not_ssrf
 
 logger = logging.getLogger(__name__)
@@ -100,11 +100,11 @@ class JobRequest(BaseModel):
     @field_validator("output_path")
     @classmethod
     def validate_output_path(cls, v: str) -> str:
-        """Prevent path traversal — closes CONS-001 / issue #47."""
-        resolved = Path("/data").joinpath(v.lstrip("/")).resolve()
-        if not str(resolved).startswith("/data"):
-            raise ValueError("output_path must be under /data")
-        return str(resolved)
+        """Prevent path traversal — closes CONS-001 / issue #47 (CWE-22)."""
+        try:
+            return str(resolve_under_root(v))
+        except ValueError as e:
+            raise ValueError("output_path must be under /data") from e
 
     @field_validator("markdown_proxy_url", mode="before")
     @classmethod
@@ -168,11 +168,11 @@ class ResumeFromStateRequest(BaseModel):
     @field_validator("state_file_path")
     @classmethod
     def validate_state_path(cls, v: str) -> str:
-        """Prevent path traversal on state file path."""
-        resolved = Path("/data").joinpath(v.lstrip("/")).resolve()
-        if not str(resolved).startswith("/data"):
-            raise ValueError("state_file_path must be under /data")
-        return str(resolved)
+        """Prevent path traversal on the state file path (CWE-22)."""
+        try:
+            return str(resolve_under_root(v))
+        except ValueError as e:
+            raise ValueError("state_file_path must be under /data") from e
 
 
 class JobStatus(BaseModel):
