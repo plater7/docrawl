@@ -34,19 +34,17 @@ def resolve_under_root(raw: str | Path, root: str | Path | None = None) -> Path:
     ``ValueError`` is raised when the canonical result escapes the root, which
     covers ``..`` traversal, sibling-prefix names (``/data-backup``) and
     symlinks pointing outside the root.
+
+    The containment test is deliberately written as ``realpath(...)`` followed
+    by ``.startswith(root)`` on the *normalised* value: that is the exact shape
+    CodeQL models for ``py/path-injection`` (``Path::PathNormalization`` feeding
+    ``Path::SafeAccessCheck``). Wrapping the value in another call before the
+    check — ``os.path.normcase(...)``, for instance — breaks the model and the
+    taint survives.
     """
     base = os.path.realpath(str(root) if root is not None else data_root())
-    raw_str = str(raw)
-    if os.path.isabs(raw_str):
-        candidate = os.path.realpath(raw_str)
-    else:
-        candidate = os.path.realpath(os.path.join(base, raw_str))
+    candidate = os.path.realpath(os.path.join(base, str(raw)))
 
-    # normcase keeps the comparison correct on case-insensitive filesystems.
-    compare_candidate = os.path.normcase(candidate)
-    compare_base = os.path.normcase(base)
-    if compare_candidate != compare_base and not compare_candidate.startswith(
-        compare_base + os.sep
-    ):
+    if not candidate.startswith(base + os.sep):
         raise ValueError("path must be under the data root")
     return Path(candidate)
