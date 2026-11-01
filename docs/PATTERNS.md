@@ -117,6 +117,12 @@ from src.utils.safe_paths import resolve_under_root
 resolved = resolve_under_root(v)  # raises ValueError when it escapes /data
 ```
 
+Inside the helper the check must be shaped exactly as CodeQL models it: normalise first
+(`os.path.realpath`) and call `.startswith(root + os.sep)` **on that normalised value**.
+Wrapping it (`os.path.normcase(...)`, f-strings, another helper) stops `py/path-injection` from
+recognising the guard and the alert survives — verify with the CodeQL CLI, never with a PR
+analysis (pull_request analyses are diff-informed and report nothing useful here).
+
 Never compare unresolved strings (`str(path).startswith("/data")`): it accepts siblings such
 as `/data-backup` and never normalises `..`. `load_job_state()` re-validates the path against
 the root right before reading, so a caller that skips request validation cannot open a file

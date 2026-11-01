@@ -21,9 +21,10 @@ class TestResolveUnderRoot:
         target = tmp_path / "output" / "docs"
         assert resolve_under_root(target, tmp_path) == target
 
-    def test_root_itself_is_allowed(self, tmp_path):
-        """The root itself is inside the root."""
-        assert resolve_under_root(tmp_path, tmp_path) == tmp_path
+    def test_root_itself_is_rejected(self, tmp_path):
+        """The root directory is not a state file and is rejected (fails closed)."""
+        with pytest.raises(ValueError, match="under the data root"):
+            resolve_under_root(tmp_path, tmp_path)
 
     @pytest.mark.parametrize(
         "raw",

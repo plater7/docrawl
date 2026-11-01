@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
-- Rutas de usuario (`output_path`, `state_file_path`) y la carga de `.job_state.json` ahora se canonicalizan con `os.path.realpath` y se valida la contención contra el data root vía `src.utils.safe_paths.resolve_under_root()` (CWE-22, CodeQL `py/path-injection`). Se rechazan paths hermanos con el mismo prefijo (`/data-backup`), traversal con `..` y symlinks que apuntan fuera del root.
+- Rutas de usuario (`output_path`, `state_file_path`) y la carga de `.job_state.json` ahora se canonicalizan con `os.path.realpath` y se valida la contención contra el data root vía `src.utils.safe_paths.resolve_under_root()` (CWE-22, CodeQL `py/path-injection`). Se rechazan paths hermanos con el mismo prefijo (`/data-backup`), traversal con `..` y symlinks que apuntan fuera del root. La comprobación se hace con `os.path.realpath(...)` + `startswith(root)` sobre el valor normalizado, que es la forma que CodeQL modela como `Path::SafeAccessCheck` (un wrapper como `os.path.normcase` rompe el modelo y la alerta persiste).
 
 ## [v1.0.0] - 2026-10-03
 
