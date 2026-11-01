@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-11-01 01:21 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-11-01 02:28 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -39,6 +39,7 @@ src/
 │   └── index.html
 ├── utils
 │   ├── __init__.py
+│   ├── safe_paths.py
 │   └── security.py
 ├── __init__.py
 ├── exceptions.py
@@ -70,12 +71,12 @@ src/
 
 import logging
 import re
-from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, HttpUrl, Field, field_validator, model_validator
 
+from src.utils.safe_paths import resolve_under_root
 from src.utils.security import validate_url_not_ssrf
 
 logger = logging.getLogger(__name__)
@@ -168,11 +169,11 @@ class JobRequest(BaseModel):
     @field_validator("output_path")
     @classmethod
     def validate_output_path(cls, v: str) -> str:
-        """Prevent path traversal — closes CONS-001 / issue #47."""
-        resolved = Path("/data").joinpath(v.lstrip("/")).resolve()
-        if not str(resolved).startswith("/data"):
-            raise ValueError("output_path must be under /data")
-        return str(resolved)
+        """Prevent path traversal — closes CONS-001 / issue #47 (CWE-22)."""
+        try:
+            return str(resolve_under_root(v))
+        except ValueError as e:
+            raise ValueError("output_path must be under /data") from e
 
     @field_validator("markdown_proxy_url", mode="before")
     @classmethod
@@ -236,11 +237,11 @@ class ResumeFromStateRequest(BaseModel):
     @field_validator("state_file_path")
     @classmethod
     def validate_state_path(cls, v: str) -> str:
-        """Prevent path traversal on state file path."""
-        resolved = Path("/data").joinpath(v.lstrip("/")).resolve()
-        if not str(resolved).startswith("/data"):
-            raise ValueError("state_file_path must be under /data")
-        return str(resolved)
+        """Prevent path traversal on the state file path (CWE-22)."""
+        try:
+            return str(resolve_under_root(v))
+        except ValueError as e:
+            raise ValueError("state_file_path must be under /data") from e
 
 
 class JobStatus(BaseModel):
@@ -296,6 +297,7 @@ from src.llm.client import (
     LLAMACPP_API_KEY,
 )
 from src.jobs.manager import JobManager
+from src.utils.safe_paths import resolve_under_root
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -641,7 +643,11 @@ async def resume_from_state(
     """
     from src.jobs.state import load_job_state
 
-    state_path = Path(body.state_file_path)
+    try:
+        state_path = resolve_under_root(body.state_file_path)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
     if not state_path.exists():
         raise HTTPException(
             status_code=404, detail=f"State file not found: {state_path}"
@@ -2481,6 +2487,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.utils.safe_paths import resolve_under_root
+
 logger = logging.getLogger(__name__)
 
 STATE_FILENAME = ".job_state.json"
@@ -2527,11 +2535,22 @@ def save_job_state(
     return state_path
 
 
-def load_job_state(state_path: Path) -> JobState:
+def load_job_state(state_path: Path, data_root: Path | str | None = None) -> JobState:
     """Load job state from a .job_state.json file.
 
-    Raises ValueError if the file is corrupt or missing required fields.
+    The path is always re-validated against *data_root* (default ``/data``)
+    immediately before the file is read, so a caller that skipped request
+    validation still cannot read outside the data root (CWE-22). The file name
+    is always checked against ``STATE_FILENAME``.
+
+    Raises ValueError if the path escapes the data root, the name is not a
+    state file, or the file is corrupt / missing required fields.
     """
+    state_path = resolve_under_root(state_path, data_root)
+    if state_path.name != STATE_FILENAME:
+        raise ValueError(
+            f"State file must be named {STATE_FILENAME}, got: {state_path.name}"
+        )
     try:
         data = json.loads(state_path.read_text(encoding="utf-8"))
     except Exception as e:
@@ -4841,6 +4860,65 @@ def save_structured(page: StructuredPage, file_path: Path) -> None:
 
 ```python
 
+```
+
+---
+
+## `src/utils/safe_paths.py`
+
+```python
+"""Helpers that keep user-supplied paths inside the application data root.
+
+CodeQL reported ``py/path-injection`` (CWE-22) twice because the previous
+validation was not strong enough:
+
+- ``str(Path("/data").joinpath(v.lstrip("/")).resolve()).startswith("/data")``
+  compares an unresolved-prefix string: a sibling such as ``/data-backup``
+  passes the check, and the raw value was never canonicalised;
+- ``load_job_state()`` read whatever path it was handed, so any caller that
+  skipped validation reopened the sink.
+
+Every path that comes from a request now goes through :func:`resolve_under_root`,
+which canonicalises with ``os.path.realpath`` (resolving ``..`` and symlinks)
+and proves containment against the canonical root before the value is used.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+DATA_ROOT = Path("/data")
+
+
+def data_root() -> str:
+    """Return the canonical data root used when no explicit root is given."""
+    return os.path.realpath(str(DATA_ROOT))
+
+
+def resolve_under_root(raw: str | Path, root: str | Path | None = None) -> Path:
+    """Resolve *raw* and guarantee the result lives inside *root*.
+
+    Relative paths are anchored at the root; absolute paths are used as given.
+    ``ValueError`` is raised when the canonical result escapes the root, which
+    covers ``..`` traversal, sibling-prefix names (``/data-backup``) and
+    symlinks pointing outside the root.
+    """
+    base = os.path.realpath(str(root) if root is not None else data_root())
+    raw_str = str(raw)
+    if os.path.isabs(raw_str):
+        candidate = os.path.realpath(raw_str)
+    else:
+        candidate = os.path.realpath(os.path.join(base, raw_str))
+
+    # normcase keeps the comparison correct on case-insensitive filesystems.
+    compare_candidate = os.path.normcase(candidate)
+    compare_base = os.path.normcase(base)
+    if compare_candidate != compare_base and not compare_candidate.startswith(
+        compare_base + os.sep
+    ):
+        raise ValueError("path must be under the data root")
+    return Path(candidate)
 ```
 
 ---
