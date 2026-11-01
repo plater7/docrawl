@@ -66,7 +66,7 @@ class TestLoadJobState:
         state_path = save_job_state(
             tmp_path, _JOB_ID, _REQUEST_DICT, _COMPLETED, _FAILED, _PENDING
         )
-        loaded = load_job_state(state_path)
+        loaded = load_job_state(state_path, tmp_path)
 
         assert isinstance(loaded, JobState)
         assert loaded.job_id == _JOB_ID
@@ -81,7 +81,7 @@ class TestLoadJobState:
         bad_file.write_text("{ this is not valid json }", encoding="utf-8")
 
         with pytest.raises(ValueError, match="Failed to read state file"):
-            load_job_state(bad_file)
+            load_job_state(bad_file, tmp_path)
 
     def test_raises_value_error_on_missing_required_fields(self, tmp_path: Path):
         """load_job_state() raises ValueError when the JSON is missing required fields."""
@@ -90,14 +90,14 @@ class TestLoadJobState:
         bad_file.write_text(json.dumps(incomplete), encoding="utf-8")
 
         with pytest.raises(ValueError, match="missing fields"):
-            load_job_state(bad_file)
+            load_job_state(bad_file, tmp_path)
 
     def test_raises_value_error_when_file_does_not_exist(self, tmp_path: Path):
         """load_job_state() raises ValueError when the state file is absent."""
         missing = tmp_path / STATE_FILENAME
 
         with pytest.raises(ValueError, match="Failed to read state file"):
-            load_job_state(missing)
+            load_job_state(missing, tmp_path)
 
     def test_empty_url_lists_round_trip_correctly(self, tmp_path: Path):
         """Empty lists for completed/failed/pending are preserved after round-trip."""
@@ -109,8 +109,72 @@ class TestLoadJobState:
             failed_urls=[],
             pending_urls=[],
         )
-        loaded = load_job_state(state_path)
+        loaded = load_job_state(state_path, tmp_path)
 
         assert loaded.completed_urls == []
         assert loaded.failed_urls == []
         assert loaded.pending_urls == []
+
+
+class TestLoadJobStateContainment:
+    """load_job_state() re-validates the path against the data root (CWE-22)."""
+
+    def test_relative_path_is_anchored_at_root(self, tmp_path: Path):
+        """A relative state path is resolved against the given data root."""
+        save_job_state(tmp_path, _JOB_ID, _REQUEST_DICT, _COMPLETED, _FAILED, _PENDING)
+
+        loaded = load_job_state(Path(STATE_FILENAME), tmp_path)
+
+        assert loaded.job_id == _JOB_ID
+        assert loaded.pending_urls == _PENDING
+
+    def test_absolute_path_outside_root_raises(self, tmp_path: Path):
+        """An absolute path outside the data root is rejected before reading."""
+        root = tmp_path / "data"
+        root.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / STATE_FILENAME).write_text("{}", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="under the data root"):
+            load_job_state(outside / STATE_FILENAME, root)
+
+    def test_traversal_out_of_root_raises(self, tmp_path: Path):
+        """Traversal out of the data root is rejected."""
+        root = tmp_path / "data"
+        root.mkdir()
+        (tmp_path / STATE_FILENAME).write_text("{}", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="under the data root"):
+            load_job_state(Path("../" + STATE_FILENAME), root)
+
+    def test_default_root_is_enforced(self, tmp_path: Path):
+        """Without an explicit root the container /data is required."""
+        save_job_state(tmp_path, _JOB_ID, _REQUEST_DICT, _COMPLETED, _FAILED, _PENDING)
+
+        with pytest.raises(ValueError, match="under the data root"):
+            load_job_state(tmp_path / STATE_FILENAME)
+
+    def test_wrong_filename_is_rejected(self, tmp_path: Path):
+        """Only .job_state.json files can be loaded, guarded or not."""
+        not_state = tmp_path / "state.json"
+        not_state.write_text(json.dumps({"job_id": _JOB_ID}), encoding="utf-8")
+
+        with pytest.raises(ValueError, match="must be named"):
+            load_job_state(not_state, tmp_path)
+
+    def test_symlink_escape_raises(self, tmp_path: Path):
+        """A symlink pointing outside the root cannot be used to read a state file."""
+        root = tmp_path / "data"
+        root.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        save_job_state(outside, _JOB_ID, _REQUEST_DICT, _COMPLETED, _FAILED, _PENDING)
+        link = root / "escape"
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            pytest.skip("symlinks not supported on this platform")
+
+        with pytest.raises(ValueError, match="under the data root"):
+            load_job_state(link / STATE_FILENAME, root)

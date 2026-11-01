@@ -107,12 +107,20 @@ await _log(job, "phase_change", {
 
 **SSRF validation before any network call:** `validate_url_not_ssrf()` called before Playwright navigation, httpx requests, and proxy calls. Checks against private IP ranges.
 
-**Path traversal prevention:** `output_path` and `state_file_path` validated to resolve under `/data`. Pattern:
+**Path traversal prevention (CWE-22):** every user-supplied path goes through
+`src.utils.safe_paths.resolve_under_root()`, which canonicalises with `os.path.realpath`
+(resolving `..` and symlinks) and proves containment against the canonical root:
+
 ```python
-resolved = Path("/data").joinpath(v.lstrip("/")).resolve()
-if not str(resolved).startswith("/data"):
-    raise ValueError("path must be under /data")
+from src.utils.safe_paths import resolve_under_root
+
+resolved = resolve_under_root(v)  # raises ValueError when it escapes /data
 ```
+
+Never compare unresolved strings (`str(path).startswith("/data")`): it accepts siblings such
+as `/data-backup` and never normalises `..`. `load_job_state()` re-validates the path against
+the root right before reading, so a caller that skips request validation cannot open a file
+outside `/data`.
 
 **API key auth (opt-in):** `API_KEY` env var. Empty = auth disabled. Non-empty = required in `X-Api-Key` header. Health and root endpoints exempt.
 

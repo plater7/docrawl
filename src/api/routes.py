@@ -25,6 +25,7 @@ from src.llm.client import (
     LLAMACPP_API_KEY,
 )
 from src.jobs.manager import JobManager
+from src.utils.safe_paths import resolve_under_root
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -370,7 +371,11 @@ async def resume_from_state(
     """
     from src.jobs.state import load_job_state
 
-    state_path = Path(body.state_file_path)
+    try:
+        state_path = resolve_under_root(body.state_file_path)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
     if not state_path.exists():
         raise HTTPException(
             status_code=404, detail=f"State file not found: {state_path}"

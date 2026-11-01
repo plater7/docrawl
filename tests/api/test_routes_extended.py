@@ -304,68 +304,37 @@ class TestJobEvents:
 # ---------------------------------------------------------------------------
 
 
-class _FakePath:
-    """A path stub that always reports as being under /data.
+@pytest.fixture()
+def resume_data_root(tmp_path, monkeypatch):
+    """Point the endpoint's data root at a temporary directory.
 
-    Used to bypass the Pydantic ResumeFromStateRequest.validate_state_path
-    validator on Windows where Path('/data').resolve() returns C:\\data\\...
-    and the str().startswith('/data') check fails.
+    The validator anchors relative paths at the data root and rejects absolute
+    ones outside it, so tests no longer need to stub Path.resolve().
     """
-
-    def __init__(self, s: str = "/data/test_state.json"):
-        self._s = s
-
-    def joinpath(self, *args) -> "_FakePath":
-        return self
-
-    def resolve(self) -> "_FakePath":
-        return self
-
-    def exists(self) -> bool:
-        return False  # default; tests override via patch
-
-    def __str__(self) -> str:
-        return self._s
-
-    def __truediv__(self, other) -> "_FakePath":
-        return self
-
-    @property
-    def parent(self) -> "_FakePath":
-        return self
+    monkeypatch.setattr("src.utils.safe_paths.DATA_ROOT", tmp_path)
+    return tmp_path
 
 
 class TestResumeFromState:
     """POST /api/jobs/resume-from-state — resume job from saved state file."""
 
     def _resume_body(self) -> dict:
-        """Return a minimal valid body that passes the validator when Path is patched."""
-        return {"state_file_path": "/data/test_state.json"}
+        """Return a minimal valid body (relative path anchored at the data root)."""
+        return {"state_file_path": "test_state.json"}
 
-    def _patch_models_path(self):
-        """Return a context manager that makes the Pydantic validator pass.
-
-        On Windows, Path('/data').resolve() returns C:\\data\\..., making
-        str(resolved).startswith('/data') fail.  We replace src.api.models.Path
-        with _FakePath so the validator produces a /data/... string and passes.
-        """
-        return patch("src.api.models.Path", _FakePath)
-
-    def test_missing_state_file_returns_404(self, client: TestClient):
+    def test_missing_state_file_returns_404(self, client: TestClient, resume_data_root):
         """If the state file path does not exist on disk, returns 404."""
         body = self._resume_body()
         with (
-            self._patch_models_path(),
             patch("src.api.routes.Path.exists", return_value=False),
         ):
             response = client.post("/api/jobs/resume-from-state", json=body)
         assert response.status_code == 404
 
-    def test_invalid_state_file_returns_422(self, client: TestClient):
+    def test_invalid_state_file_returns_422(self, client: TestClient, resume_data_root):
         """If the state file contains invalid JSON / bad structure, returns 422."""
         body = self._resume_body()
         with (
-            self._patch_models_path(),
             patch("src.api.routes.Path.exists", return_value=True),
             patch(
                 "src.jobs.state.load_job_state",
@@ -376,7 +345,7 @@ class TestResumeFromState:
 
         assert response.status_code == 422
 
-    def test_empty_pending_urls_returns_409(self, client: TestClient):
+    def test_empty_pending_urls_returns_409(self, client: TestClient, resume_data_root):
         """State file with no pending URLs returns HTTP 409."""
         fake_state = MagicMock()
         fake_state.pending_urls = []
@@ -389,7 +358,6 @@ class TestResumeFromState:
 
         body = self._resume_body()
         with (
-            self._patch_models_path(),
             patch("src.api.routes.Path.exists", return_value=True),
             patch("src.jobs.state.load_job_state", return_value=fake_state),
         ):
@@ -397,7 +365,9 @@ class TestResumeFromState:
 
         assert response.status_code == 409
 
-    def test_too_many_active_jobs_returns_429(self, client: TestClient):
+    def test_too_many_active_jobs_returns_429(
+        self, client: TestClient, resume_data_root
+    ):
         """When active job limit is reached, returns 429."""
         fake_state = MagicMock()
         fake_state.pending_urls = ["https://example.com/page1"]
@@ -410,7 +380,6 @@ class TestResumeFromState:
 
         body = self._resume_body()
         with (
-            self._patch_models_path(),
             patch("src.api.routes.Path.exists", return_value=True),
             patch("src.jobs.state.load_job_state", return_value=fake_state),
             patch("src.api.routes.job_manager.active_job_count", return_value=999),
@@ -430,7 +399,7 @@ class TestResumeFromState:
         response = client.post("/api/jobs/resume-from-state", json=body)
         assert response.status_code == 422
 
-    def test_valid_state_creates_job(self, client: TestClient):
+    def test_valid_state_creates_job(self, client: TestClient, resume_data_root):
         """Valid state file with pending URLs triggers job creation and returns 200."""
         fake_state = MagicMock()
         fake_state.pending_urls = [
@@ -451,7 +420,6 @@ class TestResumeFromState:
 
         body = self._resume_body()
         with (
-            self._patch_models_path(),
             patch("src.api.routes.Path.exists", return_value=True),
             patch("src.jobs.state.load_job_state", return_value=fake_state),
             patch("src.api.routes.job_manager.active_job_count", return_value=0),
