@@ -12,6 +12,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
+    libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
