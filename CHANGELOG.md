@@ -109,6 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump actions/upload-artifact from 4.6.1 to 7.0.2** ([#266](https://github.com/plater7/docrawl/pull/266))
 - **fix(docker): install libatomic1 in base apt layer** ([#269](https://github.com/plater7/docrawl/pull/269))
 - **ci: bump github/codeql-action/upload-sarif from 4.38.2 to 4.39.1** ([#264](https://github.com/plater7/docrawl/pull/264))
+- **deps: update pytest-asyncio requirement from >=0.21.0 to >=1.4.1.post1** ([#267](https://github.com/plater7/docrawl/pull/267))
 
 ## [v0.9.99] - 2026-03-14
 
