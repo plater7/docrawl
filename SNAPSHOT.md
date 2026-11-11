@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-11-11 04:17 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-11-11 04:24 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -5493,7 +5493,7 @@ readability-lxml>=0.9
 ```
 -r requirements.txt
 pytest>=9.2.0
-pytest-asyncio>=0.21.0
+pytest-asyncio>=1.4.1.post1
 pytest-cov>=7.1.0
 ```
 
