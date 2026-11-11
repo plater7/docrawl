@@ -105,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **fix(security): shape the containment guard the way CodeQL models it** ([#259](https://github.com/plater7/docrawl/pull/259))
 - **deps: update pytest requirement from >=9.1.1 to >=9.2.0** ([#260](https://github.com/plater7/docrawl/pull/260))
 - **deps: update sse-starlette requirement from >=3.5.0 to >=3.6.0** ([#261](https://github.com/plater7/docrawl/pull/261))
+- **ci: bump actions/setup-python from 7.0.0 to 7.1.0** ([#265](https://github.com/plater7/docrawl/pull/265))
 
 ## [v0.9.99] - 2026-03-14
 
