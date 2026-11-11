@@ -103,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump github/codeql-action/init from 4.38.3 to 4.39.1** ([#257](https://github.com/plater7/docrawl/pull/257))
 - **fix(security): enforce data-root containment for user-supplied paths** ([#258](https://github.com/plater7/docrawl/pull/258))
 - **fix(security): shape the containment guard the way CodeQL models it** ([#259](https://github.com/plater7/docrawl/pull/259))
+- **deps: update pytest requirement from >=9.1.1 to >=9.2.0** ([#260](https://github.com/plater7/docrawl/pull/260))
 
 ## [v0.9.99] - 2026-03-14
 
