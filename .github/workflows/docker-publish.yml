@@ -38,7 +38,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
-        env:
           GH_API: ${{ github.api_url }}
         run: |
           # gh release view requires a git context this job doesn't have (fails with
