@@ -118,6 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps: update pytest-asyncio requirement from >=1.4.1.post1 to >=1.5.0** ([#275](https://github.com/plater7/docrawl/pull/275))
 - **deps: update playwright requirement from >=1.64.1 to >=1.65.1** ([#276](https://github.com/plater7/docrawl/pull/276))
 - **ci: bump github/codeql-action/autobuild from 4.39.1 to 4.39.3** ([#274](https://github.com/plater7/docrawl/pull/274))
+- **ci: fix duplicate env key in docker-publish gate (workflow invalid since 2026-10-03)** ([#277](https://github.com/plater7/docrawl/pull/277))
 
 ## [v0.9.99] - 2026-03-14
 
