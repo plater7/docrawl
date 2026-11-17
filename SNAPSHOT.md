@@ -1,6 +1,6 @@
 # DocRawl Code Snapshot — v0.10.0
 
-> Auto-generated on 2026-11-17 02:18 UTC by `scripts/generate_snapshot.py`.
+> Auto-generated on 2026-11-17 02:19 UTC by `scripts/generate_snapshot.py`.
 > Use as reference for AI-assisted development sessions.
 
 ## Project Structure
@@ -5475,7 +5475,7 @@ def validate_url_not_ssrf(url: str) -> None:
 ```
 fastapi>=0.162.7
 uvicorn[standard]>=0.54.0
-playwright>=1.65.1
+playwright>=1.65.2
 markdownify>=0.11.6
 httpx>=0.26.0
 pydantic>=2.14.3
