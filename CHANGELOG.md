@@ -122,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci(deps): group github/codeql-action subactions in one Dependabot PR** ([#278](https://github.com/plater7/docrawl/pull/278))
 - **ci: bump github/codeql-action/upload-sarif from 4.39.1 to 4.39.3 in the codeql-action group** ([#280](https://github.com/plater7/docrawl/pull/280))
 - **deps: update playwright requirement from >=1.65.1 to >=1.65.2** ([#279](https://github.com/plater7/docrawl/pull/279))
+- **ci: bump actions/checkout from 4.2.2 to 7.0.1** ([#281](https://github.com/plater7/docrawl/pull/281))
 
 ## [v0.9.99] - 2026-03-14
 
