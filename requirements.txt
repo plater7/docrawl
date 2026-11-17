@@ -1,6 +1,6 @@
 fastapi>=0.162.7
 uvicorn[standard]>=0.54.0
-playwright>=1.65.1
+playwright>=1.65.2
 markdownify>=0.11.6
 httpx>=0.26.0
 pydantic>=2.14.3
