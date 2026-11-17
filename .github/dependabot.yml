@@ -27,5 +27,9 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - "devops"
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
     commit-message:
       prefix: "ci"
