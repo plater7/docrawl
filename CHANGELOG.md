@@ -111,6 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump github/codeql-action/upload-sarif from 4.38.2 to 4.39.1** ([#264](https://github.com/plater7/docrawl/pull/264))
 - **deps: update pytest-asyncio requirement from >=0.21.0 to >=1.4.1.post1** ([#267](https://github.com/plater7/docrawl/pull/267))
 - **deps: update pydantic requirement from >=2.14.1 to >=2.14.3** ([#268](https://github.com/plater7/docrawl/pull/268))
+- **ci: bump docker/login-action from 4.6.0 to 4.8.0** ([#270](https://github.com/plater7/docrawl/pull/270))
 
 ## [v0.9.99] - 2026-03-14
 
