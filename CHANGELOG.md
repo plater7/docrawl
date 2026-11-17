@@ -116,6 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps: update fastapi requirement from >=0.162.0 to >=0.162.7** ([#272](https://github.com/plater7/docrawl/pull/272))
 - **deps: update sse-starlette requirement from >=3.6.0 to >=3.7.0** ([#273](https://github.com/plater7/docrawl/pull/273))
 - **deps: update pytest-asyncio requirement from >=1.4.1.post1 to >=1.5.0** ([#275](https://github.com/plater7/docrawl/pull/275))
+- **deps: update playwright requirement from >=1.64.1 to >=1.65.1** ([#276](https://github.com/plater7/docrawl/pull/276))
 
 ## [v0.9.99] - 2026-03-14
 
