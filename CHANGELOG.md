@@ -126,6 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **deps: update markdownify requirement from >=0.11.6 to >=1.2.4** ([#282](https://github.com/plater7/docrawl/pull/282))
 - **ci: bump the codeql-action group with 4 updates** ([#283](https://github.com/plater7/docrawl/pull/283))
 - **deps: update pydantic requirement from >=2.14.3 to >=2.14.4** ([#284](https://github.com/plater7/docrawl/pull/284))
+- **ci: bump ossf/scorecard-action from 2.5.0 to 2.6.0** ([#285](https://github.com/plater7/docrawl/pull/285))
 
 ## [v0.9.99] - 2026-03-14
 
