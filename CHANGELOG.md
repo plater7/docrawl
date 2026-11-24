@@ -125,6 +125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump actions/checkout from 4.2.2 to 7.0.1** ([#281](https://github.com/plater7/docrawl/pull/281))
 - **deps: update markdownify requirement from >=0.11.6 to >=1.2.4** ([#282](https://github.com/plater7/docrawl/pull/282))
 - **ci: bump the codeql-action group with 4 updates** ([#283](https://github.com/plater7/docrawl/pull/283))
+- **deps: update pydantic requirement from >=2.14.3 to >=2.14.4** ([#284](https://github.com/plater7/docrawl/pull/284))
 
 ## [v0.9.99] - 2026-03-14
 
