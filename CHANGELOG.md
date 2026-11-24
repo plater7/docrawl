@@ -123,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ci: bump github/codeql-action/upload-sarif from 4.39.1 to 4.39.3 in the codeql-action group** ([#280](https://github.com/plater7/docrawl/pull/280))
 - **deps: update playwright requirement from >=1.65.1 to >=1.65.2** ([#279](https://github.com/plater7/docrawl/pull/279))
 - **ci: bump actions/checkout from 4.2.2 to 7.0.1** ([#281](https://github.com/plater7/docrawl/pull/281))
+- **deps: update markdownify requirement from >=0.11.6 to >=1.2.4** ([#282](https://github.com/plater7/docrawl/pull/282))
 
 ## [v0.9.99] - 2026-03-14
 
