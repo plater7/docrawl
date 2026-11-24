@@ -25,6 +25,11 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 3
+    ignore:
+      # v2.6.0 shipped a broken GHCR image (index children 404), so the
+      # action cannot be pulled; unblock once a pullable 2.6.x exists.
+      - dependency-name: "ossf/scorecard-action"
+        versions: ["2.6.0"]
     labels:
       - "devops"
     groups:
